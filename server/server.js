@@ -4,7 +4,11 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
-require('dotenv').config();
+
+// Load environment variables (works both locally and in production)
+if (process.env.NODE_ENV !== 'production') {
+  require('dotenv').config();
+}
 
 const app = express();
 
@@ -42,6 +46,11 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // MongoDB connection
+console.log('🔍 Debug - Environment variables:');
+console.log('MONGODB_URI:', process.env.MONGODB_URI ? 'SET' : 'UNDEFINED');
+console.log('NODE_ENV:', process.env.NODE_ENV);
+console.log('ADMIN_USERNAME:', process.env.ADMIN_USERNAME ? 'SET' : 'UNDEFINED');
+
 mongoose.connect(process.env.MONGODB_URI)
 .then(() => {
   console.log('✅ Connected to MongoDB Atlas');
