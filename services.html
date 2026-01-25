@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Comprehensive laundry and dry cleaning services in Jaipur. Wash & fold, dry cleaning, ironing, and specialty care for all your garment needs.">
+  <meta name="keywords" content="laundry services, dry cleaning, wash and fold, ironing, specialty care, Jaipur">
+  <title>GenZLaundry - Our Services</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <header>
+    <div class="container">
+      <div class="header-content">
+        <a href="index.html" class="logo">
+          <span class="logo-icon">🧺</span>
+          <span data-i18n="meta.siteName">GenZLaundry</span>
+        </a>
+        
+        <nav id="main-nav">
+          <ul>
+            <li><a href="index.html" data-i18n="nav.home">Home</a></li>
+            <li><a href="services.html" data-i18n="nav.services" class="active">Services</a></li>
+            <li><a href="pricing.html" data-i18n="nav.pricing">Pricing</a></li>
+            <li><a href="how-it-works.html" data-i18n="nav.howItWorks">How It Works</a></li>
+            <li><a href="faq.html" data-i18n="nav.faq">FAQ</a></li>
+            <li><a href="about.html" data-i18n="nav.about">About</a></li>
+            <li><a href="booking.html" class="btn btn-primary btn-sm" data-i18n="common.bookPickup">Book Pickup</a></li>
+          </ul>
+        </nav>
+        
+        <div class="language-toggle"></div>
+        <button class="mobile-menu-toggle" aria-label="Toggle menu">☰</button>
+      </div>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="container">
+      <div class="hero-content">
+        <h1 data-i18n="services.title">Our Services</h1>
+        <p class="hero-subtitle" data-i18n="services.subtitle">Comprehensive garment care solutions</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <div class="services-grid" id="services-detail">
+        <!-- Services will be populated by JavaScript -->
+      </div>
+    </div>
+  </section>
+
+  <section class="section" style="background-color: var(--color-bg-alt);">
+    <div class="container">
+      <div class="text-center">
+        <h2 data-i18n="home.ctaTitle">Ready to Get Started?</h2>
+        <p class="section-subtitle" data-i18n="home.ctaDescription">Book your pickup today and experience premium laundry service.</p>
+        <div style="margin-top: 2rem;">
+          <a href="booking.html" class="btn btn-primary btn-lg" data-i18n="common.bookPickup">Book Pickup</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="container">
+      <div class="footer-content">
+        <div class="footer-section">
+          <h4 data-i18n="meta.siteName">GenZLaundry</h4>
+          <p data-i18n="footer.description">Premium laundry and dry cleaning service in Jaipur. Professional garment care delivered to your doorstep.</p>
+        </div>
+        
+        <div class="footer-section">
+          <h4 data-i18n="footer.quickLinks">Quick Links</h4>
+          <ul>
+            <li><a href="services.html" data-i18n="footer.services">Services</a></li>
+            <li><a href="pricing.html" data-i18n="footer.pricing">Pricing</a></li>
+            <li><a href="about.html" data-i18n="footer.about">About</a></li>
+            <li><a href="faq.html" data-i18n="nav.faq">FAQ</a></li>
+          </ul>
+        </div>
+        
+        <div class="footer-section">
+          <h4 data-i18n="common.contactUs">Contact Us</h4>
+          <ul>
+            <li><a href="tel:+918233853727" data-i18n="common.phone">Phone</a>: +91 8233853727</li>
+            <li><a href="https://wa.me/8233853727" target="_blank" data-i18n="common.whatsapp">WhatsApp</a></li>
+            <li><a href="mailto:newgenzlaundry@gmail.com" data-i18n="common.email">Email</a>: newgenzlaundry@gmail.com</li>
+          </ul>
+        </div>
+      </div>
+      
+      <div class="footer-bottom">
+        <p data-i18n="footer.copyright">© 2025 GenZLaundry. All rights reserved.</p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="js/i18n.js"></script>
+  <script src="js/language-toggle.js"></script>
+  
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      function loadServices() {
+        if (typeof i18n === 'undefined') return;
+        
+        const container = document.getElementById('services-detail');
+        if (!container) return;
+        
+        const lang = i18n.getLanguage();
+        const categories = i18n.content[lang]?.services?.categories || {};
+        
+        const services = [
+          { key: 'washFold', icon: '🧺' },
+          { key: 'dryCleaning', icon: '👔' },
+          { key: 'ironing', icon: '✨' },
+          { key: 'specialty', icon: '🎨' }
+        ];
+        
+        container.innerHTML = services.map(service => {
+          const data = categories[service.key];
+          if (!data) return '';
+          
+          return `
+            <div class="service-card">
+              <div class="service-icon">${service.icon}</div>
+              <h3>${data.title}</h3>
+              <p style="margin-bottom: 1.5rem;">${data.description}</p>
+              <ul style="text-align: left; list-style: none; margin-bottom: 1rem;">
+                ${data.features.map(feature => `<li style="padding: 0.5rem 0; border-bottom: 1px solid var(--color-border-light);">✓ ${feature}</li>`).join('')}
+              </ul>
+              <p style="font-weight: 600; color: var(--color-primary); margin-top: 1rem;">${data.priceNote}</p>
+            </div>
+          `;
+        }).join('');
+      }
+      
+      setTimeout(loadServices, 200);
+      if (typeof i18n !== 'undefined') {
+        i18n.onLanguageChange(loadServices);
+      }
+    });
+
+    // Mobile menu toggle
+    document.addEventListener('DOMContentLoaded', () => {
+      const menuToggle = document.querySelector('.mobile-menu-toggle');
+      const nav = document.getElementById('main-nav');
+      if (menuToggle && nav) {
+        menuToggle.addEventListener('click', () => nav.classList.toggle('active'));
+      }
+    });
+  </script>
+</body>
+</html>
+
+
+
+
+

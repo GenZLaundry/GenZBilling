@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Frequently asked questions about GenZLaundry laundry and dry cleaning services in Jodhpur.">
+  <meta name="keywords" content="laundry FAQ, dry cleaning questions, laundry service FAQ">
+  <title>>GenZLaundry - FAQ</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <header>
+    <div class="container">
+      <div class="header-content">
+        <a href="index.html" class="logo">
+          <span class="logo-icon">🧺</span>
+          <span data-i18n="meta.siteName">GenZLaundry</span>
+        </a>
+        
+        <nav id="main-nav">
+          <ul>
+            <li><a href="index.html" data-i18n="nav.home">Home</a></li>
+            <li><a href="services.html" data-i18n="nav.services">Services</a></li>
+            <li><a href="pricing.html" data-i18n="nav.pricing">Pricing</a></li>
+            <li><a href="how-it-works.html" data-i18n="nav.howItWorks">How It Works</a></li>
+            <li><a href="faq.html" data-i18n="nav.faq" class="active">FAQ</a></li>
+            <li><a href="about.html" data-i18n="nav.about">About</a></li>
+            <li><a href="booking.html" class="btn btn-primary btn-sm" data-i18n="common.bookPickup">Book Pickup</a></li>
+          </ul>
+        </nav>
+        
+        <div class="language-toggle"></div>
+        <button class="mobile-menu-toggle" aria-label="Toggle menu">☰</button>
+      </div>
+    </div>
+  </header>
+<!-- Floating Contact Buttons -->
+<div class="floating-buttons">
+  <a href="tel:+918233853727" class="btn-floating btn-call" title="Call Us">
+    <i class="fas fa-phone"></i>
+    <span class="btn-tooltip">Call Us Now</span>
+  </a>
+  <a href="https://wa.me/8233853727" target="_blank" class="btn-floating btn-whatsapp" title="Chat on WhatsApp">
+    <i class="fab fa-whatsapp"></i>
+    <span class="btn-tooltip">Chat on WhatsApp</span>
+  </a>
+</div>
+
+<style>
+.floating-buttons {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  z-index: 1000;
+}
+
+.btn-floating {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  color: white;
+  font-size: 24px;
+  text-decoration: none;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.btn-floating:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+}
+
+.btn-call {
+  background: linear-gradient(135deg, #3498db, #2980b9);
+}
+
+.btn-whatsapp {
+  background: linear-gradient(135deg, #25D366, #128C7E);
+}
+
+.btn-tooltip {
+  position: absolute;
+  right: 70px;
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 14px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+}
+
+.btn-floating:hover .btn-tooltip {
+  opacity: 1;
+}
+
+.btn-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: -5px;
+  transform: translateY(-50%);
+  border-width: 5px 0 5px 5px;
+  border-style: solid;
+  border-color: transparent transparent transparent rgba(0, 0, 0, 0.8);
+}
+
+@media (max-width: 768px) {
+  .floating-buttons {
+    bottom: 20px;
+    right: 20px;
+  }
+  
+  .btn-floating {
+    width: 55px;
+    height: 55px;
+    font-size: 22px;
+  }
+}
+
+@media (max-width: 480px) {
+  .floating-buttons {
+    bottom: 15px;
+    right: 15px;
+  }
+  
+  .btn-floating {
+    width: 50px;
+    height: 50px;
+    font-size: 20px;
+  }
+  
+  .btn-tooltip {
+    font-size: 12px;
+    padding: 6px 10px;
+  }
+}
+</style>
+
+<!-- Make sure Font Awesome is included in your head section -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<!-- end of addition -->
+
+  <section class="hero">
+    <div class="container">
+      <div class="hero-content">
+        <h1 data-i18n="faq.title">Frequently Asked Questions</h1>
+        <p class="hero-subtitle" data-i18n="faq.subtitle">Everything you need to know</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <div class="faq-list" id="faq-list">
+        <!-- FAQ items will be populated by JavaScript -->
+      </div>
+    </div>
+  </section>
+
+  <section class="section" style="background-color: var(--color-bg-alt);">
+    <div class="container">
+      <div class="text-center">
+        <h2 data-i18n="home.ctaTitle">Ready to Get Started?</h2>
+        <p class="section-subtitle" data-i18n="home.ctaDescription">Book your pickup today and experience premium laundry service.</p>
+        <div style="margin-top: 2rem;">
+          <a href="booking.html" class="btn btn-primary btn-lg" data-i18n="common.bookPickup">Book Pickup</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="container">
+      <div class="footer-content">
+        <div class="footer-section">
+          <h4 data-i18n="meta.siteName">GenZLaundry</h4>
+          <p data-i18n="footer.description">Premium laundry and dry cleaning service in Jodhpur. Professional garment care delivered to your doorstep.</p>
+        </div>
+        
+        <div class="footer-section">
+          <h4 data-i18n="footer.quickLinks">Quick Links</h4>
+          <ul>
+            <li><a href="services.html" data-i18n="footer.services">Services</a></li>
+            <li><a href="pricing.html" data-i18n="footer.pricing">Pricing</a></li>
+            <li><a href="about.html" data-i18n="footer.about">About</a></li>
+            <li><a href="faq.html" data-i18n="nav.faq">FAQ</a></li>
+          </ul>
+        </div>
+        
+        <div class="footer-section">
+          <h4 data-i18n="common.contactUs">Contact Us</h4>
+          <ul>
+            <li><a href="tel:+918233853727" data-i18n="common.phone">Phone</a>: +91 8233853727</li>
+            <li><a href="https://wa.me/918233853727" target="_blank" data-i18n="common.whatsapp">WhatsApp</a></li>
+            <li><a href="mailto:newgenzlaundry@gmail.com" data-i18n="common.email">Email</a>: newgenzlaundry@gmail.com</li>
+          </ul>
+        </div>
+      </div>
+      
+      <div class="footer-bottom">
+        <p data-i18n="footer.copyright">© 2025 GenZLaundry. All rights reserved.</p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="js/i18n.js"></script>
+  <script src="js/language-toggle.js"></script>
+  
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      function loadFAQ() {
+        if (typeof i18n === 'undefined') return;
+        
+        const container = document.getElementById('faq-list');
+        if (!container) return;
+        
+        const lang = i18n.getLanguage();
+        const questions = i18n.content[lang]?.faq?.questions || [];
+        
+        container.innerHTML = questions.map((item, index) => `
+          <div class="faq-item" data-index="${index}">
+            <div class="faq-question">${item.question}</div>
+            <div class="faq-answer">${item.answer}</div>
+          </div>
+        `).join('');
+        
+        // Add click handlers
+        container.querySelectorAll('.faq-question').forEach(question => {
+          question.addEventListener('click', () => {
+            const item = question.parentElement;
+            const isActive = item.classList.contains('active');
+            
+            // Close all items
+            container.querySelectorAll('.faq-item').forEach(i => {
+              i.classList.remove('active');
+            });
+            
+            // Open clicked item if it wasn't active
+            if (!isActive) {
+              item.classList.add('active');
+            }
+          });
+        });
+      }
+      
+      setTimeout(loadFAQ, 200);
+      if (typeof i18n !== 'undefined') {
+        i18n.onLanguageChange(loadFAQ);
+      }
+    });
+
+    // Mobile menu toggle
+    document.addEventListener('DOMContentLoaded', () => {
+      const menuToggle = document.querySelector('.mobile-menu-toggle');
+      const nav = document.getElementById('main-nav');
+      if (menuToggle && nav) {
+        menuToggle.addEventListener('click', () => nav.classList.toggle('active'));
+      }
+    });
+  </script>
+  <!-- Add this script at the end of your body tag -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Create floating buttons container
+  const floatingButtons = document.createElement('div');
+  floatingButtons.className = 'floating-buttons';
+  
+  // Create call button
+  const callButton = document.createElement('a');
+  callButton.href = 'tel:+918233853727';
+  callButton.className = 'btn-floating btn-call';
+  callButton.title = 'Call Us';
+  callButton.innerHTML = `
+    <i class="fas fa-phone"></i>
+    <span class="btn-tooltip">Call Us Now</span>
+  `;
+  
+  // Create WhatsApp button
+  const whatsappButton = document.createElement('a');
+  whatsappButton.href = 'https://wa.me/8233853727';
+  whatsappButton.target = '_blank';
+  whatsappButton.className = 'btn-floating btn-whatsapp';
+  whatsappButton.title = 'Chat on WhatsApp';
+  whatsappButton.innerHTML = `
+    <i class="fab fa-whatsapp"></i>
+    <span class="btn-tooltip">Chat on WhatsApp</span>
+  `;
+  
+  // Add buttons to container
+  floatingButtons.appendChild(callButton);
+  floatingButtons.appendChild(whatsappButton);
+  
+  // Add container to body
+  document.body.appendChild(floatingButtons);
+  
+  // Add CSS styles
+  const style = document.createElement('style');
+  style.textContent = `
+    .floating-buttons {
+      position: fixed;
+      bottom: 30px;
+      right: 30px;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      z-index: 1000;
+    }
+    
+    .btn-floating {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      color: white;
+      font-size: 24px;
+      text-decoration: none;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+      transition: all 0.3s ease;
+      position: relative;
+    }
+    
+    .btn-floating:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+    }
+    
+    .btn-call {
+      background: linear-gradient(135deg, #3498db, #2980b9);
+    }
+    
+    .btn-whatsapp {
+      background: linear-gradient(135deg, #25D366, #128C7E);
+    }
+    
+    .btn-tooltip {
+      position: absolute;
+      right: 70px;
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      padding: 8px 12px;
+      border-radius: 4px;
+      font-size: 14px;
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s;
+    }
+    
+    .btn-floating:hover .btn-tooltip {
+      opacity: 1;
+    }
+    
+    .btn-tooltip::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      right: -5px;
+      transform: translateY(-50%);
+      border-width: 5px 0 5px 5px;
+      border-style: solid;
+      border-color: transparent transparent transparent rgba(0, 0, 0, 0.8);
+    }
+    
+    @media (max-width: 768px) {
+      .floating-buttons {
+        bottom: 20px;
+        right: 20px;
+      }
+      
+      .btn-floating {
+        width: 55px;
+        height: 55px;
+        font-size: 22px;
+      }
+    }
+    
+    @media (max-width: 480px) {
+      .floating-buttons {
+        bottom: 15px;
+        right: 15px;
+      }
+      
+      .btn-floating {
+        width: 50px;
+        height: 50px;
+        font-size: 20px;
+      }
+      
+      .btn-tooltip {
+        font-size: 12px;
+        padding: 6px 10px;
+      }
+    }
+  `;
+  
+  document.head.appendChild(style);
+});
+
+// Check if Font Awesome is already loaded, if not, load it
+if (!document.querySelector('link[href*="font-awesome"]') && !document.querySelector('link[href*="fontawesome"]')) {
+  const faLink = document.createElement('link');
+  faLink.rel = 'stylesheet';
+  faLink.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css';
+  document.head.appendChild(faLink);
+}
+</script>
+<!-- end of the script -->
+</body>
+</html>
+
+
+
+
+
+

@@ -1,0 +1,365 @@
+{
+  "meta": {
+    "siteName": "GenZLaundry",
+    "description": "Premium laundry and dry cleaning service in Jodhpur. Professional garment care with eco-friendly cleaning. Book your pickup today.",
+    "keywords": "laundry service Jodhpur, dry cleaning, wash and fold, ironing service"
+  },
+  "common": {
+    "language": "Language",
+    "english": "English",
+    "hindi": "हिंदी",
+    "callNow": "Call Now",
+    "bookPickup": "Book Pickup",
+    "getStarted": "Get Started",
+    "learnMore": "Learn More",
+    "contactUs": "Contact Us",
+    "phone": "Phone",
+    "whatsapp": "WhatsApp",
+    "email": "Email",
+    "address": "Address"
+  },
+  "nav": {
+    "home": "Home",
+    "services": "Services",
+    "pricing": "Pricing",
+    "howItWorks": "How It Works",
+    "faq": "FAQ",
+    "about": "About",
+    "booking": "Booking"
+  },
+  "home": {
+    "heroTitle": "Premium Laundry & Dry Cleaning",
+    "heroSubtitle": "Professional garment care delivered to your doorstep. Trusted by families across Jodhpur.",
+    "heroDescription": "Experience the convenience of premium laundry services with eco-friendly cleaning, insured handling, and doorstep delivery.",
+    "trustBadges": {
+      "ecoFriendly": "Eco-Friendly Cleaning",
+      "insured": "Insured Handling",
+      "doorstep": "Doorstep Service",
+      "quality": "Quality Guaranteed"
+    },
+    "servicesTitle": "Our Services",
+    "servicesSubtitle": "Comprehensive care for all your garment needs",
+    "services": {
+      "washFold": {
+        "title": "Wash & Fold",
+        "description": "Fresh, neatly folded laundry delivered to your home. Perfect for everyday clothing."
+      },
+      "dryCleaning": {
+        "title": "Dry Cleaning",
+        "description": "Expert care for delicate fabrics, suits, and formal wear. Preserves fabric quality and color."
+      },
+      "ironing": {
+        "title": "Professional Ironing",
+        "description": "Crisp, wrinkle-free garments with professional pressing techniques."
+      },
+      "specialty": {
+        "title": "Specialty Care",
+        "description": "Expert handling for ethnic wear, zari work, bedding, and delicate items."
+      }
+    },
+    "howItWorksTitle": "How It Works",
+    "howItWorksSubtitle": "Simple, convenient, and reliable",
+    "steps": {
+      "step1": {
+        "title": "Request Service",
+        "description": "Book online or call us. Tell us your address and preferred pickup time."
+      },
+      "step2": {
+        "title": "We Pick Up",
+        "description": "Our team collects your garments at your convenience."
+      },
+      "step3": {
+        "title": "We Deliver",
+        "description": "Fresh, clean clothes delivered back to your doorstep."
+      }
+    },
+    "testimonialsTitle": "Trusted by Our Customers",
+    "testimonials": [
+      {
+        "name": "Kavita",
+        "location": "Jodhpur",
+        "text": "Excellent service! My zari sarees came back looking brand new. Highly recommended.",
+        "rating": 5
+      },
+      {
+        "name": "Mahendra Solanki",
+        "location": "Jodhpur",
+        "text": "Doorstep service is a game-changer. Professional, timely, and affordable.",
+        "rating": 5
+      },
+      {
+        "name": "Gayatri",
+        "location": "Jodhpur",
+        "text": "The eco-friendly cleaning gives me peace of mind. Quality is consistently excellent.",
+        "rating": 5
+      }
+    ],
+    "serviceArea": "Serving Jodhpur and surrounding areas",
+    "ctaTitle": "Ready to Get Started?",
+    "ctaDescription": "Book your pickup today and experience premium laundry service."
+  },
+  "services": {
+    "title": "Our Services",
+    "subtitle": "Comprehensive garment care solutions",
+    "categories": {
+      "washFold": {
+        "title": "Wash & Fold",
+        "description": "Our standard laundry service includes washing, drying, and professional folding. Perfect for everyday clothing, t-shirts, jeans, casual wear, and household linens.",
+        "features": [
+          "Eco-friendly detergents",
+          "Separate washing for colors and whites",
+          "Soft drying to preserve fabric",
+          "Neat folding and packaging",
+          "Turnaround: 24-48 hours"
+        ],
+        "priceNote": "Starting from ₹50/kg"
+      },
+      "dryCleaning": {
+        "title": "Dry Cleaning",
+        "description": "Expert dry cleaning for delicate fabrics, formal wear, and garments that require special care. We use professional-grade solvents and techniques.",
+        "features": [
+          "Suit and blazer cleaning",
+          "Silk and wool care",
+          "Stain removal expertise",
+          "Fabric preservation",
+          "Turnaround: 48-72 hours"
+        ],
+        "priceNote": "Starting from ₹150/item"
+      },
+      "ironing": {
+        "title": "Professional Ironing",
+        "description": "Crisp, wrinkle-free garments with professional pressing. We handle everything from shirts to ethnic wear with care.",
+        "features": [
+          "Shirt pressing",
+          "Trouser creasing",
+          "Ethnic wear ironing",
+          "Steam treatment",
+          "Turnaround: 24 hours"
+        ],
+        "priceNote": "Starting from ₹30/item"
+      },
+      "specialty": {
+        "title": "Specialty Care",
+        "description": "Specialized handling for delicate and valuable items. Our team has expertise in ethnic wear, zari work, and specialty fabrics.",
+        "features": [
+          "Zari and embroidery care",
+          "Saree and lehenga cleaning",
+          "Bedding and curtains",
+          "Leather and suede",
+          "Custom care instructions"
+        ],
+        "priceNote": "Custom pricing"
+      }
+    }
+  },
+  "pricing": {
+    "title": "Transparent Pricing",
+    "subtitle": "Fair rates with no hidden charges",
+    "disclaimer": "Final quote confirmed at pickup. Prices may vary based on fabric type and care requirements.",
+    "washFold": {
+      "title": "Wash & Fold",
+      "perKg": "₹50/kg",
+      "minOrder": "Minimum 5kg",
+      "bulk": "Bulk discounts available"
+    },
+    "dryCleaning": {
+      "title": "Dry Cleaning",
+      "suit": "Suit/Blazer: ₹200",
+      "shirt": "Shirt: ₹80",
+      "dress": "Dress: ₹150",
+      "saree": "Saree: ₹250",
+      "other": "Other items: ₹150-300"
+    },
+    "ironing": {
+      "title": "Ironing",
+      "shirt": "Shirt: ₹30",
+      "trouser": "Trouser: ₹25",
+      "saree": "Saree: ₹50",
+      "dress": "Dress: ₹40",
+      "other": "Other items: ₹25-50"
+    },
+    "specialty": {
+      "title": "Specialty Care",
+      "note": "Pricing based on item complexity and care requirements. Contact us for a custom quote.",
+      "examples": [
+        "Zari work: ₹300-500",
+        "Leather items: ₹400-600",
+        "Bedding sets: ₹200-400",
+        "Curtains: ₹150-300"
+      ]
+    },
+    "estimator": {
+      "title": "Quick Price Estimator",
+      "selectService": "Select Service",
+      "quantity": "Quantity",
+      "calculate": "Calculate",
+      "estimatedPrice": "Estimated Price",
+      "note": "This is an estimate. Final price confirmed at pickup."
+    }
+  },
+  "howItWorks": {
+    "title": "How It Works",
+    "subtitle": "Simple steps to fresh, clean clothes",
+    "step1": {
+      "title": "1. Request Service",
+      "description": "Book your service online through our booking form or call us directly. Share your address and preferred pickup time.",
+      "cta": "Book Now"
+    },
+    "step2": {
+      "title": "2. We Pick Up",
+      "description": "Our professional team arrives at your doorstep at the scheduled time to collect your garments.",
+      "cta": "Schedule Pickup"
+    },
+    "step3": {
+      "title": "3. We Deliver",
+      "description": "Your clean, fresh clothes are delivered back to your doorstep, neatly folded and ready to wear.",
+      "cta": "Track Delivery"
+    },
+    "whyChoose": {
+      "title": "Why Choose Us",
+      "points": [
+        "Eco-friendly cleaning solutions",
+        "Insured garment handling",
+        "Professional quality assurance",
+        "Convenient doorstep service",
+        "Transparent pricing"
+      ]
+    }
+  },
+  "booking": {
+    "title": "Book Your Service",
+    "subtitle": "Fill in the details and we'll get in touch",
+    "form": {
+      "name": "Full Name",
+      "namePlaceholder": "Enter your full name",
+      "phone": "Phone Number",
+      "phonePlaceholder": "Enter your 10-digit mobile number",
+      "email": "Email (Optional)",
+      "emailPlaceholder": "Enter your email",
+      "address": "Pickup Address",
+      "addressPlaceholder": "Enter your complete address",
+      "service": "Service Required",
+      "servicePlaceholder": "Select a service",
+      "preferredTime": "Preferred Pickup Time",
+      "preferredTimePlaceholder": "Select preferred time",
+      "instructions": "Special Instructions (Optional)",
+      "instructionsPlaceholder": "Any special care instructions or notes",
+      "submit": "Submit Booking Request",
+      "submitting": "Submitting...",
+      "required": "Required field"
+    },
+    "success": {
+      "title": "Booking Request Submitted!",
+      "message": "Thank you for choosing GenZLaundry. We've received your booking request and will contact you shortly to confirm the pickup time.",
+      "nextSteps": "What happens next?",
+      "step1": "We'll call you within 2 hours to confirm your booking",
+      "step2": "Our team will arrive at your doorstep at the scheduled time",
+      "step3": "Your clothes will be cleaned and delivered back to you",
+      "contact": "Need immediate assistance? Call us at"
+    },
+    "error": {
+      "title": "Error Submitting Request",
+      "message": "There was an error submitting your booking request. Please try again or call us directly."
+    },
+    "validation": {
+      "nameRequired": "Name is required",
+      "phoneRequired": "Phone number is required",
+      "phoneInvalid": "Please enter a valid 10-digit phone number",
+      "addressRequired": "Address is required",
+      "serviceRequired": "Please select a service"
+    }
+  },
+  "faq": {
+    "title": "Frequently Asked Questions",
+    "subtitle": "Everything you need to know",
+    "questions": [
+      {
+        "question": "Do you handle zari work and embroidered sarees?",
+        "answer": "Yes, we specialize in caring for delicate zari work and embroidered garments. Our team has extensive experience with ethnic wear and uses specialized cleaning techniques to preserve intricate details."
+      },
+      {
+        "question": "What areas do you serve?",
+        "answer": "We currently serve Jodhpur and surrounding areas. Contact us to confirm if we service your location."
+      },
+      {
+        "question": "How long does it take to get my clothes back?",
+        "answer": "Standard wash & fold service takes 24-48 hours. Dry cleaning typically takes 48-72 hours. Ironing services are completed within 24 hours. Turnaround time may vary based on service type and volume."
+      },
+      {
+        "question": "Do you offer same-day service?",
+        "answer": "Yes, we offer same-day service for ironing and express wash & fold (subject to availability). Additional charges may apply. Please call us to check availability."
+      },
+      {
+        "question": "What if my clothes are damaged?",
+        "answer": "All garments are insured during handling and cleaning. In the rare event of damage, we have a comprehensive insurance policy and will work with you to resolve the issue fairly."
+      },
+      {
+        "question": "Do you use eco-friendly cleaning products?",
+        "answer": "Yes, we prioritize eco-friendly cleaning solutions that are safe for your family and the environment, while maintaining professional cleaning standards."
+      },
+      {
+        "question": "Can I schedule a recurring pickup?",
+        "answer": "Yes, we offer subscription plans for regular customers. Contact us to set up a weekly or monthly schedule that works for you."
+      },
+      {
+        "question": "What payment methods do you accept?",
+        "answer": "We accept cash on delivery, UPI, and digital payments. Payment is collected at the time of delivery."
+      }
+    ]
+  },
+  "about": {
+    "title": "About GenZLaundry",
+    "subtitle": "Your trusted partner in garment care",
+    "mission": {
+      "title": "Our Mission",
+      "description": "GenZLaundry was founded with a simple mission: to provide premium, reliable laundry services that save you time while caring for your garments with the utmost attention. We combine traditional care values with modern convenience."
+    },
+    "values": {
+      "title": "Our Values",
+      "quality": {
+        "title": "Quality First",
+        "description": "Every garment is treated with care and attention to detail."
+      },
+      "sustainability": {
+        "title": "Eco-Friendly",
+        "description": "We use environmentally safe cleaning solutions and practices."
+      },
+      "convenience": {
+        "title": "Convenience",
+        "description": "Doorstep service that fits into your busy schedule."
+      },
+      "trust": {
+        "title": "Trust",
+        "description": "Insured handling and transparent pricing you can rely on."
+      }
+    },
+    "contact": {
+      "title": "Get in Touch",
+      "description": "Have questions? We're here to help.",
+      "phoneLabel": "Phone",
+      "whatsappLabel": "WhatsApp",
+      "emailLabel": "Email",
+      "addressLabel": "Service Area",
+      "hours": "Business Hours",
+      "hoursValue": "Monday - Saturday: 9 AM - 8 PM\nSunday: 10 AM - 6 PM"
+    },
+    "mapTitle": "Service Area"
+  },
+  "footer": {
+    "description": "Premium laundry and dry cleaning service in Jodhpur. Professional garment care delivered to your doorstep.",
+    "quickLinks": "Quick Links",
+    "services": "Services",
+    "pricing": "Pricing",
+    "about": "About",
+    "contact": "Contact",
+    "legal": "Legal",
+    "privacy": "Privacy Policy",
+    "terms": "Terms of Service",
+    "copyright": "© 2024 GenZLaundry. All rights reserved."
+  }
+}
+
+
+
+
+

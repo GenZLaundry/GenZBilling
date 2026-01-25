@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GenZ Laundry - Thermal Print Server</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: rgb(98, 86, 86);
+        }
+        
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            text-align: center;
+            max-width: 600px;
+            width: 90%;
+        }
+        
+        .logo {
+            font-size: 3rem;
+            margin-bottom: 10px;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            font-weight: 300;
+        }
+        
+        .subtitle {
+            font-size: 1.2rem;
+            opacity: 0.8;
+            margin-bottom: 30px;
+        }
+        
+        .status {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin: 20px 0;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+        
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #4ade80;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 30px;
+        }
+        
+        .btn {
+            padding: 15px 25px;
+            border: none;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(5px);
+        }
+        
+        .btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+        
+        .btn.primary {
+            background: linear-gradient(45deg, #4ade80, #22c55e);
+        }
+        
+        .btn.secondary {
+            background: linear-gradient(45deg, #3b82f6, #1d4ed8);
+        }
+        
+        .btn.danger {
+            background: linear-gradient(45deg, #ef4444, #dc2626);
+        }
+        
+        .info {
+            margin-top: 30px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            text-align: left;
+        }
+        
+        .info h3 {
+            margin-bottom: 10px;
+            color: #4ade80;
+        }
+        
+        .info ul {
+            list-style: none;
+            padding-left: 0;
+        }
+        
+        .info li {
+            margin: 5px 0;
+            padding-left: 20px;
+            position: relative;
+        }
+        
+        .info li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #4ade80;
+            font-weight: bold;
+        }
+        
+        .response {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 10px;
+            background: rgba(0, 0, 0, 0.2);
+            font-family: monospace;
+            text-align: left;
+            display: none;
+        }
+        
+        .response.success {
+            border-left: 4px solid #4ade80;
+        }
+        
+        .response.error {
+            border-left: 4px solid #ef4444;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">🧺</div>
+        <h1>GenZ Laundry</h1>
+        <div class="subtitle">Thermal Print Server</div>
+        
+        <div class="status">
+            <div class="status-dot"></div>
+            <span id="status-text">Server Running</span>
+        </div>
+        
+        <div class="buttons">
+            <button class="btn primary" onclick="testPrint()">
+                🖨️ Test Print
+            </button>
+            <button class="btn secondary" onclick="checkStatus()">
+                📊 Check Status
+            </button>
+            <button class="btn secondary" onclick="initPrinter()">
+                🔌 Initialize Printer
+            </button>
+            <button class="btn secondary" onclick="listPrinters()">
+                📋 List Printers
+            </button>
+        </div>
+        
+        <div class="info">
+            <h3>🎯 Features</h3>
+            <ul>
+                <li>Direct USB thermal printing (SP-POS893UED)</li>
+                <li>Zero browser limitations</li>
+                <li>Professional receipt formatting</li>
+                <li>Laundry tag printing with QR codes</li>
+                <li>Automatic paper cutting</li>
+                <li>REST API for integration</li>
+            </ul>
+        </div>
+        
+        <div class="info">
+            <h3>🔗 API Endpoints</h3>
+            <ul>
+                <li>POST /api/print/receipt - Print thermal receipt</li>
+                <li>POST /api/print/tags - Print laundry tags</li>
+                <li>POST /api/print/test - Test print</li>
+                <li>GET /api/status - Server status</li>
+                <li>GET /api/printers - List available printers</li>
+            </ul>
+        </div>
+        
+        <div id="response" class="response"></div>
+    </div>
+
+    <script>
+        async function apiCall(endpoint, method = 'GET', data = null) {
+            const response = document.getElementById('response');
+            response.style.display = 'block';
+            response.textContent = 'Loading...';
+            response.className = 'response';
+            
+            try {
+                const options = {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                };
+                
+                if (data) {
+                    options.body = JSON.stringify(data);
+                }
+                
+                const res = await fetch(endpoint, options);
+                const result = await res.json();
+                
+                response.textContent = JSON.stringify(result, null, 2);
+                response.className = `response ${result.success ? 'success' : 'error'}`;
+                
+            } catch (error) {
+                response.textContent = `Error: ${error.message}`;
+                response.className = 'response error';
+            }
+        }
+        
+        async function testPrint() {
+            await apiCall('/api/print/test', 'POST');
+        }
+        
+        async function checkStatus() {
+            await apiCall('/api/status');
+        }
+        
+        async function initPrinter() {
+            await apiCall('/api/printer/init', 'POST');
+        }
+        
+        async function listPrinters() {
+            await apiCall('/api/printers');
+        }
+        
+        // Auto-check status on load
+        window.onload = function() {
+            checkStatus();
+        };
+    </script>
+</body>
+</html>

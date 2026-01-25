@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Book your laundry service pickup. Fill in the details and we'll get in touch to confirm your booking.">
+  <meta name="keywords" content="book laundry, laundry pickup, schedule pickup">
+  <title>>GenZLaundry - Book Your Service</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&family=Noto+Sans+Devanagari:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <header>
+    <div class="container">
+      <div class="header-content">
+        <a href="index.html" class="logo">
+          <span class="logo-icon">🧺</span>
+          <span data-i18n="meta.siteName">GenZLaundry</span>
+        </a>
+        
+        <nav id="main-nav">
+          <ul>
+            <li><a href="index.html" data-i18n="nav.home">Home</a></li>
+            <li><a href="services.html" data-i18n="nav.services">Services</a></li>
+            <li><a href="pricing.html" data-i18n="nav.pricing">Pricing</a></li>
+            <li><a href="how-it-works.html" data-i18n="nav.howItWorks">How It Works</a></li>
+            <li><a href="faq.html" data-i18n="nav.faq">FAQ</a></li>
+            <li><a href="about.html" data-i18n="nav.about">About</a></li>
+            <li><a href="booking.html" class="btn btn-primary btn-sm" data-i18n="common.bookPickup" style="pointer-events: none;">Book Pickup</a></li>
+          </ul>
+        </nav>
+        
+        <div class="language-toggle"></div>
+        <button class="mobile-menu-toggle" aria-label="Toggle menu">☰</button>
+      </div>
+    </div>
+  </header>
+<!-- Floating Contact Buttons -->
+<div class="floating-buttons">
+  <a href="tel:+918233853727" class="btn-floating btn-call" title="Call Us">
+    <i class="fas fa-phone"></i>
+    <span class="btn-tooltip">Call Us Now</span>
+  </a>
+  <a href="https://wa.me/8233853727" target="_blank" class="btn-floating btn-whatsapp" title="Chat on WhatsApp">
+    <i class="fab fa-whatsapp"></i>
+    <span class="btn-tooltip">Chat on WhatsApp</span>
+  </a>
+</div>
+
+<style>
+.floating-buttons {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  z-index: 1000;
+}
+
+.btn-floating {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  color: white;
+  font-size: 24px;
+  text-decoration: none;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.btn-floating:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+}
+
+.btn-call {
+  background: linear-gradient(135deg, #3498db, #2980b9);
+}
+
+.btn-whatsapp {
+  background: linear-gradient(135deg, #25D366, #128C7E);
+}
+
+.btn-tooltip {
+  position: absolute;
+  right: 70px;
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 14px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+}
+
+.btn-floating:hover .btn-tooltip {
+  opacity: 1;
+}
+
+.btn-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: -5px;
+  transform: translateY(-50%);
+  border-width: 5px 0 5px 5px;
+  border-style: solid;
+  border-color: transparent transparent transparent rgba(0, 0, 0, 0.8);
+}
+
+@media (max-width: 768px) {
+  .floating-buttons {
+    bottom: 20px;
+    right: 20px;
+  }
+  
+  .btn-floating {
+    width: 55px;
+    height: 55px;
+    font-size: 22px;
+  }
+}
+
+@media (max-width: 480px) {
+  .floating-buttons {
+    bottom: 15px;
+    right: 15px;
+  }
+  
+  .btn-floating {
+    width: 50px;
+    height: 50px;
+    font-size: 20px;
+  }
+  
+  .btn-tooltip {
+    font-size: 12px;
+    padding: 6px 10px;
+  }
+}
+</style>
+
+<!-- Make sure Font Awesome is included in your head section -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+<!-- end of addition -->
+  <section class="hero">
+    <div class="container">
+      <div class="hero-content">
+        <h1 data-i18n="booking.title">Book Your Service</h1>
+        <p class="hero-subtitle" data-i18n="booking.subtitle">Fill in the details and we'll get in touch</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <div style="max-width: 700px; margin: 0 auto;">
+        <form id="booking-form" class="booking-form" method="POST" data-action="">
+          <div class="form-group">
+            <label for="name" class="form-label">
+              <span data-i18n="booking.form.name">Full Name</span>
+              <span class="required">*</span>
+            </label>
+            <input 
+              type="text" 
+              id="name" 
+              name="name" 
+              class="form-input" 
+              required
+              data-i18n-placeholder="booking.form.namePlaceholder"
+              placeholder="Enter your full name"
+            >
+          </div>
+
+          <div class="form-group">
+            <label for="phone" class="form-label">
+              <span data-i18n="booking.form.phone">Phone Number</span>
+              <span class="required">*</span>
+            </label>
+            <input 
+              type="tel" 
+              id="phone" 
+              name="phone" 
+              class="form-input" 
+              required
+              pattern="[6-9][0-9]{9}"
+              maxlength="10"
+              data-i18n-placeholder="booking.form.phonePlaceholder"
+              placeholder="Enter your 10-digit mobile number"
+            >
+          </div>
+
+          <div class="form-group">
+            <label for="email" class="form-label">
+              <span data-i18n="booking.form.email">Email (Optional)</span>
+            </label>
+            <input 
+              type="email" 
+              id="email" 
+              name="email" 
+              class="form-input"
+              data-i18n-placeholder="booking.form.emailPlaceholder"
+              placeholder="Enter your email"
+            >
+          </div>
+
+          <div class="form-group">
+            <label for="address" class="form-label">
+              <span data-i18n="booking.form.address">Pickup Address</span>
+              <span class="required">*</span>
+            </label>
+            <textarea 
+              id="address" 
+              name="address" 
+              class="form-textarea" 
+              required
+              rows="3"
+              data-i18n-placeholder="booking.form.addressPlaceholder"
+              placeholder="Enter your complete address"
+            ></textarea>
+          </div>
+
+          <div class="form-group">
+            <label for="service" class="form-label">
+              <span data-i18n="booking.form.service">Service Required</span>
+              <span class="required">*</span>
+            </label>
+            <select id="service" name="service" class="form-select" required>
+              <option value="" data-i18n="booking.form.servicePlaceholder">Select a service</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="preferredTime" class="form-label">
+              <span data-i18n="booking.form.preferredTime">Preferred Pickup Time</span>
+            </label>
+            <select id="preferredTime" name="preferredTime" class="form-select">
+              <option value="" data-i18n="booking.form.preferredTimePlaceholder">Select preferred time</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="instructions" class="form-label">
+              <span data-i18n="booking.form.instructions">Special Instructions (Optional)</span>
+            </label>
+            <textarea 
+              id="instructions" 
+              name="instructions" 
+              class="form-textarea" 
+              rows="4"
+              data-i18n-placeholder="booking.form.instructionsPlaceholder"
+              placeholder="Any special care instructions or notes"
+            ></textarea>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-lg" style="width: 100%;" data-i18n="booking.form.submit">Submit Booking Request</button>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="container">
+      <div class="footer-content">
+        <div class="footer-section">
+          <h4 data-i18n="meta.siteName">GenZLaundry</h4>
+          <p data-i18n="footer.description">Premium laundry and dry cleaning service in Jodhpur. Professional garment care delivered to your doorstep.</p>
+        </div>
+        
+        <div class="footer-section">
+          <h4 data-i18n="footer.quickLinks">Quick Links</h4>
+          <ul>
+            <li><a href="services.html" data-i18n="footer.services">Services</a></li>
+            <li><a href="pricing.html" data-i18n="footer.pricing">Pricing</a></li>
+            <li><a href="about.html" data-i18n="footer.about">About</a></li>
+            <li><a href="faq.html" data-i18n="nav.faq">FAQ</a></li>
+          </ul>
+        </div>
+        
+        <div class="footer-section">
+          <h4 data-i18n="common.contactUs">Contact Us</h4>
+          <ul>
+            <li><a href="tel:+918233853727" data-i18n="common.phone">Phone</a>: +91 8233853727</li>
+            <li><a href="https://wa.me/918233853727" target="_blank" data-i18n="common.whatsapp">WhatsApp</a></li>
+            <li><a href="mailto:newgenzlaundry@gmail.com" data-i18n="common.email">Email</a>: newgenzlaundry@gmail.com</li>
+          </ul>
+        </div>
+      </div>
+      
+      <div class="footer-bottom">
+        <p data-i18n="footer.copyright">© 2025 GenZLaundry. All rights reserved.</p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="js/i18n.js"></script>
+  <script src="js/language-toggle.js"></script>
+  <script src="js/forms.js"></script>
+  
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      function loadFormOptions() {
+        if (typeof i18n === 'undefined') return;
+        
+        const lang = i18n.getLanguage();
+        
+        // Load service options
+        const serviceSelect = document.getElementById('service');
+        if (serviceSelect && serviceSelect.children.length === 1) {
+          const services = i18n.content[lang]?.services?.categories || {};
+          Object.keys(services).forEach(key => {
+            const option = document.createElement('option');
+            option.value = key;
+            option.textContent = services[key].title;
+            serviceSelect.appendChild(option);
+          });
+        }
+        
+        // Load time options
+        const timeSelect = document.getElementById('preferredTime');
+        if (timeSelect && timeSelect.children.length === 1) {
+          const times = [
+            lang === 'hi' ? 'सुबह 9 बजे - 12 बजे' : 'Morning (9 AM - 12 PM)',
+            lang === 'hi' ? 'दोपहर 12 बजे - 4 बजे' : 'Afternoon (12 PM - 4 PM)',
+            lang === 'hi' ? 'शाम 4 बजे - 8 बजे' : 'Evening (4 PM - 8 PM)'
+          ];
+          times.forEach(time => {
+            const option = document.createElement('option');
+            option.value = time;
+            option.textContent = time;
+            timeSelect.appendChild(option);
+          });
+        }
+      }
+      
+      setTimeout(loadFormOptions, 200);
+      if (typeof i18n !== 'undefined') {
+        i18n.onLanguageChange(() => {
+          // Reload options on language change
+          const serviceSelect = document.getElementById('service');
+          const timeSelect = document.getElementById('preferredTime');
+          if (serviceSelect) {
+            while (serviceSelect.children.length > 1) {
+              serviceSelect.removeChild(serviceSelect.lastChild);
+            }
+          }
+          if (timeSelect) {
+            while (timeSelect.children.length > 1) {
+              timeSelect.removeChild(timeSelect.lastChild);
+            }
+          }
+          loadFormOptions();
+        });
+      }
+    });
+
+    // Update placeholders on language change
+    if (typeof i18n !== 'undefined') {
+      i18n.onLanguageChange(() => {
+        document.querySelectorAll('[data-i18n-placeholder]').forEach(input => {
+          const key = input.getAttribute('data-i18n-placeholder');
+          input.placeholder = i18n.t(key);
+        });
+      });
+    }
+
+    // Mobile menu toggle
+    document.addEventListener('DOMContentLoaded', () => {
+      const menuToggle = document.querySelector('.mobile-menu-toggle');
+      const nav = document.getElementById('main-nav');
+      if (menuToggle && nav) {
+        menuToggle.addEventListener('click', () => nav.classList.toggle('active'));
+      }
+    });
+  </script>
+  <!-- Add this script at the end of your body tag -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Create floating buttons container
+  const floatingButtons = document.createElement('div');
+  floatingButtons.className = 'floating-buttons';
+  
+  // Create call button
+  const callButton = document.createElement('a');
+  callButton.href = 'tel:+918233853727';
+  callButton.className = 'btn-floating btn-call';
+  callButton.title = 'Call Us';
+  callButton.innerHTML = `
+    <i class="fas fa-phone"></i>
+    <span class="btn-tooltip">Call Us Now</span>
+  `;
+  
+  // Create WhatsApp button
+  const whatsappButton = document.createElement('a');
+  whatsappButton.href = 'https://wa.me/8233853727';
+  whatsappButton.target = '_blank';
+  whatsappButton.className = 'btn-floating btn-whatsapp';
+  whatsappButton.title = 'Chat on WhatsApp';
+  whatsappButton.innerHTML = `
+    <i class="fab fa-whatsapp"></i>
+    <span class="btn-tooltip">Chat on WhatsApp</span>
+  `;
+  
+  // Add buttons to container
+  floatingButtons.appendChild(callButton);
+  floatingButtons.appendChild(whatsappButton);
+  
+  // Add container to body
+  document.body.appendChild(floatingButtons);
+  
+  // Add CSS styles
+  const style = document.createElement('style');
+  style.textContent = `
+    .floating-buttons {
+      position: fixed;
+      bottom: 30px;
+      right: 30px;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      z-index: 1000;
+    }
+    
+    .btn-floating {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      color: white;
+      font-size: 24px;
+      text-decoration: none;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+      transition: all 0.3s ease;
+      position: relative;
+    }
+    
+    .btn-floating:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+    }
+    
+    .btn-call {
+      background: linear-gradient(135deg, #3498db, #2980b9);
+    }
+    
+    .btn-whatsapp {
+      background: linear-gradient(135deg, #25D366, #128C7E);
+    }
+    
+    .btn-tooltip {
+      position: absolute;
+      right: 70px;
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      padding: 8px 12px;
+      border-radius: 4px;
+      font-size: 14px;
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s;
+    }
+    
+    .btn-floating:hover .btn-tooltip {
+      opacity: 1;
+    }
+    
+    .btn-tooltip::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      right: -5px;
+      transform: translateY(-50%);
+      border-width: 5px 0 5px 5px;
+      border-style: solid;
+      border-color: transparent transparent transparent rgba(0, 0, 0, 0.8);
+    }
+    
+    @media (max-width: 768px) {
+      .floating-buttons {
+        bottom: 20px;
+        right: 20px;
+      }
+      
+      .btn-floating {
+        width: 55px;
+        height: 55px;
+        font-size: 22px;
+      }
+    }
+    
+    @media (max-width: 480px) {
+      .floating-buttons {
+        bottom: 15px;
+        right: 15px;
+      }
+      
+      .btn-floating {
+        width: 50px;
+        height: 50px;
+        font-size: 20px;
+      }
+      
+      .btn-tooltip {
+        font-size: 12px;
+        padding: 6px 10px;
+      }
+    }
+  `;
+  
+  document.head.appendChild(style);
+});
+
+// Check if Font Awesome is already loaded, if not, load it
+if (!document.querySelector('link[href*="font-awesome"]') && !document.querySelector('link[href*="fontawesome"]')) {
+  const faLink = document.createElement('link');
+  faLink.rel = 'stylesheet';
+  faLink.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css';
+  document.head.appendChild(faLink);
+}
+</script>
+<!-- end of the script -->
+</body>
+</html>
+

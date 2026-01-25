@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  # Frontend Service
+  frontend:
+    build: .
+    ports:
+      - "3000:80"
+    depends_on:
+    
+      - backend
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000
+    networks:
+      - genzlaundry-network
+
+  # Backend Service
+  backend:
+    build: ./server
+    ports:
+      - "8000:8000"
+    environment:
+      - NODE_ENV=production
+      - PORT=8000
+      - MONGODB_URI=${MONGODB_URI}
+      - JWT_SECRET=${JWT_SECRET}
+      - ADMIN_USERNAME=${ADMIN_USERNAME}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - ADMIN_EMAIL=${ADMIN_EMAIL}
+      - CORS_ORIGIN=http://localhost:3000
+    volumes:
+      - ./server/logs:/app/logs
+    networks:
+      - genzlaundry-network
+    restart: unless-stopped
+
+  # Thermal Print Server
+  thermal-server:
+    build: ./thermal-print-server
+    ports:
+      - "3001:3001"
+    networks:
+      - genzlaundry-network
+    restart: unless-stopped
+
+networks:
+  genzlaundry-network:
+    driver: bridge
+
+volumes:
+  logs:
