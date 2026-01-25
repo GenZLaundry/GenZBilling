@@ -1,7 +1,7 @@
 // Production configuration for GenZ Laundry POS
 const config = {
-  // Backend API URL - Update this after deploying to Railway
-  API_BASE_URL: import.meta.env.VITE_API_URL || 'http://localhost:8000/api',
+  // Backend API URL - Updated for Render deployment
+  API_BASE_URL: 'https://genzbilling.onrender.com/api',
   
   // Thermal server runs locally on user's machine
   THERMAL_SERVER_URL: 'http://localhost:3001',
