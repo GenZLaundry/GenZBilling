@@ -576,7 +576,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ onClose }) => {
                             </div>
                           </div>
                         </div>
-                        <div style={{ color: '#27ae60', fontWeight: 'bold' }}>
+                        <div style={{ color: '#000000', fontWeight: 'bold' }}>
                           {formatCurrency(customer.totalSpent)}
                         </div>
                       </div>
