@@ -65,7 +65,9 @@ export const printThermalBill = (billData: BillData, onError?: (message: string)
   if (upiConfig.upiId && billData.grandTotal > 0) {
     const transactionNote = `Bill ${billData.billNumber} - ${billData.businessName}`;
     const upiUrl = `upi://pay?pa=${upiConfig.upiId}&pn=${encodeURIComponent(upiConfig.payeeName)}&am=${billData.grandTotal}&cu=INR&tn=${encodeURIComponent(transactionNote)}`;
-    qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(upiUrl)}&ecc=H&margin=5&color=000000&bgcolor=FFFFFF`;
+    // OPTIMIZED QR CODE FOR THERMAL PRINTING - MUCH LARGER AND CLEARER
+    // Larger size, high error correction, maximum contrast, bigger margins
+    qrCodeUrl = `https://chart.googleapis.com/chart?chs=400x400&cht=qr&chl=${encodeURIComponent(upiUrl)}&choe=UTF-8&chld=H|30`;
   }
 
   // Generate pure thermal HTML (NO A4 elements)
@@ -144,14 +146,22 @@ export const printThermalBill = (billData: BillData, onError?: (message: string)
     .spacer { margin-bottom: 2mm !important; }
     
     .qr-code {
-      width: 25mm !important;
-      height: 25mm !important;
-      border: 1px solid #000 !important;
-      border-radius: 2mm !important;
+      width: 40mm !important;
+      height: 40mm !important;
+      border: 3px solid #000 !important;
+      border-radius: 3mm !important;
       background: white !important;
-      padding: 1mm !important;
+      padding: 2mm !important;
       image-rendering: pixelated !important;
-      filter: contrast(1.3) !important; /* High contrast for better scanning */
+      image-rendering: -moz-crisp-edges !important;
+      image-rendering: crisp-edges !important;
+      filter: contrast(2.5) brightness(1.4) !important; /* Enhanced contrast for thermal printing */
+      -webkit-filter: contrast(2.5) brightness(1.4) !important;
+      
+      /* Additional thermal printer optimizations */
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+      box-shadow: inset 0 0 0 1px #000 !important;
     }
   </style>
 </head>
@@ -279,9 +289,10 @@ export const printThermalBill = (billData: BillData, onError?: (message: string)
     
     <!-- UPI Payment QR -->
     <div class="center spacer" style="margin: 3mm 0;">
-      <div class="small bold" style="margin-bottom: 2mm;">SCAN TO PAY</div>
-      <img src="${qrCodeUrl}" alt="Payment QR Code" class="qr-code" onerror="this.src='/scanner.png';">
-      <div class="small" style="margin-top: 1mm; color: #666;">PhonePe | UPI | Cards</div>
+      <div class="small bold" style="margin-bottom: 2mm;">SCAN TO PAY ₹${billData.grandTotal}</div>
+      <img src="${qrCodeUrl}" alt="Payment QR Code" class="qr-code" onerror="this.src='/scanner.png';" crossorigin="anonymous">
+      <div class="small" style="margin-top: 2mm; font-weight: bold;">PhonePe | GPay | UPI | Cards</div>
+      <div class="small" style="margin-top: 1mm; font-size: 9pt;">UPI ID: ${upiConfig.upiId || 'Not configured'}</div>
     </div>
     
     <!-- Thank You -->
@@ -484,4 +495,114 @@ export const printTestThermalReceipt = () => {
   };
   
   printThermalBill(testBill);
+};
+
+// Test thermal QR code quality
+export const testThermalQRCode = (amount: number = 100) => {
+  const upiConfig = getUPIConfig();
+  
+  if (!upiConfig.upiId) {
+    alert('Please configure UPI settings first!');
+    return;
+  }
+
+  const testWindow = window.open('', '_blank', 'width=400,height=600');
+  if (!testWindow) {
+    alert('Please allow popups for QR testing');
+    return;
+  }
+
+  const transactionNote = `Test Payment - GenZ Laundry`;
+  const upiUrl = `upi://pay?pa=${upiConfig.upiId}&pn=${encodeURIComponent(upiConfig.payeeName)}&am=${amount}&cu=INR&tn=${encodeURIComponent(transactionNote)}`;
+  
+  // Generate multiple QR codes with different settings for comparison
+  const qrOptions = [
+    {
+      name: 'Thermal Optimized (Recommended)',
+      url: `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(upiUrl)}&ecc=H&margin=15&color=000000&bgcolor=FFFFFF&format=png`
+    },
+    {
+      name: 'Google Charts High Quality',
+      url: `https://chart.googleapis.com/chart?chs=200x200&cht=qr&chl=${encodeURIComponent(upiUrl)}&choe=UTF-8&chld=H|15`
+    },
+    {
+      name: 'Maximum Error Correction',
+      url: `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(upiUrl)}&ecc=H&margin=20&color=000000&bgcolor=FFFFFF&format=png`
+    }
+  ];
+
+  const testHTML = `
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Thermal QR Code Test</title>
+  <style>
+    body { 
+      font-family: Arial, sans-serif; 
+      padding: 20px; 
+      background: #f5f5f5;
+    }
+    .qr-test {
+      background: white;
+      padding: 20px;
+      margin: 20px 0;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      text-align: center;
+    }
+    .qr-image {
+      border: 3px solid #000;
+      border-radius: 8px;
+      background: white;
+      padding: 5px;
+      image-rendering: pixelated;
+      filter: contrast(1.5) brightness(1.1);
+    }
+    .test-info {
+      background: #e3f2fd;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+  <h1>🧪 Thermal QR Code Quality Test</h1>
+  
+  <div class="test-info">
+    <h3>Test Details:</h3>
+    <p><strong>Amount:</strong> ₹${amount}</p>
+    <p><strong>UPI ID:</strong> ${upiConfig.upiId}</p>
+    <p><strong>Payee:</strong> ${upiConfig.payeeName}</p>
+    <p><strong>Note:</strong> ${transactionNote}</p>
+  </div>
+
+  <h2>📱 Test these QR codes with your UPI app:</h2>
+  
+  ${qrOptions.map((option, index) => `
+    <div class="qr-test">
+      <h3>${index + 1}. ${option.name}</h3>
+      <img src="${option.url}" alt="${option.name}" class="qr-image" width="200" height="200">
+      <p><strong>Scan this QR code with PhonePe/GPay</strong></p>
+      <p>It should show: <strong>₹${amount}</strong> payment to <strong>${upiConfig.payeeName}</strong></p>
+    </div>
+  `).join('')}
+
+  <div class="test-info">
+    <h3>✅ Testing Instructions:</h3>
+    <ol>
+      <li>Open PhonePe, GPay, or any UPI app</li>
+      <li>Use the "Scan QR" feature</li>
+      <li>Point camera at each QR code above</li>
+      <li>Check if the app detects the payment correctly</li>
+      <li>The QR code that scans best should be used for thermal printing</li>
+    </ol>
+  </div>
+
+</body>
+</html>
+  `;
+
+  testWindow.document.write(testHTML);
+  testWindow.document.close();
 };

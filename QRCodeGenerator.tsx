@@ -35,8 +35,8 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
       // Create UPI payment string
       const upiString = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(payeeName)}&am=${amount}&cu=INR&tn=${encodeURIComponent(transactionNote)}`;
       
-      // Use Google Charts API for high-quality QR code generation
-      const qrUrl = `https://chart.googleapis.com/chart?chs=${size}x${size}&cht=qr&chl=${encodeURIComponent(upiString)}&choe=UTF-8&chld=H|4`;
+      // Use Google Charts API for high-quality QR code generation - OPTIMIZED FOR THERMAL PRINTING
+      const qrUrl = `https://chart.googleapis.com/chart?chs=${size}x${size}&cht=qr&chl=${encodeURIComponent(upiString)}&choe=UTF-8&chld=H|20`;
       
       // Test if the image loads successfully
       const img = new Image();
@@ -45,8 +45,8 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
         setIsLoading(false);
       };
       img.onerror = () => {
-        // Fallback to QR Server API
-        const fallbackUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(upiString)}&ecc=H&margin=10`;
+        // Fallback to QR Server API with thermal-optimized settings
+        const fallbackUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(upiString)}&ecc=H&margin=25&color=000000&bgcolor=FFFFFF&format=png`;
         
         const fallbackImg = new Image();
         fallbackImg.onload = () => {
@@ -128,7 +128,10 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
           borderRadius: '8px',
           background: 'white',
           imageRendering: 'pixelated', // Ensures sharp QR code
-          filter: 'contrast(1.2)', // Increase contrast for better scanning
+          imageRendering: '-moz-crisp-edges', // Firefox support
+          imageRendering: 'crisp-edges', // Better edge rendering
+          filter: 'contrast(2.0) brightness(1.3)', // Enhanced contrast for thermal printing
+          WebkitFilter: 'contrast(2.0) brightness(1.3)', // Safari support
           ...style
         }}
         onError={() => {

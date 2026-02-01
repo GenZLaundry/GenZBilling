@@ -791,7 +791,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
                   { title: 'Expenses', icon: '💸', color: '#e74c3c', action: () => setShowExpenseManager(true) },
                   { title: 'Edit Bills', icon: '✏️', color: '#27ae60', action: () => setShowBillManager(true) },
                   { title: 'Add Previous', icon: '📋', color: '#e67e22', action: () => setShowAddPreviousBill(true) },
-                  { title: 'Test All APIs', icon: '🧪', color: '#9b59b6', action: testAllEndpoints },
+                  { title: 'Test QR Code', icon: '📱', color: '#9b59b6', action: () => {
+                    // Import and use the test function
+                    import('./ThermalPrintManager').then(module => {
+                      module.testThermalQRCode(100);
+                    });
+                  }},
                   { title: 'Test Print', icon: '🖨️', color: '#34495e', action: () => {
                     const testBill: BillData = {
                       businessName: shopConfig.shopName,

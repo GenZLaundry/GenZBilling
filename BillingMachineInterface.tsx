@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { printThermalBill, BillData } from './ThermalPrintManager';
+import { printCleanThermalBill } from './CleanThermalPrint';
 import { ShopConfig, PendingBill } from './types';
 import PendingBillSelector from './PendingBillSelector';
 import FunctionalQRCode from './FunctionalQRCode';
@@ -355,9 +356,9 @@ const quickItems = [
         removePendingBillsFromStorage(selectedPendingBills.map(bill => bill.id || bill._id));
       }
       
-      // Print the combined bill
-      console.log('🖨️ Printing bill...');
-      await printThermalBill(billData, (message) => showAlert({ message, type: 'error' }));
+      // Print the combined bill using CLEAN thermal layout
+      console.log('🖨️ Printing clean thermal bill...');
+      await printCleanThermalBill(billData, (message) => showAlert({ message, type: 'error' }));
       
       setShowSuccess(true);
       setTimeout(() => {
