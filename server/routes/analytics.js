@@ -2,41 +2,45 @@ const express = require('express');
 const router = express.Router();
 const Bill = require('../models/Bill');
 const Expense = require('../models/Expense');
-const moment = require('moment');
 
-// Get dashboard analytics
-router.get('/dashboard', async (req, res) => {
+// Dashboard Overview - Get key metrics
+router.get('/dashboard-overview', async (req, res) => {
   try {
     const today = new Date();
-    const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    const endOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999);
-    
-    const startOfWeek = moment().startOf('week').toDate();
-    const endOfWeek = moment().endOf('week').toDate();
+    const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999);
     
     const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
     const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999);
+    
+    const startOfWeek = new Date(today);
+    startOfWeek.setDate(today.getDate() - today.getDay());
+    startOfWeek.setHours(0, 0, 0, 0);
+    
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 6);
+    endOfWeek.setHours(23, 59, 59, 999);
 
-    // Today's stats
+    // Today's metrics
     const todayStats = await Bill.aggregate([
       {
         $match: {
-          createdAt: { $gte: startOfToday, $lte: endOfToday },
+          createdAt: { $gte: startOfDay, $lte: endOfDay },
           status: { $in: ['completed', 'delivered'] }
         }
       },
       {
         $group: {
           _id: null,
-          totalIncome: { $sum: '$grandTotal' },
+          totalRevenue: { $sum: '$grandTotal' },
           totalBills: { $sum: 1 },
           totalItems: { $sum: { $size: '$items' } },
-          avgBillAmount: { $avg: '$grandTotal' }
+          avgBillValue: { $avg: '$grandTotal' }
         }
       }
     ]);
 
-    // This week's stats
+    // This week's metrics
     const weekStats = await Bill.aggregate([
       {
         $match: {
@@ -47,14 +51,14 @@ router.get('/dashboard', async (req, res) => {
       {
         $group: {
           _id: null,
-          totalIncome: { $sum: '$grandTotal' },
+          totalRevenue: { $sum: '$grandTotal' },
           totalBills: { $sum: 1 },
           totalItems: { $sum: { $size: '$items' } }
         }
       }
     ]);
 
-    // This month's stats
+    // This month's metrics
     const monthStats = await Bill.aggregate([
       {
         $match: {
@@ -65,7 +69,7 @@ router.get('/dashboard', async (req, res) => {
       {
         $group: {
           _id: null,
-          totalIncome: { $sum: '$grandTotal' },
+          totalRevenue: { $sum: '$grandTotal' },
           totalBills: { $sum: 1 },
           totalItems: { $sum: { $size: '$items' } }
         }
@@ -73,27 +77,60 @@ router.get('/dashboard', async (req, res) => {
     ]);
 
     // Pending bills count
-    const pendingCount = await Bill.countDocuments({ status: 'pending' });
+    const pendingBillsCount = await Bill.countDocuments({ status: 'pending' });
 
-    // Recent bills
+    // Today's expenses
+    const todayExpenses = await Expense.aggregate([
+      {
+        $match: {
+          date: { $gte: startOfDay, $lte: endOfDay }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalExpenses: { $sum: '$amount' },
+          expenseCount: { $sum: 1 }
+        }
+      }
+    ]);
+
+    // Month's expenses
+    const monthExpenses = await Expense.aggregate([
+      {
+        $match: {
+          date: { $gte: startOfMonth, $lte: endOfMonth }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalExpenses: { $sum: '$amount' },
+          expenseCount: { $sum: 1 }
+        }
+      }
+    ]);
+
+    // Recent activity (last 10 bills)
     const recentBills = await Bill.find()
       .sort({ createdAt: -1 })
       .limit(10)
       .select('billNumber customerName grandTotal status createdAt');
 
-    // Top customers this month
+    // Top customers (by total spending)
     const topCustomers = await Bill.aggregate([
       {
         $match: {
-          createdAt: { $gte: startOfMonth, $lte: endOfMonth },
-          status: { $in: ['completed', 'delivered'] }
+          status: { $in: ['completed', 'delivered'] },
+          createdAt: { $gte: startOfMonth, $lte: endOfMonth }
         }
       },
       {
         $group: {
           _id: '$customerName',
           totalSpent: { $sum: '$grandTotal' },
-          totalBills: { $sum: 1 }
+          billCount: { $sum: 1 },
+          lastVisit: { $max: '$createdAt' }
         }
       },
       {
@@ -104,43 +141,114 @@ router.get('/dashboard', async (req, res) => {
       }
     ]);
 
+    // Popular services (most ordered items)
+    const popularServices = await Bill.aggregate([
+      {
+        $match: {
+          status: { $in: ['completed', 'delivered'] },
+          createdAt: { $gte: startOfMonth, $lte: endOfMonth }
+        }
+      },
+      {
+        $unwind: '$items'
+      },
+      {
+        $group: {
+          _id: '$items.name',
+          totalQuantity: { $sum: '$items.quantity' },
+          totalRevenue: { $sum: '$items.amount' },
+          orderCount: { $sum: 1 }
+        }
+      },
+      {
+        $sort: { totalQuantity: -1 }
+      },
+      {
+        $limit: 5
+      }
+    ]);
+
+    const overview = {
+      today: {
+        revenue: todayStats[0]?.totalRevenue || 0,
+        bills: todayStats[0]?.totalBills || 0,
+        items: todayStats[0]?.totalItems || 0,
+        avgBillValue: todayStats[0]?.avgBillValue || 0,
+        expenses: todayExpenses[0]?.totalExpenses || 0,
+        profit: (todayStats[0]?.totalRevenue || 0) - (todayExpenses[0]?.totalExpenses || 0)
+      },
+      week: {
+        revenue: weekStats[0]?.totalRevenue || 0,
+        bills: weekStats[0]?.totalBills || 0,
+        items: weekStats[0]?.totalItems || 0
+      },
+      month: {
+        revenue: monthStats[0]?.totalRevenue || 0,
+        bills: monthStats[0]?.totalBills || 0,
+        items: monthStats[0]?.totalItems || 0,
+        expenses: monthExpenses[0]?.totalExpenses || 0,
+        profit: (monthStats[0]?.totalRevenue || 0) - (monthExpenses[0]?.totalExpenses || 0)
+      },
+      pendingBills: pendingBillsCount,
+      recentActivity: recentBills,
+      topCustomers,
+      popularServices
+    };
+
     res.json({
       success: true,
-      data: {
-        today: todayStats[0] || { totalIncome: 0, totalBills: 0, totalItems: 0, avgBillAmount: 0 },
-        week: weekStats[0] || { totalIncome: 0, totalBills: 0, totalItems: 0 },
-        month: monthStats[0] || { totalIncome: 0, totalBills: 0, totalItems: 0 },
-        pendingCount,
-        recentBills,
-        topCustomers
-      }
+      data: overview
     });
   } catch (error) {
+    console.error('Error fetching dashboard overview:', error);
     res.status(500).json({
       success: false,
-      message: 'Error fetching dashboard analytics',
+      message: 'Error fetching dashboard overview',
       error: error.message
     });
   }
 });
 
-// Get daily income for a specific date range
-router.get('/daily', async (req, res) => {
+// Business Reports - Detailed analytics
+router.get('/business-reports', async (req, res) => {
   try {
-    const { startDate, endDate } = req.query;
+    const { period = 'month', startDate, endDate } = req.query;
     
-    if (!startDate || !endDate) {
-      return res.status(400).json({
-        success: false,
-        message: 'Start date and end date are required'
-      });
+    let start, end;
+    const now = new Date();
+    
+    switch (period) {
+      case 'today':
+        start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+        break;
+      case 'week':
+        start = new Date(now);
+        start.setDate(now.getDate() - now.getDay());
+        start.setHours(0, 0, 0, 0);
+        end = new Date(start);
+        end.setDate(start.getDate() + 6);
+        end.setHours(23, 59, 59, 999);
+        break;
+      case 'month':
+        start = new Date(now.getFullYear(), now.getMonth(), 1);
+        end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+        break;
+      case 'year':
+        start = new Date(now.getFullYear(), 0, 1);
+        end = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
+        break;
+      case 'custom':
+        start = new Date(startDate);
+        end = new Date(endDate);
+        break;
+      default:
+        start = new Date(now.getFullYear(), now.getMonth(), 1);
+        end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
     }
 
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    end.setHours(23, 59, 59, 999);
-
-    const dailyData = await Bill.aggregate([
+    // Revenue trends
+    const revenueTrends = await Bill.aggregate([
       {
         $match: {
           createdAt: { $gte: start, $lte: end },
@@ -154,306 +262,300 @@ router.get('/daily', async (req, res) => {
             month: { $month: '$createdAt' },
             day: { $dayOfMonth: '$createdAt' }
           },
-          date: { $first: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } } },
-          totalIncome: { $sum: '$grandTotal' },
-          totalBills: { $sum: 1 },
-          totalItems: { $sum: { $size: '$items' } },
-          avgBillAmount: { $avg: '$grandTotal' }
+          revenue: { $sum: '$grandTotal' },
+          bills: { $sum: 1 },
+          items: { $sum: { $size: '$items' } },
+          date: { $first: '$createdAt' }
         }
       },
       {
-        $sort: { '_id.year': 1, '_id.month': 1, '_id.day': 1 }
+        $sort: { date: 1 }
       }
     ]);
 
-    res.json({
-      success: true,
-      data: dailyData
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching daily analytics',
-      error: error.message
-    });
-  }
-});
-
-// Get weekly income
-router.get('/weekly', async (req, res) => {
-  try {
-    const { year, week } = req.query;
-    
-    let startDate, endDate;
-    
-    if (year && week) {
-      startDate = moment().year(year).week(week).startOf('week').toDate();
-      endDate = moment().year(year).week(week).endOf('week').toDate();
-    } else {
-      // Default to current week
-      startDate = moment().startOf('week').toDate();
-      endDate = moment().endOf('week').toDate();
-    }
-
-    const weeklyData = await Bill.getWeeklyIncome(startDate, endDate);
-
-    const totalIncome = weeklyData.reduce((sum, day) => sum + day.dailyIncome, 0);
-    const totalBills = weeklyData.reduce((sum, day) => sum + day.dailyBills, 0);
-
-    res.json({
-      success: true,
-      data: {
-        weeklyData,
-        summary: {
-          totalIncome,
-          totalBills,
-          avgDailyIncome: weeklyData.length > 0 ? totalIncome / weeklyData.length : 0
-        }
-      }
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching weekly analytics',
-      error: error.message
-    });
-  }
-});
-
-// Get monthly income
-router.get('/monthly', async (req, res) => {
-  try {
-    const { year, month } = req.query;
-    
-    const currentYear = year ? parseInt(year) : new Date().getFullYear();
-    const currentMonth = month ? parseInt(month) : new Date().getMonth() + 1;
-
-    const monthlyData = await Bill.getMonthlyIncome(currentYear, currentMonth);
-
-    const totalIncome = monthlyData.reduce((sum, day) => sum + day.dailyIncome, 0);
-    const totalBills = monthlyData.reduce((sum, day) => sum + day.dailyBills, 0);
-
-    res.json({
-      success: true,
-      data: {
-        monthlyData,
-        summary: {
-          totalIncome,
-          totalBills,
-          avgDailyIncome: monthlyData.length > 0 ? totalIncome / monthlyData.length : 0,
-          year: currentYear,
-          month: currentMonth
-        }
-      }
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching monthly analytics',
-      error: error.message
-    });
-  }
-});
-
-// Get income comparison (current vs previous period)
-router.get('/comparison', async (req, res) => {
-  try {
-    const { period = 'month' } = req.query; // 'day', 'week', 'month'
-    
-    let currentStart, currentEnd, previousStart, previousEnd;
-    
-    const now = new Date();
-    
-    if (period === 'day') {
-      currentStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      currentEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-      previousStart = new Date(currentStart);
-      previousStart.setDate(previousStart.getDate() - 1);
-      previousEnd = new Date(previousStart);
-      previousEnd.setHours(23, 59, 59, 999);
-    } else if (period === 'week') {
-      currentStart = moment().startOf('week').toDate();
-      currentEnd = moment().endOf('week').toDate();
-      previousStart = moment().subtract(1, 'week').startOf('week').toDate();
-      previousEnd = moment().subtract(1, 'week').endOf('week').toDate();
-    } else { // month
-      currentStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      currentEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-      previousStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-      previousEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
-    }
-
-    const [currentPeriod, previousPeriod] = await Promise.all([
-      Bill.aggregate([
-        {
-          $match: {
-            createdAt: { $gte: currentStart, $lte: currentEnd },
-            status: { $in: ['completed', 'delivered'] }
-          }
-        },
-        {
-          $group: {
-            _id: null,
-            totalIncome: { $sum: '$grandTotal' },
-            totalBills: { $sum: 1 }
-          }
-        }
-      ]),
-      Bill.aggregate([
-        {
-          $match: {
-            createdAt: { $gte: previousStart, $lte: previousEnd },
-            status: { $in: ['completed', 'delivered'] }
-          }
-        },
-        {
-          $group: {
-            _id: null,
-            totalIncome: { $sum: '$grandTotal' },
-            totalBills: { $sum: 1 }
-          }
-        }
-      ])
-    ]);
-
-    const current = currentPeriod[0] || { totalIncome: 0, totalBills: 0 };
-    const previous = previousPeriod[0] || { totalIncome: 0, totalBills: 0 };
-
-    const incomeChange = previous.totalIncome > 0 
-      ? ((current.totalIncome - previous.totalIncome) / previous.totalIncome) * 100 
-      : 0;
-    
-    const billsChange = previous.totalBills > 0 
-      ? ((current.totalBills - previous.totalBills) / previous.totalBills) * 100 
-      : 0;
-
-    res.json({
-      success: true,
-      data: {
-        current,
-        previous,
-        changes: {
-          incomeChange: Math.round(incomeChange * 100) / 100,
-          billsChange: Math.round(billsChange * 100) / 100
-        },
-        period
-      }
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching comparison analytics',
-      error: error.message
-    });
-  }
-});
-
-// Get profit analysis (income - expenses)
-router.get('/profit', async (req, res) => {
-  try {
-    const { period = 'month' } = req.query; // 'day', 'week', 'month', 'year'
-    
-    // Calculate date range based on period
-    const now = new Date();
-    let startDate;
-    
-    switch (period) {
-      case 'day':
-        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        break;
-      case 'week':
-        startDate = moment().startOf('week').toDate();
-        break;
-      case 'month':
-        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-        break;
-      case 'year':
-        startDate = new Date(now.getFullYear(), 0, 1);
-        break;
-      default:
-        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-    }
-
-    // Get total income for the period
-    const incomeData = await Bill.aggregate([
+    // Service performance
+    const servicePerformance = await Bill.aggregate([
       {
         $match: {
-          createdAt: { $gte: startDate, $lte: now },
+          createdAt: { $gte: start, $lte: end },
+          status: { $in: ['completed', 'delivered'] }
+        }
+      },
+      {
+        $unwind: '$items'
+      },
+      {
+        $group: {
+          _id: '$items.name',
+          totalQuantity: { $sum: '$items.quantity' },
+          totalRevenue: { $sum: '$items.amount' },
+          avgPrice: { $avg: '$items.rate' },
+          orderCount: { $sum: 1 }
+        }
+      },
+      {
+        $sort: { totalRevenue: -1 }
+      }
+    ]);
+
+    // Customer analysis
+    const customerAnalysis = await Bill.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: start, $lte: end },
+          status: { $in: ['completed', 'delivered'] }
+        }
+      },
+      {
+        $group: {
+          _id: '$customerName',
+          totalSpent: { $sum: '$grandTotal' },
+          billCount: { $sum: 1 },
+          avgBillValue: { $avg: '$grandTotal' },
+          firstVisit: { $min: '$createdAt' },
+          lastVisit: { $max: '$createdAt' },
+          totalItems: { $sum: { $size: '$items' } }
+        }
+      },
+      {
+        $sort: { totalSpent: -1 }
+      }
+    ]);
+
+    // Payment status analysis
+    const paymentAnalysis = await Bill.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: start, $lte: end }
+        }
+      },
+      {
+        $group: {
+          _id: '$paymentStatus',
+          count: { $sum: 1 },
+          totalAmount: { $sum: '$grandTotal' }
+        }
+      }
+    ]);
+
+    // Expense breakdown
+    const expenseBreakdown = await Expense.aggregate([
+      {
+        $match: {
+          date: { $gte: start, $lte: end }
+        }
+      },
+      {
+        $group: {
+          _id: '$category',
+          totalAmount: { $sum: '$amount' },
+          count: { $sum: 1 },
+          avgAmount: { $avg: '$amount' }
+        }
+      },
+      {
+        $sort: { totalAmount: -1 }
+      }
+    ]);
+
+    // Summary statistics
+    const summary = await Bill.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: start, $lte: end },
           status: { $in: ['completed', 'delivered'] }
         }
       },
       {
         $group: {
           _id: null,
-          totalIncome: { $sum: '$grandTotal' },
-          totalBills: { $sum: 1 }
+          totalRevenue: { $sum: '$grandTotal' },
+          totalBills: { $sum: 1 },
+          totalItems: { $sum: { $size: '$items' } },
+          avgBillValue: { $avg: '$grandTotal' },
+          totalDiscount: { $sum: '$discount' },
+          totalDeliveryCharges: { $sum: '$deliveryCharge' }
         }
       }
     ]);
 
-    // Get total expenses for the period
-    const expenseData = await Expense.aggregate([
+    const totalExpenses = await Expense.aggregate([
       {
         $match: {
-          date: { $gte: startDate, $lte: now }
+          date: { $gte: start, $lte: end }
         }
       },
       {
         $group: {
           _id: null,
-          totalExpenses: { $sum: '$amount' },
-          totalExpenseCount: { $sum: 1 }
+          totalExpenses: { $sum: '$amount' }
         }
       }
     ]);
 
-    // Get expenses by category
-    const expensesByCategory = await Expense.aggregate([
+    const reports = {
+      period,
+      dateRange: { start, end },
+      summary: {
+        ...summary[0],
+        totalExpenses: totalExpenses[0]?.totalExpenses || 0,
+        netProfit: (summary[0]?.totalRevenue || 0) - (totalExpenses[0]?.totalExpenses || 0)
+      },
+      revenueTrends,
+      servicePerformance,
+      customerAnalysis,
+      paymentAnalysis,
+      expenseBreakdown
+    };
+
+    res.json({
+      success: true,
+      data: reports
+    });
+  } catch (error) {
+    console.error('Error fetching business reports:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching business reports',
+      error: error.message
+    });
+  }
+});
+
+// Stats for quick overview
+router.get('/stats', async (req, res) => {
+  try {
+    const today = new Date();
+    const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999);
+
+    // Today's stats
+    const todayStats = await Bill.getDailyIncome(today);
+    
+    // Total stats
+    const totalStats = await Bill.aggregate([
       {
         $match: {
-          date: { $gte: startDate, $lte: now }
+          status: { $in: ['completed', 'delivered'] }
         }
       },
       {
         $group: {
-          _id: '$category',
-          total: { $sum: '$amount' },
-          count: { $sum: 1 }
+          _id: null,
+          totalRevenue: { $sum: '$grandTotal' },
+          totalBills: { $sum: 1 },
+          totalCustomers: { $addToSet: '$customerName' }
         }
-      },
-      {
-        $sort: { total: -1 }
       }
     ]);
 
-    const income = incomeData[0] || { totalIncome: 0, totalBills: 0 };
-    const expenses = expenseData[0] || { totalExpenses: 0, totalExpenseCount: 0 };
-    
-    const profit = income.totalIncome - expenses.totalExpenses;
-    const profitMargin = income.totalIncome > 0 ? (profit / income.totalIncome) * 100 : 0;
+    // Pending bills
+    const pendingStats = await Bill.aggregate([
+      {
+        $match: {
+          status: 'pending'
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          pendingAmount: { $sum: '$grandTotal' },
+          pendingCount: { $sum: 1 }
+        }
+      }
+    ]);
+
+    const stats = {
+      today: todayStats,
+      total: {
+        revenue: totalStats[0]?.totalRevenue || 0,
+        bills: totalStats[0]?.totalBills || 0,
+        customers: totalStats[0]?.totalCustomers?.length || 0
+      },
+      pending: {
+        amount: pendingStats[0]?.pendingAmount || 0,
+        count: pendingStats[0]?.pendingCount || 0
+      }
+    };
 
     res.json({
       success: true,
-      data: {
-        income: income.totalIncome,
-        expenses: expenses.totalExpenses,
-        profit,
-        profitMargin: Math.round(profitMargin * 100) / 100,
-        totalBills: income.totalBills,
-        totalExpenseCount: expenses.totalExpenseCount,
-        expensesByCategory,
-        period,
-        dateRange: {
-          start: startDate,
-          end: now
-        }
-      }
+      data: stats
     });
   } catch (error) {
-    console.error('❌ Error fetching profit analysis:', error);
+    console.error('Error fetching stats:', error);
     res.status(500).json({
       success: false,
-      message: 'Error fetching profit analysis',
+      message: 'Error fetching stats',
+      error: error.message
+    });
+  }
+});
+
+// Revenue chart data
+router.get('/revenue-chart', async (req, res) => {
+  try {
+    const { period = 'week' } = req.query;
+    const today = new Date();
+    let start, end;
+
+    switch (period) {
+      case 'week':
+        start = new Date(today);
+        start.setDate(today.getDate() - 6);
+        start.setHours(0, 0, 0, 0);
+        end = new Date(today);
+        end.setHours(23, 59, 59, 999);
+        break;
+      case 'month':
+        start = new Date(today.getFullYear(), today.getMonth(), 1);
+        end = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999);
+        break;
+      case 'year':
+        start = new Date(today.getFullYear(), 0, 1);
+        end = new Date(today.getFullYear(), 11, 31, 23, 59, 59, 999);
+        break;
+      default:
+        start = new Date(today);
+        start.setDate(today.getDate() - 6);
+        start.setHours(0, 0, 0, 0);
+        end = new Date(today);
+        end.setHours(23, 59, 59, 999);
+    }
+
+    const chartData = await Bill.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: start, $lte: end },
+          status: { $in: ['completed', 'delivered'] }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            year: { $year: '$createdAt' },
+            month: { $month: '$createdAt' },
+            day: { $dayOfMonth: '$createdAt' }
+          },
+          revenue: { $sum: '$grandTotal' },
+          bills: { $sum: 1 },
+          date: { $first: '$createdAt' }
+        }
+      },
+      {
+        $sort: { date: 1 }
+      }
+    ]);
+
+    res.json({
+      success: true,
+      data: chartData
+    });
+  } catch (error) {
+    console.error('Error fetching revenue chart data:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching revenue chart data',
       error: error.message
     });
   }

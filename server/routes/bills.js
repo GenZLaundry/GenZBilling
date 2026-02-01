@@ -14,7 +14,8 @@ router.get('/', async (req, res) => {
       startDate,
       endDate,
       sortBy = 'createdAt',
-      sortOrder = 'desc'
+      sortOrder = 'desc',
+      search
     } = req.query;
 
     const query = {};
@@ -24,9 +25,18 @@ router.get('/', async (req, res) => {
       query.status = status;
     }
     
-    // Filter by customer name
+    // Filter by customer name or search
     if (customerName) {
       query.customerName = { $regex: customerName, $options: 'i' };
+    }
+    
+    // Global search across multiple fields
+    if (search) {
+      query.$or = [
+        { customerName: { $regex: search, $options: 'i' } },
+        { billNumber: { $regex: search, $options: 'i' } },
+        { customerPhone: { $regex: search, $options: 'i' } }
+      ];
     }
     
     // Filter by date range
@@ -89,6 +99,177 @@ router.get('/pending', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error fetching pending bills',
+      error: error.message
+    });
+  }
+});
+
+// Get completed bills (history)
+router.get('/completed', async (req, res) => {
+  try {
+    const { page = 1, limit = 50, search } = req.query;
+    
+    const query = { 
+      status: { $in: ['completed', 'delivered'] }
+    };
+    
+    if (search) {
+      query.$or = [
+        { customerName: { $regex: search, $options: 'i' } },
+        { billNumber: { $regex: search, $options: 'i' } },
+        { customerPhone: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    const bills = await Bill.find(query)
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit))
+      .skip((parseInt(page) - 1) * parseInt(limit))
+      .exec();
+
+    const total = await Bill.countDocuments(query);
+
+    res.json({
+      success: true,
+      data: bills,
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(total / parseInt(limit)),
+        totalItems: total,
+        itemsPerPage: parseInt(limit)
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching completed bills',
+      error: error.message
+    });
+  }
+});
+
+// Get bills by customer
+router.get('/customer/:customerName', async (req, res) => {
+  try {
+    const { customerName } = req.params;
+    const { limit = 10 } = req.query;
+
+    const bills = await Bill.find({ 
+      customerName: { $regex: customerName, $options: 'i' }
+    })
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit));
+
+    // Calculate customer stats
+    const customerStats = await Bill.aggregate([
+      {
+        $match: {
+          customerName: { $regex: customerName, $options: 'i' },
+          status: { $in: ['completed', 'delivered'] }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalSpent: { $sum: '$grandTotal' },
+          totalBills: { $sum: 1 },
+          avgBillValue: { $avg: '$grandTotal' },
+          firstVisit: { $min: '$createdAt' },
+          lastVisit: { $max: '$createdAt' }
+        }
+      }
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        bills,
+        stats: customerStats[0] || {
+          totalSpent: 0,
+          totalBills: 0,
+          avgBillValue: 0,
+          firstVisit: null,
+          lastVisit: null
+        }
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching customer bills',
+      error: error.message
+    });
+  }
+});
+
+// Bulk update bill status
+router.patch('/bulk-status', async (req, res) => {
+  try {
+    const { billIds, status } = req.body;
+
+    if (!billIds || !Array.isArray(billIds) || billIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Bill IDs array is required'
+      });
+    }
+
+    const updateData = { status };
+    
+    if (status === 'completed') {
+      updateData.completedAt = new Date();
+    } else if (status === 'delivered') {
+      updateData.deliveredAt = new Date();
+      updateData.completedAt = updateData.completedAt || new Date();
+    }
+
+    const result = await Bill.updateMany(
+      { _id: { $in: billIds } },
+      updateData
+    );
+
+    res.json({
+      success: true,
+      message: `${result.modifiedCount} bills updated successfully`,
+      data: {
+        matchedCount: result.matchedCount,
+        modifiedCount: result.modifiedCount
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error updating bills',
+      error: error.message
+    });
+  }
+});
+
+// Bulk delete bills
+router.delete('/bulk-delete', async (req, res) => {
+  try {
+    const { billIds } = req.body;
+
+    if (!billIds || !Array.isArray(billIds) || billIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Bill IDs array is required'
+      });
+    }
+
+    const result = await Bill.deleteMany({ _id: { $in: billIds } });
+
+    res.json({
+      success: true,
+      message: `${result.deletedCount} bills deleted successfully`,
+      data: {
+        deletedCount: result.deletedCount
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Error deleting bills',
       error: error.message
     });
   }
