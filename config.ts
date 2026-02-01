@@ -2,7 +2,7 @@
 const config = {
   // Backend API URL - Hardcoded for manual deployment
   API_BASE_URL: import.meta.env.PROD 
-    ? 'https://genzlaundry.onrender.com/api'  // Production backend on Render
+    ? 'https://genzbilling.onrender.com/api'  // Production backend on Render
     : 'http://localhost:8000/api',  // Local development
   
   // Thermal server runs locally on user's machine

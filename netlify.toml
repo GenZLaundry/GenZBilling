@@ -12,7 +12,7 @@
 
 # Environment variables for production
 [context.production.environment]
-  VITE_API_URL = "https://genzlaundry.onrender.com/api"
+  VITE_API_URL = "https://genzbilling.onrender.com/api"
 
 # Headers for security and CORS
 [[headers]]
