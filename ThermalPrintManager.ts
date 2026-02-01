@@ -253,6 +253,13 @@ export const printThermalBill = (billData: BillData, onError?: (message: string)
     </div>
     <div class="divider">================================</div>
     
+    <!-- PhonePe Payment QR -->
+    <div class="center spacer" style="margin: 3mm 0;">
+      <div class="small bold" style="margin-bottom: 2mm;">SCAN TO PAY</div>
+      <img src="/scanner.png" alt="PhonePe QR Code" style="width: 25mm; height: 25mm; border: 1px solid #000; border-radius: 2mm; background: white; padding: 1mm;">
+      <div class="small" style="margin-top: 1mm; color: #666;">PhonePe | UPI | Cards</div>
+    </div>
+    
     <!-- Thank You -->
     <div class="center small spacer" style="font-style:italic;">
       ${billData.thankYouMessage || 'Thank you for your business!'}
@@ -383,9 +390,15 @@ export const generateThermalESCPOS = (billData: BillData): string => {
   commands += ESC + '!' + '\x00'; // Normal
   commands += '================================\n';
   
-  // Thank You (Center aligned)
+  // PhonePe Payment QR
   commands += ESC + 'a' + '\x01'; // Center align
   commands += '\n';
+  commands += 'SCAN TO PAY\n';
+  commands += '[ QR CODE AVAILABLE ]\n';
+  commands += 'PhonePe | UPI | Cards\n';
+  commands += '\n';
+  
+  // Thank You (Center aligned)
   commands += (billData.thankYouMessage || 'Thank you for your business!') + '\n';
   commands += '\n';
   

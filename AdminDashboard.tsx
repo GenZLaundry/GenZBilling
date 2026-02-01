@@ -15,7 +15,7 @@ interface AdminDashboardProps {
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogout }) => {
   const { showAlert, showConfirm } = useAlert();
-  const [activeTab, setActiveTab] = useState<'settings' | 'pending' | 'history' | 'analytics' | 'expenses' | 'manage'>('analytics');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'settings' | 'pending' | 'history' | 'analytics' | 'expenses' | 'manage'>('dashboard');
   const [shopConfig, setShopConfig] = useState<ShopConfig>({
     shopName: 'GenZ Laundry',
     address: 'Sabji Mandi Circle,Ratanada, Jodhpur (342011)',
@@ -432,12 +432,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
           gap: '6px'
         }}>
           {[
-            { key: 'analytics', label: '📊 Analytics', icon: '📊', color: '#3b82f6', description: 'View reports' },
-            { key: 'expenses', label: '💸 Expenses', icon: '💸', color: '#ef4444', description: 'Track costs' },
-            { key: 'manage', label: '🛠️ Manage Data', icon: '🛠️', color: '#8b5cf6', description: 'Edit records' },
-            { key: 'settings', label: '⚙️ Store Settings', icon: '⚙️', color: '#6b7280', description: 'Configure shop' },
-            { key: 'pending', label: '📋 Pending Bills', icon: '📋', color: '#f59e0b', description: 'Awaiting completion' },
-            { key: 'history', label: '📊 Bill History', icon: '📊', color: '#10b981', description: 'Past transactions' }
+            { key: 'dashboard', label: '🏠 Dashboard', icon: '🏠', color: '#3498db', description: 'Overview & Stats' },
+            { key: 'analytics', label: '📊 Analytics', icon: '📊', color: '#9b59b6', description: 'Business Reports' },
+            { key: 'manage', label: '🛠️ Data Manager', icon: '🛠️', color: '#27ae60', description: 'Edit & Delete' },
+            { key: 'expenses', label: '💸 Expenses', icon: '💸', color: '#e74c3c', description: 'Track Costs' },
+            { key: 'pending', label: '📋 Pending', icon: '📋', color: '#f39c12', description: 'Active Bills' },
+            { key: 'history', label: '📚 History', icon: '📚', color: '#1abc9c', description: 'Completed Bills' },
+            { key: 'settings', label: '⚙️ Settings', icon: '⚙️', color: '#34495e', description: 'Store Config' }
           ].map((tab, index) => (
             <button
               key={tab.key}
@@ -494,6 +495,224 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
         position: 'relative',
         zIndex: 1
       }}>
+        {activeTab === 'dashboard' && (
+          <div style={{ animation: 'slideIn 0.5s ease-out' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <div>
+                <h2 style={{ color: 'white', margin: 0, fontSize: '24px', fontWeight: 'bold' }}>🏠 Business Dashboard</h2>
+                <p style={{ color: 'rgba(255,255,255,0.8)', margin: '5px 0 0 0', fontSize: '14px' }}>
+                  Complete overview of your laundry business performance
+                </p>
+              </div>
+            </div>
+            
+            {/* Quick Stats */}
+            <div style={{ 
+              display: 'grid', 
+              gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', 
+              gap: '15px', 
+              marginBottom: '25px' 
+            }}>
+              {[
+                { 
+                  title: 'Total Revenue', 
+                  value: `₹${(pendingBills.reduce((sum, bill) => sum + bill.grandTotal, 0) + billHistory.reduce((sum, bill) => sum + bill.grandTotal, 0)).toLocaleString()}`, 
+                  icon: '💰', 
+                  color: '#27ae60'
+                },
+                { 
+                  title: 'Today Revenue', 
+                  value: `₹${[...pendingBills, ...billHistory]
+                    .filter(bill => new Date(bill.createdAt).toDateString() === new Date().toDateString())
+                    .reduce((sum, bill) => sum + bill.grandTotal, 0).toLocaleString()}`, 
+                  icon: '📈', 
+                  color: '#3498db'
+                },
+                { 
+                  title: 'Total Bills', 
+                  value: (pendingBills.length + billHistory.length).toString(), 
+                  icon: '🧾', 
+                  color: '#9b59b6'
+                },
+                { 
+                  title: 'Pending Bills', 
+                  value: pendingBills.length.toString(), 
+                  icon: '⏳', 
+                  color: '#f39c12'
+                },
+                { 
+                  title: 'Customers', 
+                  value: new Set([...pendingBills, ...billHistory].map(bill => bill.customerName.toLowerCase())).size.toString(), 
+                  icon: '👥', 
+                  color: '#e74c3c'
+                }
+              ].map((stat, index) => (
+                <div key={index} style={{
+                  background: 'rgba(255, 255, 255, 0.15)',
+                  backdropFilter: 'blur(15px)',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  borderRadius: '16px',
+                  padding: '20px',
+                  textAlign: 'center',
+                  transition: 'all 0.3s ease'
+                }}>
+                  <div style={{ 
+                    fontSize: '32px',
+                    background: stat.color,
+                    padding: '12px',
+                    borderRadius: '12px',
+                    display: 'inline-block',
+                    marginBottom: '12px',
+                    boxShadow: `0 8px 20px ${stat.color}40`
+                  }}>
+                    {stat.icon}
+                  </div>
+                  <h3 style={{ 
+                    color: 'white', 
+                    margin: '0 0 8px 0', 
+                    fontSize: '20px', 
+                    fontWeight: 'bold'
+                  }}>
+                    {stat.value}
+                  </h3>
+                  <p style={{ 
+                    color: 'rgba(255,255,255,0.8)', 
+                    margin: 0, 
+                    fontSize: '12px'
+                  }}>
+                    {stat.title}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            {/* Quick Actions */}
+            <div style={{ marginBottom: '25px' }}>
+              <h3 style={{ color: 'white', marginBottom: '15px', fontSize: '18px', fontWeight: 'bold' }}>
+                ⚡ Quick Actions
+              </h3>
+              <div style={{ 
+                display: 'grid', 
+                gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', 
+                gap: '12px' 
+              }}>
+                {[
+                  { title: 'New Bill', icon: '🧾', color: '#3498db', action: onBackToBilling },
+                  { title: 'Analytics', icon: '📊', color: '#9b59b6', action: () => setShowAnalytics(true) },
+                  { title: 'Expenses', icon: '💸', color: '#e74c3c', action: () => setShowExpenseManager(true) },
+                  { title: 'Edit Bills', icon: '✏️', color: '#27ae60', action: () => setShowBillManager(true) },
+                  { title: 'Add Previous', icon: '📋', color: '#e67e22', action: () => setShowAddPreviousBill(true) },
+                  { title: 'Test Print', icon: '🖨️', color: '#34495e', action: () => {
+                    const testBill: BillData = {
+                      businessName: shopConfig.shopName,
+                      address: shopConfig.address,
+                      phone: shopConfig.contact,
+                      billNumber: 'TEST-' + Date.now(),
+                      customerName: 'Test Customer',
+                      items: [{ name: 'Test Item', quantity: 1, rate: 100, amount: 100 }],
+                      subtotal: 100,
+                      grandTotal: 100
+                    };
+                    printThermalBill(testBill);
+                  }}
+                ].map((action, index) => (
+                  <button
+                    key={index}
+                    onClick={action.action}
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.15)',
+                      backdropFilter: 'blur(15px)',
+                      border: '1px solid rgba(255, 255, 255, 0.2)',
+                      borderRadius: '12px',
+                      padding: '15px',
+                      color: 'white',
+                      cursor: 'pointer',
+                      textAlign: 'center',
+                      transition: 'all 0.3s ease',
+                      fontSize: '14px',
+                      fontWeight: 'bold'
+                    }}
+                  >
+                    <div style={{ 
+                      fontSize: '24px', 
+                      marginBottom: '8px',
+                      background: action.color,
+                      width: '40px',
+                      height: '40px',
+                      borderRadius: '10px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      margin: '0 auto 8px'
+                    }}>
+                      {action.icon}
+                    </div>
+                    {action.title}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Recent Activity */}
+            <div>
+              <h3 style={{ color: 'white', marginBottom: '15px', fontSize: '18px', fontWeight: 'bold' }}>
+                📋 Recent Activity
+              </h3>
+              <div style={{ 
+                background: 'rgba(255,255,255,0.1)', 
+                borderRadius: '15px', 
+                padding: '20px' 
+              }}>
+                {[...pendingBills, ...billHistory]
+                  .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                  .slice(0, 5)
+                  .map((bill, index) => (
+                    <div key={index} style={{
+                      background: 'rgba(255,255,255,0.1)',
+                      borderRadius: '10px',
+                      padding: '15px',
+                      marginBottom: index < 4 ? '10px' : '0',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}>
+                      <div>
+                        <h4 style={{ color: 'white', margin: '0 0 5px 0', fontSize: '16px' }}>
+                          Bill {bill.billNumber}
+                        </h4>
+                        <p style={{ color: 'rgba(255,255,255,0.8)', margin: 0, fontSize: '14px' }}>
+                          {bill.customerName} - ₹{bill.grandTotal}
+                        </p>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ 
+                          background: bill.status === 'completed' || bill.status === 'delivered' ? '#27ae60' : '#f39c12',
+                          color: 'white',
+                          padding: '4px 8px',
+                          borderRadius: '6px',
+                          fontSize: '12px',
+                          fontWeight: 'bold',
+                          marginBottom: '5px'
+                        }}>
+                          {bill.status.toUpperCase()}
+                        </div>
+                        <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '12px' }}>
+                          {new Date(bill.createdAt).toLocaleDateString()}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                {[...pendingBills, ...billHistory].length === 0 && (
+                  <div style={{ textAlign: 'center', color: 'rgba(255,255,255,0.7)', padding: '40px' }}>
+                    <div style={{ fontSize: '48px', marginBottom: '15px' }}>📋</div>
+                    <p>No recent activity</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {activeTab === 'analytics' && (
           <div style={{ animation: 'slideIn 0.5s ease-out' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
