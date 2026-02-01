@@ -26,6 +26,7 @@ class ApiService {
       const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
 
       console.log(`🔄 API Request: ${API_BASE_URL}${endpoint}`);
+      console.log(`🌐 Environment: ${import.meta.env.PROD ? 'PRODUCTION' : 'DEVELOPMENT'}`);
       console.log(`🌐 Request options:`, { 
         method: options.method || 'GET',
         headers: {
@@ -68,10 +69,10 @@ class ApiService {
           throw new Error('Request timeout - please check your connection');
         }
         if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
-          throw new Error('Cannot connect to server - please ensure backend is running on port 8000');
+          throw new Error(`Cannot connect to server at ${API_BASE_URL} - please check if backend is running and accessible`);
         }
         if (error.message.includes('CORS')) {
-          throw new Error('CORS error - server may not be configured properly');
+          throw new Error('CORS error - server may not be configured properly for this domain');
         }
         throw error;
       }
