@@ -4,6 +4,8 @@ import { ShopConfig, PendingBill } from './types';
 import PendingBillSelector from './PendingBillSelector';
 import FunctionalQRCode from './FunctionalQRCode';
 import UPISettings from './UPISettings';
+import UPIStatusIndicator from './UPIStatusIndicator';
+import ItemListManager from './ItemListManager';
 import apiService from './api';
 import { useAlert } from './GlobalAlert';
 
@@ -50,6 +52,7 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
   const [selectedPendingBills, setSelectedPendingBills] = useState<PendingBill[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [showUPISettings, setShowUPISettings] = useState(false);
+  const [showItemListManager, setShowItemListManager] = useState(false);
   
   const itemInputRef = useRef<HTMLInputElement>(null);
   const priceInputRef = useRef<HTMLInputElement>(null);
@@ -778,152 +781,237 @@ const quickItems = [
           </div>
         </div>
 
-        {/* Right Panel - Bill */}
+        {/* Right Panel - Bill Summary with New Layout */}
         <div className="glass" style={{ width: '40%', borderRadius: '20px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           
           {/* Bill Header */}
           <div style={{
-            padding: '20px', background: 'linear-gradient(135deg, #2c3e50, #34495e)', color: 'white'
+            padding: '15px 20px', 
+            background: 'linear-gradient(135deg, #2c3e50, #34495e)', 
+            color: 'white',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
           }}>
-            <h2 style={{ margin: 0, fontSize: '22px', textAlign: 'center', fontWeight: 'bold' }}>
+            <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 'bold' }}>
               🧾 BILL SUMMARY
             </h2>
-          </div>
-
-          {/* Quick Actions */}
-          <div style={{ padding: '15px', background: 'rgba(255, 255, 255, 0.05)', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
-            <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+            
+            {/* Right side controls */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              {/* Manage Items Button */}
+              <button
+                onClick={() => setShowItemListManager(true)}
+                style={{
+                  padding: '6px 10px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  background: 'linear-gradient(135deg, #9b59b6, #8e44ad)',
+                  color: 'white',
+                  cursor: 'pointer',
+                  fontSize: '11px',
+                  fontWeight: 'bold',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+              >
+                🛠️ MANAGE ITEMS
+                {orderItems.length > 0 && (
+                  <span style={{ 
+                    background: 'rgba(255, 255, 255, 0.3)', 
+                    borderRadius: '8px', 
+                    padding: '1px 4px', 
+                    fontSize: '9px' 
+                  }}>
+                    {orderItems.length}
+                  </span>
+                )}
+              </button>
+              
               <button
                 onClick={() => setShowPendingBillSelector(true)}
                 style={{
-                  flex: 1,
-                  padding: '8px',
+                  padding: '6px 10px',
                   borderRadius: '6px',
                   border: 'none',
                   background: 'linear-gradient(135deg, #3498db, #2980b9)',
                   color: 'white',
                   cursor: 'pointer',
-                  fontSize: '12px',
+                  fontSize: '11px',
                   fontWeight: 'bold',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center',
                   gap: '4px'
                 }}
               >
-                📋 Previous Bills
+                📋 PREVIOUS BILLS
                 {selectedPendingBills.length > 0 && (
                   <span style={{ 
                     background: 'rgba(255, 255, 255, 0.3)', 
                     borderRadius: '8px', 
-                    padding: '1px 5px', 
-                    fontSize: '10px' 
+                    padding: '1px 4px', 
+                    fontSize: '9px' 
                   }}>
                     {selectedPendingBills.length}
                   </span>
                 )}
               </button>
               
-              <button
-                onClick={() => setShowUPISettings(true)}
-                style={{
-                  padding: '8px 12px',
-                  borderRadius: '6px',
-                  border: 'none',
-                  background: 'linear-gradient(135deg, #9b59b6, #8e44ad)',
-                  color: 'white',
-                  cursor: 'pointer',
-                  fontSize: '12px',
-                  fontWeight: 'bold'
-                }}
-                title="Configure UPI Payment Settings"
-              >
-                💳 UPI
-              </button>
-            </div>
-            
-            {/* QR Code Display */}
-            {calculateTotal() > 0 && customer.name && (
-              <div style={{
-                background: 'rgba(255, 255, 255, 0.1)',
-                borderRadius: '8px',
-                padding: '12px',
-                textAlign: 'center'
+              <div style={{ 
+                background: 'rgba(46, 204, 113, 0.2)', 
+                borderRadius: '8px', 
+                padding: '8px 12px',
+                border: '1px solid rgba(46, 204, 113, 0.4)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
               }}>
-                <div style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '8px', color: 'white' }}>
-                  SCAN TO PAY
-                </div>
-                <FunctionalQRCode
-                  amount={calculateTotal()}
-                  billNumber={billNumber}
-                  businessName={shopConfig.shopName}
-                  style={{ width: '80px', height: '80px' }}
-                />
-                <div style={{
-                  fontSize: '10px',
-                  color: 'rgba(255,255,255,0.8)',
-                  marginTop: '6px'
-                }}>
-                  PhonePe | UPI | Cards
-                </div>
+                <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#2ecc71' }}>UPI</span>
+                <button
+                  onClick={() => setShowUPISettings(true)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#2ecc71',
+                    cursor: 'pointer',
+                    fontSize: '10px',
+                    padding: '2px 6px',
+                    borderRadius: '4px',
+                    fontWeight: 'bold'
+                  }}
+                  title="Configure UPI Settings"
+                >
+                  ⚙️
+                </button>
               </div>
-            )}
+            </div>
           </div>
 
-          {/* Items List */}
-          <div style={{ flex: 1, overflow: 'auto', background: 'rgba(255, 255, 255, 0.05)' }}>
+          {/* Items List - Simple and Clear */}
+          <div style={{ flex: 1, overflow: 'auto', background: 'rgba(255, 255, 255, 0.02)' }}>
             {orderItems.length === 0 && selectedPendingBills.length === 0 && previousBalance === 0 ? (
-              <div style={{ padding: '20px', textAlign: 'center', color: 'rgba(255, 255, 255, 0.7)', fontSize: '14px' }}>
-                <div style={{ fontSize: '40px', marginBottom: '10px', opacity: 0.5 }}>📝</div>
-                <div>No items added yet</div>
-                <small style={{ opacity: 0.7 }}>Add items, bills, or balance</small>
+              <div style={{ 
+                padding: '40px 20px', 
+                textAlign: 'center', 
+                color: 'rgba(255, 255, 255, 0.6)', 
+                fontSize: '14px'
+              }}>
+                <div style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.4 }}>📝</div>
+                <div style={{ fontSize: '16px', fontWeight: '500', marginBottom: '8px' }}>No items added yet</div>
+                <div style={{ fontSize: '12px', opacity: 0.7 }}>Add items to see bill summary</div>
               </div>
             ) : (
-              <div style={{ padding: '10px' }}>
+              <div style={{ padding: '15px' }}>
                 
                 {/* Current Order Items */}
                 {orderItems.length > 0 && (
-                  <div style={{ marginBottom: '15px' }}>
+                  <div style={{ marginBottom: '20px' }}>
                     <div style={{ 
-                      fontSize: '12px', 
+                      fontSize: '14px', 
                       fontWeight: 'bold', 
                       color: '#3498db', 
-                      marginBottom: '8px',
-                      padding: '0 5px'
+                      marginBottom: '12px',
+                      padding: '8px 12px',
+                      background: 'rgba(52, 152, 219, 0.1)',
+                      borderRadius: '8px',
+                      border: '1px solid rgba(52, 152, 219, 0.3)',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
                     }}>
-                      🛍️ CURRENT ORDER ({orderItems.length})
+                      <span>🛍️ CURRENT ORDER ({orderItems.length} items)</span>
+                      <button
+                        onClick={() => setShowItemListManager(true)}
+                        style={{
+                          background: 'rgba(52, 152, 219, 0.3)',
+                          border: '1px solid rgba(52, 152, 219, 0.5)',
+                          borderRadius: '4px',
+                          padding: '4px 8px',
+                          color: '#3498db',
+                          cursor: 'pointer',
+                          fontSize: '10px',
+                          fontWeight: 'bold',
+                          transition: 'all 0.2s ease'
+                        }}
+                        onMouseOver={(e) => {
+                          e.target.style.background = 'rgba(52, 152, 219, 0.5)';
+                          e.target.style.color = 'white';
+                        }}
+                        onMouseOut={(e) => {
+                          e.target.style.background = 'rgba(52, 152, 219, 0.3)';
+                          e.target.style.color = '#3498db';
+                        }}
+                      >
+                        🛠️ MANAGE
+                      </button>
                     </div>
+                    
                     {orderItems.map((item) => (
                       <div key={item.id} style={{
-                        background: 'rgba(255, 255, 255, 0.1)',
+                        background: 'rgba(255, 255, 255, 0.08)',
                         borderRadius: '8px',
-                        padding: '10px',
+                        padding: '12px',
                         marginBottom: '8px',
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
                         display: 'flex',
                         justifyContent: 'space-between',
                         alignItems: 'center'
                       }}>
-                        <div style={{ color: 'white', flex: 1 }}>
-                          <div style={{ fontWeight: 'bold', fontSize: '13px' }}>{item.name}</div>
-                          <div style={{ fontSize: '11px', opacity: 0.8 }}>
-                            {item.washType} • Qty: {item.quantity} • ₹{item.price} each
+                        <div style={{ flex: 1 }}>
+                          <div style={{ 
+                            color: 'white', 
+                            fontWeight: '600', 
+                            fontSize: '14px', 
+                            marginBottom: '4px'
+                          }}>
+                            {item.name}
+                          </div>
+                          <div style={{ 
+                            fontSize: '12px', 
+                            color: 'rgba(255, 255, 255, 0.7)',
+                            display: 'flex',
+                            gap: '12px',
+                            alignItems: 'center'
+                          }}>
+                            <span style={{ 
+                              background: 'rgba(52, 152, 219, 0.2)',
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              fontSize: '11px',
+                              fontWeight: '500'
+                            }}>
+                              {item.washType}
+                            </span>
+                            <span>Qty: <strong>{item.quantity}</strong></span>
+                            <span>Rate: <strong>₹{item.price}</strong></span>
                           </div>
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <div style={{ color: 'white', fontWeight: 'bold', fontSize: '14px' }}>₹{item.total}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <div style={{ 
+                            color: '#2ecc71', 
+                            fontWeight: 'bold', 
+                            fontSize: '16px' 
+                          }}>
+                            ₹{item.total}
+                          </div>
                           <button
                             onClick={() => removeItem(item.id)}
                             style={{
                               background: 'rgba(231, 76, 60, 0.8)',
                               border: 'none',
-                              borderRadius: '4px',
-                              padding: '4px 6px',
+                              borderRadius: '6px',
+                              padding: '6px 8px',
                               color: 'white',
                               cursor: 'pointer',
-                              fontSize: '11px'
+                              fontSize: '12px',
+                              fontWeight: 'bold',
+                              transition: 'all 0.2s ease'
                             }}
+                            onMouseOver={(e) => e.target.style.background = 'rgba(231, 76, 60, 1)'}
+                            onMouseOut={(e) => e.target.style.background = 'rgba(231, 76, 60, 0.8)'}
                           >
-                            ×
+                            Remove
                           </button>
                         </div>
                       </div>
@@ -933,50 +1021,79 @@ const quickItems = [
 
                 {/* Selected Pending Bills */}
                 {selectedPendingBills.length > 0 && (
-                  <div style={{ marginBottom: '15px' }}>
+                  <div style={{ marginBottom: '20px' }}>
                     <div style={{ 
-                      fontSize: '12px', 
+                      fontSize: '14px', 
                       fontWeight: 'bold', 
                       color: '#e67e22', 
-                      marginBottom: '8px',
-                      padding: '0 5px'
+                      marginBottom: '12px',
+                      padding: '8px 12px',
+                      background: 'rgba(230, 126, 34, 0.1)',
+                      borderRadius: '8px',
+                      border: '1px solid rgba(230, 126, 34, 0.3)'
                     }}>
-                      📋 PREVIOUS BILLS ({selectedPendingBills.length})
+                      📋 PREVIOUS BILLS ({selectedPendingBills.length} bills)
                     </div>
+                    
                     {selectedPendingBills.map((bill) => {
                       const billId = bill.id || bill._id;
                       return (
                       <div key={billId} style={{
                         background: 'rgba(230, 126, 34, 0.1)',
                         borderRadius: '8px',
-                        padding: '10px',
+                        padding: '12px',
                         marginBottom: '8px',
+                        border: '1px solid rgba(230, 126, 34, 0.3)',
                         display: 'flex',
                         justifyContent: 'space-between',
-                        alignItems: 'center',
-                        border: '1px solid rgba(230, 126, 34, 0.3)'
+                        alignItems: 'center'
                       }}>
-                        <div style={{ color: 'white', flex: 1 }}>
-                          <div style={{ fontWeight: 'bold', fontSize: '13px' }}>{bill.billNumber}</div>
-                          <div style={{ fontSize: '11px', opacity: 0.8 }}>
-                            {bill.items.length} items • {new Date(bill.createdAt).toLocaleDateString()}
+                        <div style={{ flex: 1 }}>
+                          <div style={{ 
+                            color: 'white', 
+                            fontWeight: '600', 
+                            fontSize: '14px', 
+                            marginBottom: '4px'
+                          }}>
+                            {bill.billNumber}
+                          </div>
+                          <div style={{ 
+                            fontSize: '12px', 
+                            color: 'rgba(255, 255, 255, 0.7)',
+                            display: 'flex',
+                            gap: '12px',
+                            alignItems: 'center'
+                          }}>
+                            <span>{bill.items.length} items</span>
+                            <span>•</span>
+                            <span>{new Date(bill.createdAt).toLocaleDateString()}</span>
                           </div>
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <div style={{ color: '#e67e22', fontWeight: 'bold', fontSize: '14px' }}>₹{bill.grandTotal}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <div style={{ 
+                            color: '#e67e22', 
+                            fontWeight: 'bold', 
+                            fontSize: '16px' 
+                          }}>
+                            ₹{bill.grandTotal}
+                          </div>
                           <button
                             onClick={() => removePendingBill(billId)}
                             style={{
                               background: 'rgba(231, 76, 60, 0.8)',
                               border: 'none',
-                              borderRadius: '4px',
-                              padding: '4px 6px',
+                              borderRadius: '6px',
+                              padding: '6px 8px',
                               color: 'white',
                               cursor: 'pointer',
-                              fontSize: '11px'
+                              fontSize: '12px',
+                              fontWeight: 'bold',
+                              transition: 'all 0.2s ease'
                             }}
+                            onMouseOver={(e) => e.target.style.background = 'rgba(231, 76, 60, 1)'}
+                            onMouseOut={(e) => e.target.style.background = 'rgba(231, 76, 60, 0.8)'}
                           >
-                            ×
+                            Remove
                           </button>
                         </div>
                       </div>
@@ -986,46 +1103,70 @@ const quickItems = [
 
                 {/* Previous Balance */}
                 {previousBalance > 0 && (
-                  <div style={{ marginBottom: '15px' }}>
+                  <div style={{ marginBottom: '20px' }}>
                     <div style={{ 
-                      fontSize: '12px', 
+                      fontSize: '14px', 
                       fontWeight: 'bold', 
                       color: '#f39c12', 
-                      marginBottom: '8px',
-                      padding: '0 5px'
+                      marginBottom: '12px',
+                      padding: '8px 12px',
+                      background: 'rgba(243, 156, 18, 0.1)',
+                      borderRadius: '8px',
+                      border: '1px solid rgba(243, 156, 18, 0.3)'
                     }}>
                       💰 PREVIOUS BALANCE
                     </div>
+                    
                     <div style={{
                       background: 'rgba(243, 156, 18, 0.1)',
                       borderRadius: '8px',
-                      padding: '10px',
+                      padding: '12px',
+                      border: '1px solid rgba(243, 156, 18, 0.3)',
                       display: 'flex',
                       justifyContent: 'space-between',
-                      alignItems: 'center',
-                      border: '1px solid rgba(243, 156, 18, 0.3)'
+                      alignItems: 'center'
                     }}>
-                      <div style={{ color: 'white', flex: 1 }}>
-                        <div style={{ fontWeight: 'bold', fontSize: '13px' }}>Outstanding Amount</div>
-                        <div style={{ fontSize: '11px', opacity: 0.8 }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ 
+                          color: 'white', 
+                          fontWeight: '600', 
+                          fontSize: '14px', 
+                          marginBottom: '4px'
+                        }}>
+                          Outstanding Amount
+                        </div>
+                        <div style={{ 
+                          fontSize: '12px', 
+                          color: 'rgba(255, 255, 255, 0.7)'
+                        }}>
                           Previous balance to settle
                         </div>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <div style={{ color: '#f39c12', fontWeight: 'bold', fontSize: '14px' }}>₹{previousBalance}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <div style={{ 
+                          color: '#f39c12', 
+                          fontWeight: 'bold', 
+                          fontSize: '16px' 
+                        }}>
+                          ₹{previousBalance}
+                        </div>
                         <button
                           onClick={() => setPreviousBalance(0)}
                           style={{
                             background: 'rgba(231, 76, 60, 0.8)',
                             border: 'none',
-                            borderRadius: '4px',
-                            padding: '4px 6px',
+                            borderRadius: '6px',
+                            padding: '6px 8px',
                             color: 'white',
                             cursor: 'pointer',
-                            fontSize: '11px'
+                            fontSize: '12px',
+                            fontWeight: 'bold',
+                            transition: 'all 0.2s ease'
                           }}
+                          onMouseOver={(e) => e.target.style.background = 'rgba(231, 76, 60, 1)'}
+                          onMouseOut={(e) => e.target.style.background = 'rgba(231, 76, 60, 0.8)'}
                         >
-                          ×
+                          Remove
                         </button>
                       </div>
                     </div>
@@ -1035,76 +1176,110 @@ const quickItems = [
             )}
           </div>
 
-          {/* Bill Calculations */}
-          <div style={{ padding: '15px', background: 'rgba(255, 255, 255, 0.05)', borderTop: '1px solid rgba(255, 255, 255, 0.1)' }}>
+          {/* Bill Footer - Professional Calculations & Actions */}
+          <div style={{ 
+            background: 'linear-gradient(135deg, #34495e, #2c3e50)', 
+            padding: '20px',
+            borderTop: '1px solid rgba(255, 255, 255, 0.1)'
+          }}>
             
-            {/* Discount, Delivery, Previous Balance - All in One Line */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.2fr', gap: '12px', marginBottom: '15px' }}>
+            {/* Quick Adjustments */}
+            <div style={{ 
+              display: 'grid', 
+              gridTemplateColumns: '1fr 1fr 1fr', 
+              gap: '12px', 
+              marginBottom: '20px' 
+            }}>
               <div>
-                <label style={{ display: 'block', marginBottom: '5px', fontSize: '12px', fontWeight: 'bold', color: 'white' }}>
-                  Discount (₹)
+                <label style={{ 
+                  display: 'block', 
+                  marginBottom: '6px', 
+                  fontSize: '11px', 
+                  fontWeight: '600', 
+                  color: 'rgba(255, 255, 255, 0.8)' 
+                }}>
+                  Discount
                 </label>
                 <input
                   type="number" 
                   value={discount} 
                   onChange={(e) => setDiscount(Math.max(0, parseFloat(e.target.value) || 0))}
-                  placeholder="0" 
-                  className="input-modern"
+                  placeholder="₹0" 
                   style={{ 
                     width: '100%', 
                     padding: '8px', 
                     borderRadius: '6px', 
-                    fontSize: '13px', 
+                    fontSize: '12px', 
                     outline: 'none',
-                    border: 'none',
-                    background: 'rgba(255, 255, 255, 0.9)'
+                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                    background: 'rgba(255, 255, 255, 0.95)',
+                    color: '#333',
+                    transition: 'all 0.2s ease'
                   }}
+                  onFocus={(e) => e.target.style.borderColor = '#3498db'}
+                  onBlur={(e) => e.target.style.borderColor = 'rgba(255, 255, 255, 0.2)'}
                 />
               </div>
               <div>
-                <label style={{ display: 'block', marginBottom: '5px', fontSize: '12px', fontWeight: 'bold', color: 'white' }}>
-                  Delivery (₹)
+                <label style={{ 
+                  display: 'block', 
+                  marginBottom: '6px', 
+                  fontSize: '11px', 
+                  fontWeight: '600', 
+                  color: 'rgba(255, 255, 255, 0.8)' 
+                }}>
+                  Delivery
                 </label>
                 <input
                   type="number" 
                   value={deliveryCharge} 
                   onChange={(e) => setDeliveryCharge(Math.max(0, parseFloat(e.target.value) || 0))}
-                  placeholder="0" 
-                  className="input-modern"
+                  placeholder="₹0" 
                   style={{ 
                     width: '100%', 
                     padding: '8px', 
                     borderRadius: '6px', 
-                    fontSize: '13px', 
+                    fontSize: '12px', 
                     outline: 'none',
-                    border: 'none',
-                    background: 'rgba(255, 255, 255, 0.9)'
+                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                    background: 'rgba(255, 255, 255, 0.95)',
+                    color: '#333',
+                    transition: 'all 0.2s ease'
                   }}
+                  onFocus={(e) => e.target.style.borderColor = '#3498db'}
+                  onBlur={(e) => e.target.style.borderColor = 'rgba(255, 255, 255, 0.2)'}
                 />
               </div>
               <div>
-                <label style={{ display: 'block', marginBottom: '5px', fontSize: '12px', fontWeight: 'bold', color: '#f39c12' }}>
-                  💰 Add Previous Due Balance (₹)
+                <label style={{ 
+                  display: 'block', 
+                  marginBottom: '6px', 
+                  fontSize: '11px', 
+                  fontWeight: '600', 
+                  color: '#f39c12' 
+                }}>
+                  Previous Due
                 </label>
-                <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
                   <input
                     type="number" 
                     value={previousBalance} 
                     onChange={(e) => setPreviousBalance(Math.max(0, parseFloat(e.target.value) || 0))}
-                    placeholder="0" 
-                    className="input-modern"
+                    placeholder="₹0" 
                     style={{ 
                       flex: 1,
                       padding: '8px', 
                       borderRadius: '6px', 
-                      fontSize: '13px', 
+                      fontSize: '12px', 
                       outline: 'none',
-                      border: previousBalance > 0 ? '2px solid #f39c12' : 'none',
-                      background: 'rgba(255, 255, 255, 0.9)'
+                      border: previousBalance > 0 ? '2px solid #f39c12' : '1px solid rgba(255, 255, 255, 0.2)',
+                      background: 'rgba(255, 255, 255, 0.95)',
+                      color: '#333',
+                      transition: 'all 0.2s ease'
                     }}
                   />
                   <div style={{ display: 'flex', gap: '2px' }}>
-                    {[50, 100, 200, 500].map(amount => (
+                    {[50, 100].map(amount => (
                       <button
                         key={amount}
                         onClick={() => setPreviousBalance(amount)}
@@ -1112,13 +1287,16 @@ const quickItems = [
                           padding: '4px 6px',
                           fontSize: '9px',
                           border: 'none',
-                          borderRadius: '3px',
+                          borderRadius: '4px',
                           background: 'rgba(243, 156, 18, 0.8)',
                           color: 'white',
                           cursor: 'pointer',
                           fontWeight: 'bold',
-                          minWidth: '28px'
+                          minWidth: '24px',
+                          transition: 'all 0.2s ease'
                         }}
+                        onMouseOver={(e) => e.target.style.background = 'rgba(243, 156, 18, 1)'}
+                        onMouseOut={(e) => e.target.style.background = 'rgba(243, 156, 18, 0.8)'}
                       >
                         {amount}
                       </button>
@@ -1128,99 +1306,500 @@ const quickItems = [
               </div>
             </div>
 
-            {/* Totals */}
-            <div style={{ marginBottom: '15px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px', fontSize: '13px', color: 'white' }}>
+            {/* Bill Totals */}
+            <div style={{ 
+              background: 'rgba(255, 255, 255, 0.05)', 
+              borderRadius: '10px', 
+              padding: '16px',
+              marginBottom: '20px',
+              border: '1px solid rgba(255, 255, 255, 0.1)'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '13px', color: 'rgba(255, 255, 255, 0.8)' }}>
                 <span>Subtotal:</span>
-                <span style={{ fontWeight: 'bold' }}>₹{calculateSubtotal()}</span>
+                <span style={{ fontWeight: '600' }}>₹{calculateSubtotal()}</span>
               </div>
               {discount > 0 && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px', color: '#e74c3c', fontSize: '13px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', color: '#e74c3c', fontSize: '13px' }}>
                   <span>Discount:</span>
-                  <span style={{ fontWeight: 'bold' }}>-₹{discount}</span>
+                  <span style={{ fontWeight: '600' }}>-₹{discount}</span>
                 </div>
               )}
               {deliveryCharge > 0 && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px', color: '#f39c12', fontSize: '13px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', color: '#f39c12', fontSize: '13px' }}>
                   <span>Delivery:</span>
-                  <span style={{ fontWeight: 'bold' }}>+₹{deliveryCharge}</span>
+                  <span style={{ fontWeight: '600' }}>+₹{deliveryCharge}</span>
                 </div>
               )}
-              <hr style={{ margin: '10px 0', border: '1px solid rgba(255, 255, 255, 0.2)' }} />
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '16px', fontWeight: 'bold', color: 'white' }}>
+              <hr style={{ margin: '12px 0', border: 'none', borderTop: '1px solid rgba(255, 255, 255, 0.2)' }} />
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '18px', fontWeight: 'bold', color: 'white' }}>
                 <span>TOTAL:</span>
-                <span style={{ color: '#3498db' }}>₹{calculateTotal()}</span>
+                <span style={{ color: '#2ecc71' }}>₹{calculateTotal()}</span>
               </div>
             </div>
 
-            {/* All Action Buttons in One Line */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 1fr', gap: '10px', alignItems: 'center' }}>
+            {/* Action Buttons */}
+            <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
               <button
                 onClick={printClothingTags} 
                 disabled={orderItems.length === 0 || !customer.name}
-                className="btn-modern" 
                 style={{
-                  padding: '12px 8px', 
+                  flex: 1,
+                  padding: '12px', 
                   borderRadius: '8px', 
                   fontSize: '12px', 
-                  fontWeight: 'bold',
+                  fontWeight: '600',
                   background: orderItems.length === 0 || !customer.name 
-                    ? 'rgba(189, 195, 199, 0.5)' 
+                    ? 'rgba(189, 195, 199, 0.3)' 
                     : 'linear-gradient(135deg, #f39c12, #e67e22)',
                   color: 'white', 
                   cursor: orderItems.length === 0 || !customer.name ? 'not-allowed' : 'pointer',
                   border: 'none',
-                  textAlign: 'center'
+                  textAlign: 'center',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseOver={(e) => {
+                  if (orderItems.length > 0 && customer.name) {
+                    e.target.style.transform = 'translateY(-2px)';
+                    e.target.style.boxShadow = '0 4px 12px rgba(243, 156, 18, 0.3)';
+                  }
+                }}
+                onMouseOut={(e) => {
+                  e.target.style.transform = 'translateY(0)';
+                  e.target.style.boxShadow = 'none';
                 }}
               >
-                🏷️ Tags
-              </button>
-              
-              <button
-                onClick={processOrder} 
-                disabled={!customer.name || (orderItems.length === 0 && selectedPendingBills.length === 0 && previousBalance === 0) || isProcessing}
-                className="btn-modern" 
-                style={{
-                  padding: '12px', 
-                  borderRadius: '8px', 
-                  fontSize: '13px', 
-                  fontWeight: 'bold',
-                  background: (!customer.name || (orderItems.length === 0 && selectedPendingBills.length === 0 && previousBalance === 0) || isProcessing) 
-                    ? 'rgba(189, 195, 199, 0.5)' 
-                    : 'linear-gradient(135deg, #27ae60, #2ecc71)',
-                  color: 'white', 
-                  cursor: (!customer.name || (orderItems.length === 0 && selectedPendingBills.length === 0 && previousBalance === 0) || isProcessing) 
-                    ? 'not-allowed' 
-                    : 'pointer',
-                  border: 'none',
-                  textAlign: 'center'
-                }}
-              >
-                🧾 Print Bill
+                🏷️ Print Tags
               </button>
               
               <button
                 onClick={clearOrder} 
                 disabled={orderItems.length === 0 && selectedPendingBills.length === 0 && previousBalance === 0}
-                className="btn-modern" 
                 style={{
-                  padding: '12px 8px', 
+                  flex: 1,
+                  padding: '12px', 
                   borderRadius: '8px', 
                   fontSize: '12px', 
-                  fontWeight: 'bold',
+                  fontWeight: '600',
                   background: (orderItems.length === 0 && selectedPendingBills.length === 0 && previousBalance === 0) 
-                    ? 'rgba(189, 195, 199, 0.5)' 
+                    ? 'rgba(189, 195, 199, 0.3)' 
                     : 'linear-gradient(135deg, #95a5a6, #7f8c8d)',
                   color: 'white', 
                   cursor: (orderItems.length === 0 && selectedPendingBills.length === 0 && previousBalance === 0) 
                     ? 'not-allowed' 
                     : 'pointer',
                   border: 'none',
-                  textAlign: 'center'
+                  textAlign: 'center',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseOver={(e) => {
+                  if (orderItems.length > 0 || selectedPendingBills.length > 0 || previousBalance > 0) {
+                    e.target.style.transform = 'translateY(-2px)';
+                    e.target.style.boxShadow = '0 4px 12px rgba(149, 165, 166, 0.3)';
+                  }
+                }}
+                onMouseOut={(e) => {
+                  e.target.style.transform = 'translateY(0)';
+                  e.target.style.boxShadow = 'none';
                 }}
               >
                 🗑️ Clear All
               </button>
+            </div>
+
+            <button
+              onClick={processOrder} 
+              disabled={!customer.name || (orderItems.length === 0 && selectedPendingBills.length === 0 && previousBalance === 0) || isProcessing}
+              style={{
+                width: '100%',
+                padding: '14px', 
+                borderRadius: '10px', 
+                fontSize: '14px', 
+                fontWeight: 'bold',
+                background: (!customer.name || (orderItems.length === 0 && selectedPendingBills.length === 0 && previousBalance === 0) || isProcessing) 
+                  ? 'rgba(189, 195, 199, 0.3)' 
+                  : 'linear-gradient(135deg, #27ae60, #2ecc71)',
+                color: 'white', 
+                cursor: (!customer.name || (orderItems.length === 0 && selectedPendingBills.length === 0 && previousBalance === 0) || isProcessing) 
+                  ? 'not-allowed' 
+                  : 'pointer',
+                border: 'none',
+                textAlign: 'center',
+                transition: 'all 0.2s ease',
+                boxShadow: '0 2px 8px rgba(39, 174, 96, 0.2)'
+              }}
+              onMouseOver={(e) => {
+                if (customer.name && (orderItems.length > 0 || selectedPendingBills.length > 0 || previousBalance > 0) && !isProcessing) {
+                  e.target.style.transform = 'translateY(-2px)';
+                  e.target.style.boxShadow = '0 6px 16px rgba(39, 174, 96, 0.4)';
+                }
+              }}
+              onMouseOut={(e) => {
+                e.target.style.transform = 'translateY(0)';
+                e.target.style.boxShadow = '0 2px 8px rgba(39, 174, 96, 0.2)';
+              }}
+            >
+              🧾 PRINT BILL & GENERATE RECEIPT
+            </button>
+
+            {/* Bottom Section - Scanner Left, Controls Right */}
+            <div style={{ 
+              display: 'flex', 
+              gap: '10px', 
+              padding: '10px',
+              background: 'linear-gradient(135deg, #34495e, #2c3e50)'
+            }}>
+              
+              {/* SCANNER - Bottom Left */}
+              <div style={{ 
+                width: '140px',
+                background: 'rgba(255, 255, 255, 0.05)',
+                borderRadius: '8px',
+                padding: '10px',
+                border: '2px solid rgba(255, 255, 255, 0.1)',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '8px'
+              }}>
+                <div style={{ 
+                  fontSize: '12px', 
+                  fontWeight: 'bold', 
+                  color: 'white',
+                  textAlign: 'center'
+                }}>
+                  SCANNER
+                </div>
+                
+                {calculateTotal() > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                    <FunctionalQRCode
+                      amount={calculateTotal()}
+                      billNumber={billNumber}
+                      businessName={shopConfig.shopName}
+                      style={{ 
+                        width: '90px', 
+                        height: '90px',
+                        border: '3px solid #2ecc71',
+                        borderRadius: '8px',
+                        background: 'white',
+                        padding: '4px',
+                        filter: 'contrast(1.5) brightness(1.1)',
+                        boxShadow: '0 4px 12px rgba(46, 204, 113, 0.3)'
+                      }}
+                    />
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ 
+                        fontSize: '14px', 
+                        fontWeight: 'bold', 
+                        color: '#2ecc71',
+                        marginBottom: '3px',
+                        textShadow: '0 1px 2px rgba(0, 0, 0, 0.5)'
+                      }}>
+                        ₹{calculateTotal()}
+                      </div>
+                      <div style={{
+                        fontSize: '9px',
+                        color: 'rgba(255,255,255,0.8)',
+                        lineHeight: '1.2',
+                        fontWeight: '500'
+                      }}>
+                        Scan with UPI app<br/>
+                        <span style={{ color: '#2ecc71' }}>High Contrast QR</span>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                    <img 
+                      src="/scanner.png" 
+                      alt="Scanner" 
+                      style={{ 
+                        width: '90px', 
+                        height: '90px',
+                        border: '3px solid rgba(255, 255, 255, 0.3)',
+                        borderRadius: '8px',
+                        background: 'white',
+                        padding: '4px',
+                        filter: 'contrast(1.3) brightness(1.1)',
+                        boxShadow: '0 4px 12px rgba(255, 255, 255, 0.1)'
+                      }} 
+                    />
+                    <div style={{
+                      fontSize: '9px',
+                      color: 'rgba(255,255,255,0.7)',
+                      textAlign: 'center',
+                      lineHeight: '1.2',
+                      fontWeight: '500'
+                    }}>
+                      Add items to generate<br/>
+                      <span style={{ color: '#3498db' }}>High Contrast QR</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Controls - Bottom Right */}
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                
+                {/* DISCOUNT, DELIVERY, PREVIOUS DUE */}
+                <div style={{ 
+                  display: 'grid', 
+                  gridTemplateColumns: '1fr 1fr 1fr', 
+                  gap: '6px'
+                }}>
+                  <div>
+                    <label style={{ 
+                      display: 'block', 
+                      marginBottom: '4px', 
+                      fontSize: '10px', 
+                      fontWeight: '600', 
+                      color: 'rgba(255, 255, 255, 0.8)' 
+                    }}>
+                      DISCOUNT
+                    </label>
+                    <input
+                      type="number" 
+                      value={discount} 
+                      onChange={(e) => setDiscount(Math.max(0, parseFloat(e.target.value) || 0))}
+                      placeholder="₹0" 
+                      style={{ 
+                        width: '100%', 
+                        padding: '6px', 
+                        borderRadius: '4px', 
+                        fontSize: '11px', 
+                        outline: 'none',
+                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                        background: 'rgba(255, 255, 255, 0.95)',
+                        color: '#333',
+                        transition: 'all 0.2s ease'
+                      }}
+                      onFocus={(e) => e.target.style.borderColor = '#3498db'}
+                      onBlur={(e) => e.target.style.borderColor = 'rgba(255, 255, 255, 0.2)'}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ 
+                      display: 'block', 
+                      marginBottom: '4px', 
+                      fontSize: '10px', 
+                      fontWeight: '600', 
+                      color: 'rgba(255, 255, 255, 0.8)' 
+                    }}>
+                      DELIVERY
+                    </label>
+                    <input
+                      type="number" 
+                      value={deliveryCharge} 
+                      onChange={(e) => setDeliveryCharge(Math.max(0, parseFloat(e.target.value) || 0))}
+                      placeholder="₹0" 
+                      style={{ 
+                        width: '100%', 
+                        padding: '6px', 
+                        borderRadius: '4px', 
+                        fontSize: '11px', 
+                        outline: 'none',
+                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                        background: 'rgba(255, 255, 255, 0.95)',
+                        color: '#333',
+                        transition: 'all 0.2s ease'
+                      }}
+                      onFocus={(e) => e.target.style.borderColor = '#3498db'}
+                      onBlur={(e) => e.target.style.borderColor = 'rgba(255, 255, 255, 0.2)'}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ 
+                      display: 'block', 
+                      marginBottom: '4px', 
+                      fontSize: '10px', 
+                      fontWeight: '600', 
+                      color: '#f39c12' 
+                    }}>
+                      PREVIOUS DUE
+                    </label>
+                    <div style={{ display: 'flex', gap: '2px', alignItems: 'center' }}>
+                      <input
+                        type="number" 
+                        value={previousBalance} 
+                        onChange={(e) => setPreviousBalance(Math.max(0, parseFloat(e.target.value) || 0))}
+                        placeholder="₹0" 
+                        style={{ 
+                          flex: 1,
+                          padding: '6px', 
+                          borderRadius: '4px', 
+                          fontSize: '11px', 
+                          outline: 'none',
+                          border: previousBalance > 0 ? '2px solid #f39c12' : '1px solid rgba(255, 255, 255, 0.2)',
+                          background: 'rgba(255, 255, 255, 0.95)',
+                          color: '#333',
+                          transition: 'all 0.2s ease'
+                        }}
+                      />
+                      <div style={{ display: 'flex', gap: '1px' }}>
+                        {[50, 100].map(amount => (
+                          <button
+                            key={amount}
+                            onClick={() => setPreviousBalance(amount)}
+                            style={{
+                              padding: '3px 4px',
+                              fontSize: '8px',
+                              border: 'none',
+                              borderRadius: '3px',
+                              background: 'rgba(243, 156, 18, 0.8)',
+                              color: 'white',
+                              cursor: 'pointer',
+                              fontWeight: 'bold',
+                              minWidth: '20px',
+                              transition: 'all 0.2s ease'
+                            }}
+                            onMouseOver={(e) => e.target.style.background = 'rgba(243, 156, 18, 1)'}
+                            onMouseOut={(e) => e.target.style.background = 'rgba(243, 156, 18, 0.8)'}
+                          >
+                            {amount}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bill Totals */}
+                <div style={{ 
+                  background: 'rgba(255, 255, 255, 0.05)', 
+                  borderRadius: '6px', 
+                  padding: '10px',
+                  marginBottom: '8px',
+                  border: '1px solid rgba(255, 255, 255, 0.1)'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontSize: '11px', color: 'rgba(255, 255, 255, 0.8)' }}>
+                    <span>Subtotal:</span>
+                    <span style={{ fontWeight: '600' }}>₹{calculateSubtotal()}</span>
+                  </div>
+                  {discount > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', color: '#e74c3c', fontSize: '11px' }}>
+                      <span>Discount:</span>
+                      <span style={{ fontWeight: '600' }}>-₹{discount}</span>
+                    </div>
+                  )}
+                  {deliveryCharge > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', color: '#f39c12', fontSize: '11px' }}>
+                      <span>Delivery:</span>
+                      <span style={{ fontWeight: '600' }}>+₹{deliveryCharge}</span>
+                    </div>
+                  )}
+                  <hr style={{ margin: '6px 0', border: 'none', borderTop: '1px solid rgba(255, 255, 255, 0.2)' }} />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 'bold', color: 'white' }}>
+                    <span>TOTAL:</span>
+                    <span style={{ color: '#2ecc71' }}>₹{calculateTotal()}</span>
+                  </div>
+                </div>
+
+                {/* Action Buttons - PRINT TAGS, CLEAR ALL, PRINT BILL */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <div style={{ display: 'flex', gap: '4px' }}>
+                    <button
+                      onClick={printClothingTags} 
+                      disabled={orderItems.length === 0 || !customer.name}
+                      style={{
+                        flex: 1,
+                        padding: '6px', 
+                        borderRadius: '4px', 
+                        fontSize: '9px', 
+                        fontWeight: '600',
+                        background: orderItems.length === 0 || !customer.name 
+                          ? 'rgba(189, 195, 199, 0.3)' 
+                          : 'linear-gradient(135deg, #f39c12, #e67e22)',
+                        color: 'white', 
+                        cursor: orderItems.length === 0 || !customer.name ? 'not-allowed' : 'pointer',
+                        border: 'none',
+                        textAlign: 'center',
+                        transition: 'all 0.2s ease'
+                      }}
+                      onMouseOver={(e) => {
+                        if (orderItems.length > 0 && customer.name) {
+                          e.target.style.transform = 'translateY(-1px)';
+                          e.target.style.boxShadow = '0 2px 6px rgba(243, 156, 18, 0.3)';
+                        }
+                      }}
+                      onMouseOut={(e) => {
+                        e.target.style.transform = 'translateY(0)';
+                        e.target.style.boxShadow = 'none';
+                      }}
+                    >
+                      🏷️ PRINT TAGS
+                    </button>
+                    
+                    <button
+                      onClick={clearOrder} 
+                      disabled={orderItems.length === 0 && selectedPendingBills.length === 0 && previousBalance === 0}
+                      style={{
+                        flex: 1,
+                        padding: '6px', 
+                        borderRadius: '4px', 
+                        fontSize: '9px', 
+                        fontWeight: '600',
+                        background: (orderItems.length === 0 && selectedPendingBills.length === 0 && previousBalance === 0) 
+                          ? 'rgba(189, 195, 199, 0.3)' 
+                          : 'linear-gradient(135deg, #95a5a6, #7f8c8d)',
+                        color: 'white', 
+                        cursor: (orderItems.length === 0 && selectedPendingBills.length === 0 && previousBalance === 0) 
+                          ? 'not-allowed' 
+                          : 'pointer',
+                        border: 'none',
+                        textAlign: 'center',
+                        transition: 'all 0.2s ease'
+                      }}
+                      onMouseOver={(e) => {
+                        if (orderItems.length > 0 || selectedPendingBills.length > 0 || previousBalance > 0) {
+                          e.target.style.transform = 'translateY(-1px)';
+                          e.target.style.boxShadow = '0 2px 6px rgba(149, 165, 166, 0.3)';
+                        }
+                      }}
+                      onMouseOut={(e) => {
+                        e.target.style.transform = 'translateY(0)';
+                        e.target.style.boxShadow = 'none';
+                      }}
+                    >
+                      🗑️ CLEAR ALL
+                    </button>
+                  </div>
+
+                  <button
+                    onClick={processOrder} 
+                    disabled={!customer.name || (orderItems.length === 0 && selectedPendingBills.length === 0 && previousBalance === 0) || isProcessing}
+                    style={{
+                      width: '100%',
+                      padding: '8px', 
+                      borderRadius: '6px', 
+                      fontSize: '10px', 
+                      fontWeight: 'bold',
+                      background: (!customer.name || (orderItems.length === 0 && selectedPendingBills.length === 0 && previousBalance === 0) || isProcessing) 
+                        ? 'rgba(189, 195, 199, 0.3)' 
+                        : 'linear-gradient(135deg, #27ae60, #2ecc71)',
+                      color: 'white', 
+                      cursor: (!customer.name || (orderItems.length === 0 && selectedPendingBills.length === 0 && previousBalance === 0) || isProcessing) 
+                        ? 'not-allowed' 
+                        : 'pointer',
+                      border: 'none',
+                      textAlign: 'center',
+                      transition: 'all 0.2s ease',
+                      boxShadow: '0 2px 4px rgba(39, 174, 96, 0.2)'
+                    }}
+                    onMouseOver={(e) => {
+                      if (customer.name && (orderItems.length > 0 || selectedPendingBills.length > 0 || previousBalance > 0) && !isProcessing) {
+                        e.target.style.transform = 'translateY(-1px)';
+                        e.target.style.boxShadow = '0 4px 8px rgba(39, 174, 96, 0.4)';
+                      }
+                    }}
+                    onMouseOut={(e) => {
+                      e.target.style.transform = 'translateY(0)';
+                      e.target.style.boxShadow = '0 2px 4px rgba(39, 174, 96, 0.2)';
+                    }}
+                  >
+                    {isProcessing ? '⏳ Processing...' : '🧾 PRINT BILL & GENERATE RECEIPT'}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -1239,6 +1818,15 @@ const quickItems = [
       {showUPISettings && (
         <UPISettings
           onClose={() => setShowUPISettings(false)}
+        />
+      )}
+
+      {/* Item List Manager Modal */}
+      {showItemListManager && (
+        <ItemListManager
+          orderItems={orderItems}
+          onUpdateOrderItems={setOrderItems}
+          onClose={() => setShowItemListManager(false)}
         />
       )}
     </div>

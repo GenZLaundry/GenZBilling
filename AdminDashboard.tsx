@@ -30,13 +30,126 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
   const [showExpenseManager, setShowExpenseManager] = useState(false);
   const [showBillManager, setShowBillManager] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [dashboardData, setDashboardData] = useState<any>(null);
+  const [analyticsData, setAnalyticsData] = useState<any>(null);
 
   // Load data on component mount
   useEffect(() => {
     loadShopConfig();
     loadPendingBills();
     loadBillHistory();
+    testDatabaseConnection();
   }, []);
+
+  // Test database connection and log results
+  const testDatabaseConnection = async () => {
+    try {
+      console.log('🔍 Testing database connection...');
+      const response = await apiService.testConnection();
+      console.log('✅ Database connection successful:', response);
+      showAlert({ message: 'Database connected successfully!', type: 'success' });
+      
+      // Load dashboard analytics data
+      loadDashboardAnalytics();
+    } catch (error) {
+      console.error('❌ Database connection failed:', error);
+      showAlert({ message: 'Database connection failed - using local storage', type: 'warning' });
+    }
+  };
+
+  // Load dashboard analytics from MongoDB
+  const loadDashboardAnalytics = async () => {
+    try {
+      console.log('📊 Loading dashboard analytics...');
+      const response = await apiService.getDashboardOverview();
+      console.log('📈 Dashboard analytics response:', response);
+      
+      if (response.success && response.data) {
+        setDashboardData(response.data);
+        console.log('✅ Dashboard analytics loaded successfully');
+      }
+    } catch (error) {
+      console.error('❌ Error loading dashboard analytics:', error);
+    }
+  };
+
+  // Load comprehensive analytics data
+  const loadAnalyticsData = async () => {
+    try {
+      console.log('📊 Loading comprehensive analytics...');
+      const response = await apiService.getAnalyticsData('month');
+      console.log('📈 Analytics response:', response);
+      
+      if (response.success && response.data) {
+        setAnalyticsData(response.data);
+        console.log('✅ Analytics data loaded successfully');
+      }
+    } catch (error) {
+      console.error('❌ Error loading analytics data:', error);
+    }
+  };
+
+  // Comprehensive MongoDB integration test
+  const testAllEndpoints = async () => {
+    try {
+      setLoading(true);
+      console.log('🧪 Starting comprehensive MongoDB integration test...');
+      
+      const tests = [
+        { name: 'Health Check', test: () => apiService.healthCheck() },
+        { name: 'Dashboard Overview', test: () => apiService.getDashboardOverview() },
+        { name: 'Business Reports', test: () => apiService.getBusinessReports() },
+        { name: 'Stats', test: () => apiService.getStats() },
+        { name: 'Revenue Chart', test: () => apiService.getRevenueChart() },
+        { name: 'All Bills', test: () => apiService.getBills({ limit: 5 }) },
+        { name: 'Pending Bills', test: () => apiService.getPendingBills() },
+        { name: 'Completed Bills', test: () => apiService.getCompletedBills({ limit: 5 }) },
+        { name: 'Expenses', test: () => apiService.getExpenses({ limit: 5 }) },
+        { name: 'Expense Summary', test: () => apiService.getExpenseSummary() },
+        { name: 'Shop Config', test: () => apiService.getShopConfig() }
+      ];
+
+      const results = [];
+      for (const { name, test } of tests) {
+        try {
+          console.log(`🔍 Testing ${name}...`);
+          const result = await test();
+          console.log(`✅ ${name}: SUCCESS`, result);
+          results.push({ name, status: 'SUCCESS', data: result });
+        } catch (error) {
+          console.error(`❌ ${name}: FAILED`, error);
+          results.push({ name, status: 'FAILED', error: error.message });
+        }
+      }
+
+      const successCount = results.filter(r => r.status === 'SUCCESS').length;
+      const totalCount = results.length;
+      
+      console.log(`🎯 Test Results: ${successCount}/${totalCount} endpoints working`);
+      console.table(results.map(r => ({ 
+        Endpoint: r.name, 
+        Status: r.status, 
+        Error: r.error || 'None' 
+      })));
+
+      showAlert({ 
+        message: `MongoDB Integration Test: ${successCount}/${totalCount} endpoints working`, 
+        type: successCount === totalCount ? 'success' : 'warning' 
+      });
+
+      // If dashboard overview worked, update the dashboard data
+      const dashboardResult = results.find(r => r.name === 'Dashboard Overview');
+      if (dashboardResult?.status === 'SUCCESS' && dashboardResult.data?.success) {
+        setDashboardData(dashboardResult.data.data);
+      }
+
+    } catch (error) {
+      console.error('❌ Comprehensive test failed:', error);
+      showAlert({ message: 'Test failed: ' + error.message, type: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const loadShopConfig = async () => {
     try {
@@ -502,7 +615,58 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
                 <h2 style={{ color: 'white', margin: 0, fontSize: '24px', fontWeight: 'bold' }}>🏠 Business Dashboard</h2>
                 <p style={{ color: 'rgba(255,255,255,0.8)', margin: '5px 0 0 0', fontSize: '14px' }}>
                   Complete overview of your laundry business performance
+                  {dashboardData && <span style={{ color: '#27ae60', fontWeight: 'bold' }}> • Connected to Database</span>}
                 </p>
+              </div>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  onClick={loadDashboardAnalytics}
+                  disabled={loading}
+                  style={{
+                    background: 'linear-gradient(135deg, #27ae60, #2ecc71)',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '10px 20px',
+                    color: 'white',
+                    cursor: loading ? 'not-allowed' : 'pointer',
+                    fontSize: '14px',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  {loading ? '⏳' : '🔄'} Refresh Analytics
+                </button>
+                <button
+                  onClick={testDatabaseConnection}
+                  disabled={loading}
+                  style={{
+                    background: 'linear-gradient(135deg, #3498db, #2980b9)',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '10px 20px',
+                    color: 'white',
+                    cursor: loading ? 'not-allowed' : 'pointer',
+                    fontSize: '14px',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  {loading ? '⏳' : '🔍'} Test DB
+                </button>
+                <button
+                  onClick={testAllEndpoints}
+                  disabled={loading}
+                  style={{
+                    background: 'linear-gradient(135deg, #9b59b6, #8e44ad)',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '10px 20px',
+                    color: 'white',
+                    cursor: loading ? 'not-allowed' : 'pointer',
+                    fontSize: '14px',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  {loading ? '⏳' : '🧪'} Test All
+                </button>
               </div>
             </div>
             
@@ -516,35 +680,50 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
               {[
                 { 
                   title: 'Total Revenue', 
-                  value: `₹${(pendingBills.reduce((sum, bill) => sum + bill.grandTotal, 0) + billHistory.reduce((sum, bill) => sum + bill.grandTotal, 0)).toLocaleString()}`, 
+                  value: dashboardData?.month?.revenue 
+                    ? `₹${dashboardData.month.revenue.toLocaleString()}` 
+                    : `₹${(pendingBills.reduce((sum, bill) => sum + bill.grandTotal, 0) + billHistory.reduce((sum, bill) => sum + bill.grandTotal, 0)).toLocaleString()}`, 
                   icon: '💰', 
-                  color: '#27ae60'
+                  color: '#27ae60',
+                  subtitle: dashboardData ? 'This Month (DB)' : 'Local Data'
                 },
                 { 
                   title: 'Today Revenue', 
-                  value: `₹${[...pendingBills, ...billHistory]
-                    .filter(bill => new Date(bill.createdAt).toDateString() === new Date().toDateString())
-                    .reduce((sum, bill) => sum + bill.grandTotal, 0).toLocaleString()}`, 
+                  value: dashboardData?.today?.revenue 
+                    ? `₹${dashboardData.today.revenue.toLocaleString()}` 
+                    : `₹${[...pendingBills, ...billHistory]
+                      .filter(bill => new Date(bill.createdAt).toDateString() === new Date().toDateString())
+                      .reduce((sum, bill) => sum + bill.grandTotal, 0).toLocaleString()}`, 
                   icon: '📈', 
-                  color: '#3498db'
+                  color: '#3498db',
+                  subtitle: dashboardData ? 'From Database' : 'Local Data'
                 },
                 { 
                   title: 'Total Bills', 
-                  value: (pendingBills.length + billHistory.length).toString(), 
+                  value: dashboardData?.month?.bills 
+                    ? dashboardData.month.bills.toString() 
+                    : (pendingBills.length + billHistory.length).toString(), 
                   icon: '🧾', 
-                  color: '#9b59b6'
+                  color: '#9b59b6',
+                  subtitle: dashboardData ? 'This Month (DB)' : 'Local Data'
                 },
                 { 
                   title: 'Pending Bills', 
-                  value: pendingBills.length.toString(), 
+                  value: dashboardData?.pendingBills !== undefined 
+                    ? dashboardData.pendingBills.toString() 
+                    : pendingBills.length.toString(), 
                   icon: '⏳', 
-                  color: '#f39c12'
+                  color: '#f39c12',
+                  subtitle: dashboardData ? 'From Database' : 'Local Data'
                 },
                 { 
-                  title: 'Customers', 
-                  value: new Set([...pendingBills, ...billHistory].map(bill => bill.customerName.toLowerCase())).size.toString(), 
-                  icon: '👥', 
-                  color: '#e74c3c'
+                  title: 'Today Profit', 
+                  value: dashboardData?.today?.profit !== undefined 
+                    ? `₹${dashboardData.today.profit.toLocaleString()}` 
+                    : 'N/A', 
+                  icon: '💎', 
+                  color: '#e74c3c',
+                  subtitle: dashboardData ? 'Revenue - Expenses' : 'Connect DB'
                 }
               ].map((stat, index) => (
                 <div key={index} style={{
@@ -577,10 +756,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
                   </h3>
                   <p style={{ 
                     color: 'rgba(255,255,255,0.8)', 
-                    margin: 0, 
+                    margin: '0 0 4px 0', 
                     fontSize: '12px'
                   }}>
                     {stat.title}
+                  </p>
+                  <p style={{ 
+                    color: 'rgba(255,255,255,0.6)', 
+                    margin: 0, 
+                    fontSize: '10px'
+                  }}>
+                    {stat.subtitle}
                   </p>
                 </div>
               ))}
@@ -598,10 +784,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
               }}>
                 {[
                   { title: 'New Bill', icon: '🧾', color: '#3498db', action: onBackToBilling },
-                  { title: 'Analytics', icon: '📊', color: '#9b59b6', action: () => setShowAnalytics(true) },
+                  { title: 'Analytics', icon: '📊', color: '#9b59b6', action: () => {
+                    loadAnalyticsData();
+                    setShowAnalytics(true);
+                  }},
                   { title: 'Expenses', icon: '💸', color: '#e74c3c', action: () => setShowExpenseManager(true) },
                   { title: 'Edit Bills', icon: '✏️', color: '#27ae60', action: () => setShowBillManager(true) },
                   { title: 'Add Previous', icon: '📋', color: '#e67e22', action: () => setShowAddPreviousBill(true) },
+                  { title: 'Test All APIs', icon: '🧪', color: '#9b59b6', action: testAllEndpoints },
                   { title: 'Test Print', icon: '🖨️', color: '#34495e', action: () => {
                     const testBill: BillData = {
                       businessName: shopConfig.shopName,
@@ -657,52 +847,58 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
             <div>
               <h3 style={{ color: 'white', marginBottom: '15px', fontSize: '18px', fontWeight: 'bold' }}>
                 📋 Recent Activity
+                {dashboardData?.recentActivity && (
+                  <span style={{ fontSize: '14px', color: 'rgba(255,255,255,0.7)', fontWeight: 'normal' }}>
+                    {' '}(From Database)
+                  </span>
+                )}
               </h3>
               <div style={{ 
                 background: 'rgba(255,255,255,0.1)', 
                 borderRadius: '15px', 
                 padding: '20px' 
               }}>
-                {[...pendingBills, ...billHistory]
-                  .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-                  .slice(0, 5)
-                  .map((bill, index) => (
-                    <div key={index} style={{
-                      background: 'rgba(255,255,255,0.1)',
-                      borderRadius: '10px',
-                      padding: '15px',
-                      marginBottom: index < 4 ? '10px' : '0',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center'
-                    }}>
-                      <div>
-                        <h4 style={{ color: 'white', margin: '0 0 5px 0', fontSize: '16px' }}>
-                          Bill {bill.billNumber}
-                        </h4>
-                        <p style={{ color: 'rgba(255,255,255,0.8)', margin: 0, fontSize: '14px' }}>
-                          {bill.customerName} - ₹{bill.grandTotal}
-                        </p>
+                {(dashboardData?.recentActivity || 
+                  [...pendingBills, ...billHistory]
+                    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                    .slice(0, 5)
+                ).map((bill: any, index: number) => (
+                  <div key={index} style={{
+                    background: 'rgba(255,255,255,0.1)',
+                    borderRadius: '10px',
+                    padding: '15px',
+                    marginBottom: index < 4 ? '10px' : '0',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                  }}>
+                    <div>
+                      <h4 style={{ color: 'white', margin: '0 0 5px 0', fontSize: '16px' }}>
+                        Bill {bill.billNumber}
+                      </h4>
+                      <p style={{ color: 'rgba(255,255,255,0.8)', margin: 0, fontSize: '14px' }}>
+                        {bill.customerName} - ₹{bill.grandTotal}
+                      </p>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ 
+                        background: bill.status === 'completed' || bill.status === 'delivered' ? '#27ae60' : '#f39c12',
+                        color: 'white',
+                        padding: '4px 8px',
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                        fontWeight: 'bold',
+                        marginBottom: '5px'
+                      }}>
+                        {bill.status.toUpperCase()}
                       </div>
-                      <div style={{ textAlign: 'right' }}>
-                        <div style={{ 
-                          background: bill.status === 'completed' || bill.status === 'delivered' ? '#27ae60' : '#f39c12',
-                          color: 'white',
-                          padding: '4px 8px',
-                          borderRadius: '6px',
-                          fontSize: '12px',
-                          fontWeight: 'bold',
-                          marginBottom: '5px'
-                        }}>
-                          {bill.status.toUpperCase()}
-                        </div>
-                        <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '12px' }}>
-                          {new Date(bill.createdAt).toLocaleDateString()}
-                        </div>
+                      <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '12px' }}>
+                        {new Date(bill.createdAt).toLocaleDateString()}
                       </div>
                     </div>
-                  ))}
-                {[...pendingBills, ...billHistory].length === 0 && (
+                  </div>
+                ))}
+                {(!dashboardData?.recentActivity && [...pendingBills, ...billHistory].length === 0) && (
                   <div style={{ textAlign: 'center', color: 'rgba(255,255,255,0.7)', padding: '40px' }}>
                     <div style={{ fontSize: '48px', marginBottom: '15px' }}>📋</div>
                     <p>No recent activity</p>
@@ -723,7 +919,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
                 </p>
               </div>
               <button
-                onClick={() => setShowAnalytics(true)}
+                onClick={() => {
+                  loadAnalyticsData();
+                  setShowAnalytics(true);
+                }}
                 className="glass-button"
                 style={{
                   padding: '6px 12px',
@@ -799,7 +998,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
               </div>
               
               <button
-                onClick={() => setShowAnalytics(true)}
+                onClick={() => {
+                  loadAnalyticsData();
+                  setShowAnalytics(true);
+                }}
                 className="glass-button"
                 style={{
                   background: 'linear-gradient(135deg, #27ae60, #2ecc71)',

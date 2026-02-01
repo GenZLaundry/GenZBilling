@@ -57,13 +57,13 @@ export const printThermalBill = (billData: BillData, onError?: (message: string)
     minute: '2-digit'
   });
 
-  // Generate UPI payment URL only if configured
+  // Generate UPI payment URL with exact bill amount
   const upiConfig = getUPIConfig();
   let qrCodeUrl = '/scanner.png'; // Default to original image
   
-  // Only generate functional QR if UPI is properly configured
-  if (upiConfig.upiId && upiConfig.upiId !== 'genzlaundry@paytm') {
-    const transactionNote = `Bill ${billData.billNumber}`;
+  // Generate functional QR with exact bill amount
+  if (upiConfig.upiId && billData.grandTotal > 0) {
+    const transactionNote = `Bill ${billData.billNumber} - ${billData.businessName}`;
     const upiUrl = `upi://pay?pa=${upiConfig.upiId}&pn=${encodeURIComponent(upiConfig.payeeName)}&am=${billData.grandTotal}&cu=INR&tn=${encodeURIComponent(transactionNote)}`;
     qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(upiUrl)}&ecc=H&margin=5&color=000000&bgcolor=FFFFFF`;
   }

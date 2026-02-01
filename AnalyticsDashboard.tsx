@@ -57,22 +57,51 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ onClose }) => {
     try {
       setLoading(true);
       setError(null);
-      console.log('🔄 Loading dashboard data...');
+      console.log('🔄 Loading analytics dashboard data...');
       
-      const response = await apiService.getDashboardAnalytics();
-      console.log('📊 Dashboard response:', response);
+      // Use the new MongoDB analytics endpoints
+      const [overviewResponse, statsResponse] = await Promise.all([
+        apiService.getDashboardOverview(),
+        apiService.getStats()
+      ]);
       
-      if (response.success && response.data) {
-        setDashboardData(response.data);
-        console.log('✅ Dashboard data loaded successfully');
+      console.log('📊 Overview response:', overviewResponse);
+      console.log('📈 Stats response:', statsResponse);
+      
+      if (overviewResponse.success && overviewResponse.data) {
+        // Transform the new API data to match the expected format
+        const transformedData: DashboardData = {
+          today: {
+            totalIncome: overviewResponse.data.today?.revenue || 0,
+            totalBills: overviewResponse.data.today?.bills || 0,
+            totalItems: overviewResponse.data.today?.items || 0,
+            avgBillAmount: overviewResponse.data.today?.avgBillValue || 0
+          },
+          week: {
+            totalIncome: overviewResponse.data.week?.revenue || 0,
+            totalBills: overviewResponse.data.week?.bills || 0,
+            totalItems: overviewResponse.data.week?.items || 0
+          },
+          month: {
+            totalIncome: overviewResponse.data.month?.revenue || 0,
+            totalBills: overviewResponse.data.month?.bills || 0,
+            totalItems: overviewResponse.data.month?.items || 0
+          },
+          pendingCount: overviewResponse.data.pendingBills || 0,
+          recentBills: overviewResponse.data.recentActivity || [],
+          topCustomers: overviewResponse.data.topCustomers || []
+        };
+        
+        setDashboardData(transformedData);
+        console.log('✅ Analytics dashboard data loaded successfully');
       } else {
-        const errorMsg = response.message || 'Failed to load dashboard data';
-        console.error('❌ Dashboard API error:', errorMsg);
+        const errorMsg = overviewResponse.message || 'Failed to load analytics data';
+        console.error('❌ Analytics API error:', errorMsg);
         setError(errorMsg);
       }
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'Error loading dashboard data';
-      console.error('❌ Dashboard error:', err);
+      const errorMsg = err instanceof Error ? err.message : 'Error loading analytics data';
+      console.error('❌ Analytics error:', err);
       setError(errorMsg);
     } finally {
       setLoading(false);
@@ -81,23 +110,61 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ onClose }) => {
 
   const loadComparisonData = async () => {
     try {
-      const response = await apiService.getComparisonAnalytics(selectedPeriod);
-      if (response.success) {
-        setComparisonData(response.data);
+      console.log('🔄 Loading comparison data...');
+      const response = await apiService.getBusinessReports({ period: selectedPeriod });
+      console.log('📊 Comparison response:', response);
+      
+      if (response.success && response.data) {
+        // Calculate comparison data from business reports
+        const comparisonData = {
+          changes: {
+            incomeChange: 0 // We'll calculate this based on trends
+          }
+        };
+        setComparisonData(comparisonData);
+        console.log('✅ Comparison data loaded');
       }
     } catch (err) {
-      console.error('Comparison data error:', err);
+      console.error('❌ Comparison data error:', err);
     }
   };
 
   const loadProfitData = async () => {
     try {
-      const response = await apiService.getProfitAnalysis(selectedPeriod);
-      if (response.success) {
-        setProfitData(response.data);
+      console.log('🔄 Loading profit data...');
+      const [reportsResponse, expensesResponse] = await Promise.all([
+        apiService.getBusinessReports({ period: selectedPeriod }),
+        apiService.getExpenseSummary(selectedPeriod === 'day' ? 'day' : selectedPeriod)
+      ]);
+      
+      console.log('📊 Reports response:', reportsResponse);
+      console.log('💸 Expenses response:', expensesResponse);
+      
+      if (reportsResponse.success && expensesResponse.success) {
+        const income = reportsResponse.data?.summary?.totalRevenue || 0;
+        const expenses = expensesResponse.data?.totalExpenses || 0;
+        const profit = income - expenses;
+        const profitMargin = income > 0 ? (profit / income) * 100 : 0;
+        
+        const profitData = {
+          income,
+          expenses,
+          profit,
+          profitMargin,
+          totalBills: reportsResponse.data?.summary?.totalBills || 0,
+          totalExpenseCount: expensesResponse.data?.expensesByCategory?.reduce((sum: number, cat: any) => sum + (cat.count || 0), 0) || 0,
+          expensesByCategory: expensesResponse.data?.expensesByCategory || [],
+          dateRange: {
+            start: expensesResponse.data?.dateRange?.start,
+            end: expensesResponse.data?.dateRange?.end
+          }
+        };
+        
+        setProfitData(profitData);
+        console.log('✅ Profit data loaded:', profitData);
       }
     } catch (err) {
-      console.error('Profit data error:', err);
+      console.error('❌ Profit data error:', err);
     }
   };
 
@@ -282,6 +349,28 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ onClose }) => {
           </div>
           
           <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+            {/* Refresh Button */}
+            <button
+              onClick={() => {
+                console.log('🧪 Testing analytics endpoints...');
+                loadDashboardData();
+                loadComparisonData();
+                loadProfitData();
+              }}
+              style={{
+                background: 'rgba(46, 204, 113, 0.3)',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '8px 12px',
+                color: 'white',
+                cursor: 'pointer',
+                fontSize: '12px',
+                fontWeight: 'bold'
+              }}
+            >
+              🔄 Refresh Data
+            </button>
+            
             {/* View Toggle */}
             <div style={{ display: 'flex', background: 'rgba(255, 255, 255, 0.1)', borderRadius: '10px', padding: '5px' }}>
               <button
@@ -576,7 +665,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ onClose }) => {
                             </div>
                           </div>
                         </div>
-                        <div style={{ color: '#000000', fontWeight: 'bold' }}>
+                        <div style={{ color: '#27ae60', fontWeight: 'bold' }}>
                           {formatCurrency(customer.totalSpent)}
                         </div>
                       </div>

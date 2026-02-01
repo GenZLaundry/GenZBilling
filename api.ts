@@ -79,7 +79,7 @@ class ApiService {
     }
   }
 
-  // Bills API
+  // ===== BILLS API =====
   async createBill(billData: any) {
     return this.request('/bills', {
       method: 'POST',
@@ -94,6 +94,7 @@ class ApiService {
     customerName?: string;
     startDate?: string;
     endDate?: string;
+    search?: string;
   } = {}) {
     const queryParams = new URLSearchParams();
     Object.entries(params).forEach(([key, value]) => {
@@ -109,6 +110,26 @@ class ApiService {
     return this.request('/bills/pending');
   }
 
+  async getCompletedBills(params: {
+    page?: number;
+    limit?: number;
+    search?: string;
+  } = {}) {
+    const queryParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined) {
+        queryParams.append(key, value.toString());
+      }
+    });
+
+    return this.request(`/bills/completed?${queryParams.toString()}`);
+  }
+
+  async getCustomerBills(customerName: string, limit?: number) {
+    const params = limit ? `?limit=${limit}` : '';
+    return this.request(`/bills/customer/${encodeURIComponent(customerName)}${params}`);
+  }
+
   async updateBillStatus(billId: string, status: string) {
     return this.request(`/bills/${billId}/status`, {
       method: 'PATCH',
@@ -116,9 +137,23 @@ class ApiService {
     });
   }
 
+  async bulkUpdateBillStatus(billIds: string[], status: string) {
+    return this.request('/bills/bulk-status', {
+      method: 'PATCH',
+      body: JSON.stringify({ billIds, status }),
+    });
+  }
+
   async deleteBill(billId: string) {
     return this.request(`/bills/${billId}`, {
       method: 'DELETE',
+    });
+  }
+
+  async bulkDeleteBills(billIds: string[]) {
+    return this.request('/bills/bulk-delete', {
+      method: 'DELETE',
+      body: JSON.stringify({ billIds }),
     });
   }
 
@@ -133,42 +168,61 @@ class ApiService {
     return this.request(`/bills/${billId}`);
   }
 
-  // Analytics API
-  async getDashboardAnalytics() {
-    // Add cache-busting parameter
+  // ===== ANALYTICS API =====
+  async getDashboardOverview() {
     const cacheBuster = `?_t=${Date.now()}`;
-    return this.request(`/analytics/dashboard${cacheBuster}`);
+    return this.request(`/analytics/dashboard-overview${cacheBuster}`);
+  }
+
+  async getBusinessReports(params: {
+    period?: 'today' | 'week' | 'month' | 'year' | 'custom';
+    startDate?: string;
+    endDate?: string;
+  } = {}) {
+    const queryParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined) {
+        queryParams.append(key, value.toString());
+      }
+    });
+
+    return this.request(`/analytics/business-reports?${queryParams.toString()}`);
+  }
+
+  async getStats() {
+    return this.request('/analytics/stats');
+  }
+
+  async getRevenueChart(period: 'week' | 'month' | 'year' = 'week') {
+    return this.request(`/analytics/revenue-chart?period=${period}`);
+  }
+
+  // Legacy analytics methods (for backward compatibility)
+  async getDashboardAnalytics() {
+    return this.getDashboardOverview();
   }
 
   async getDailyAnalytics(startDate: string, endDate: string) {
-    return this.request(`/analytics/daily?startDate=${startDate}&endDate=${endDate}`);
+    return this.getBusinessReports({ period: 'custom', startDate, endDate });
   }
 
   async getWeeklyAnalytics(year?: number, week?: number) {
-    const params = new URLSearchParams();
-    if (year) params.append('year', year.toString());
-    if (week) params.append('week', week.toString());
-    
-    return this.request(`/analytics/weekly?${params.toString()}`);
+    return this.getBusinessReports({ period: 'week' });
   }
 
   async getMonthlyAnalytics(year?: number, month?: number) {
-    const params = new URLSearchParams();
-    if (year) params.append('year', year.toString());
-    if (month) params.append('month', month.toString());
-    
-    return this.request(`/analytics/monthly?${params.toString()}`);
+    return this.getBusinessReports({ period: 'month' });
   }
 
   async getComparisonAnalytics(period: 'day' | 'week' | 'month' = 'month') {
-    return this.request(`/analytics/comparison?period=${period}`);
+    return this.getBusinessReports({ period });
   }
 
   async getProfitAnalysis(period: 'day' | 'week' | 'month' | 'year' = 'month') {
-    return this.request(`/analytics/profit?period=${period}`);
+    return this.getBusinessReports({ period });
   }
 
-  // Expense API
+  // ===== EXPENSES API =====
   async getExpenses(params: {
     page?: number;
     limit?: number;
@@ -222,7 +276,7 @@ class ApiService {
     });
   }
 
-  // Shop Configuration API
+  // ===== SHOP CONFIGURATION API =====
   async getShopConfig() {
     return this.request('/shop-config');
   }
@@ -234,7 +288,25 @@ class ApiService {
     });
   }
 
-  // Health check
+  // ===== AUTHENTICATION API =====
+  async login(credentials: { username: string; password: string }) {
+    return this.request('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify(credentials),
+    });
+  }
+
+  async logout() {
+    return this.request('/auth/logout', {
+      method: 'POST',
+    });
+  }
+
+  async validateSession() {
+    return this.request('/auth/validate');
+  }
+
+  // ===== UTILITY METHODS =====
   async healthCheck() {
     return this.request('/health');
   }
@@ -249,6 +321,86 @@ class ApiService {
     } catch (error) {
       console.error('❌ Connection test failed:', error);
       throw error;
+    }
+  }
+
+  // ===== DATA MANAGEMENT METHODS =====
+  
+  // Get all data for dashboard overview
+  async getAllDashboardData() {
+    try {
+      const [overview, stats, revenueChart] = await Promise.all([
+        this.getDashboardOverview(),
+        this.getStats(),
+        this.getRevenueChart('week')
+      ]);
+
+      return {
+        success: true,
+        data: {
+          overview: overview.data,
+          stats: stats.data,
+          revenueChart: revenueChart.data
+        }
+      };
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+      return {
+        success: false,
+        message: 'Failed to fetch dashboard data',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  // Get all bills data (pending + completed)
+  async getAllBillsData() {
+    try {
+      const [pending, completed] = await Promise.all([
+        this.getPendingBills(),
+        this.getCompletedBills({ limit: 100 })
+      ]);
+
+      return {
+        success: true,
+        data: {
+          pending: pending.data || [],
+          completed: completed.data || [],
+          history: completed.data || []
+        }
+      };
+    } catch (error) {
+      console.error('Error fetching bills data:', error);
+      return {
+        success: false,
+        message: 'Failed to fetch bills data',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  // Get comprehensive analytics data
+  async getAnalyticsData(period: 'today' | 'week' | 'month' | 'year' = 'month') {
+    try {
+      const [businessReports, expenseSummary] = await Promise.all([
+        this.getBusinessReports({ period }),
+        this.getExpenseSummary(period === 'today' ? 'day' : period)
+      ]);
+
+      return {
+        success: true,
+        data: {
+          reports: businessReports.data,
+          expenses: expenseSummary.data
+        }
+      };
+    } catch (error) {
+      console.error('Error fetching analytics data:', error);
+      return {
+        success: false,
+        message: 'Failed to fetch analytics data',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
     }
   }
 }

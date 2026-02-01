@@ -7,7 +7,7 @@ export interface UPIConfig {
 
 // Default UPI configuration - Update these with your actual UPI details
 export const defaultUPIConfig: UPIConfig = {
-  upiId: 'genzlaundry@paytm', // Replace with your actual UPI ID
+  upiId: '6367493127@ybl', // Your PhonePe UPI ID
   payeeName: 'GenZ Laundry',
   merchantCode: 'GENZ001' // Optional merchant code
 };
@@ -15,18 +15,18 @@ export const defaultUPIConfig: UPIConfig = {
 // Alternative UPI IDs for fallback
 export const alternativeUPIConfigs: UPIConfig[] = [
   {
-    upiId: 'genzlaundry@phonepe',
+    upiId: '6367493127@ybl',
     payeeName: 'GenZ Laundry',
     merchantCode: 'GENZ002'
   },
   {
-    upiId: 'genzlaundry@googlepay',
-    payeeName: 'GenZ Laundry', 
+    upiId: 'genzlaundry@paytm',
+    payeeName: 'GenZ Laundry',
     merchantCode: 'GENZ003'
   },
   {
-    upiId: 'genzlaundry@ybl', // PhonePe
-    payeeName: 'GenZ Laundry',
+    upiId: 'genzlaundry@googlepay',
+    payeeName: 'GenZ Laundry', 
     merchantCode: 'GENZ004'
   }
 ];
