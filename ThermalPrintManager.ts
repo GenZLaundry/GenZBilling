@@ -1,6 +1,8 @@
 // THERMAL PRINT MANAGER - PURE POS BEHAVIOR
 // Eliminates all A4/document behavior for thermal receipts
 
+import { getUPIConfig } from './upiConfig';
+
 export interface BillData {
   businessName: string;
   address: string;
@@ -54,6 +56,17 @@ export const printThermalBill = (billData: BillData, onError?: (message: string)
     hour: '2-digit',
     minute: '2-digit'
   });
+
+  // Generate UPI payment URL only if configured
+  const upiConfig = getUPIConfig();
+  let qrCodeUrl = '/scanner.png'; // Default to original image
+  
+  // Only generate functional QR if UPI is properly configured
+  if (upiConfig.upiId && upiConfig.upiId !== 'genzlaundry@paytm') {
+    const transactionNote = `Bill ${billData.billNumber}`;
+    const upiUrl = `upi://pay?pa=${upiConfig.upiId}&pn=${encodeURIComponent(upiConfig.payeeName)}&am=${billData.grandTotal}&cu=INR&tn=${encodeURIComponent(transactionNote)}`;
+    qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(upiUrl)}&ecc=H&margin=5&color=000000&bgcolor=FFFFFF`;
+  }
 
   // Generate pure thermal HTML (NO A4 elements)
   const thermalHTML = `
@@ -129,6 +142,17 @@ export const printThermalBill = (billData: BillData, onError?: (message: string)
     }
     
     .spacer { margin-bottom: 2mm !important; }
+    
+    .qr-code {
+      width: 25mm !important;
+      height: 25mm !important;
+      border: 1px solid #000 !important;
+      border-radius: 2mm !important;
+      background: white !important;
+      padding: 1mm !important;
+      image-rendering: pixelated !important;
+      filter: contrast(1.3) !important; /* High contrast for better scanning */
+    }
   </style>
 </head>
 <body>
@@ -253,10 +277,10 @@ export const printThermalBill = (billData: BillData, onError?: (message: string)
     </div>
     <div class="divider">================================</div>
     
-    <!-- PhonePe Payment QR -->
+    <!-- UPI Payment QR -->
     <div class="center spacer" style="margin: 3mm 0;">
       <div class="small bold" style="margin-bottom: 2mm;">SCAN TO PAY</div>
-      <img src="/scanner.png" alt="PhonePe QR Code" style="width: 25mm; height: 25mm; border: 1px solid #000; border-radius: 2mm; background: white; padding: 1mm;">
+      <img src="${qrCodeUrl}" alt="Payment QR Code" class="qr-code" onerror="this.src='/scanner.png';">
       <div class="small" style="margin-top: 1mm; color: #666;">PhonePe | UPI | Cards</div>
     </div>
     
@@ -277,7 +301,7 @@ export const printThermalBill = (billData: BillData, onError?: (message: string)
     setTimeout(() => {
       printWindow.print();
       printWindow.close();
-    }, 500);
+    }, 1000); // Increased delay to allow QR code to load
   };
 };
 

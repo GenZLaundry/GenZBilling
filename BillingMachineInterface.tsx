@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { printThermalBill, BillData } from './ThermalPrintManager';
 import { ShopConfig, PendingBill } from './types';
 import PendingBillSelector from './PendingBillSelector';
+import FunctionalQRCode from './FunctionalQRCode';
+import UPISettings from './UPISettings';
 import apiService from './api';
 import { useAlert } from './GlobalAlert';
 
@@ -47,6 +49,7 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
   const [showPendingBillSelector, setShowPendingBillSelector] = useState(false);
   const [selectedPendingBills, setSelectedPendingBills] = useState<PendingBill[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showUPISettings, setShowUPISettings] = useState(false);
   
   const itemInputRef = useRef<HTMLInputElement>(null);
   const priceInputRef = useRef<HTMLInputElement>(null);
@@ -271,7 +274,7 @@ const quickItems = [
         previousBalance,
         grandTotal: calculateTotal(),
         status: 'completed',
-        thankYouMessage: 'Thank you for choosing Gen-z laundry! Visit genzlaundry.com'
+        thankYouMessage: 'Thank you for choosing Gen-z laundry! Visit www.genzlaundry.com'
       };
 
       console.log('🧾 Processing bill:', billData);
@@ -789,36 +792,82 @@ const quickItems = [
 
           {/* Quick Actions */}
           <div style={{ padding: '15px', background: 'rgba(255, 255, 255, 0.05)', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>
-            <button
-              onClick={() => setShowPendingBillSelector(true)}
-              style={{
-                width: '100%',
-                padding: '10px',
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+              <button
+                onClick={() => setShowPendingBillSelector(true)}
+                style={{
+                  flex: 1,
+                  padding: '8px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  background: 'linear-gradient(135deg, #3498db, #2980b9)',
+                  color: 'white',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  fontWeight: 'bold',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '4px'
+                }}
+              >
+                📋 Previous Bills
+                {selectedPendingBills.length > 0 && (
+                  <span style={{ 
+                    background: 'rgba(255, 255, 255, 0.3)', 
+                    borderRadius: '8px', 
+                    padding: '1px 5px', 
+                    fontSize: '10px' 
+                  }}>
+                    {selectedPendingBills.length}
+                  </span>
+                )}
+              </button>
+              
+              <button
+                onClick={() => setShowUPISettings(true)}
+                style={{
+                  padding: '8px 12px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  background: 'linear-gradient(135deg, #9b59b6, #8e44ad)',
+                  color: 'white',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  fontWeight: 'bold'
+                }}
+                title="Configure UPI Payment Settings"
+              >
+                💳 UPI
+              </button>
+            </div>
+            
+            {/* QR Code Display */}
+            {calculateTotal() > 0 && customer.name && (
+              <div style={{
+                background: 'rgba(255, 255, 255, 0.1)',
                 borderRadius: '8px',
-                border: 'none',
-                background: 'linear-gradient(135deg, #3498db, #2980b9)',
-                color: 'white',
-                cursor: 'pointer',
-                fontSize: '13px',
-                fontWeight: 'bold',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px'
-              }}
-            >
-              📋 Add Previous Bills
-              {selectedPendingBills.length > 0 && (
-                <span style={{ 
-                  background: 'rgba(255, 255, 255, 0.3)', 
-                  borderRadius: '10px', 
-                  padding: '1px 6px', 
-                  fontSize: '11px' 
+                padding: '12px',
+                textAlign: 'center'
+              }}>
+                <div style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '8px', color: 'white' }}>
+                  SCAN TO PAY
+                </div>
+                <FunctionalQRCode
+                  amount={calculateTotal()}
+                  billNumber={billNumber}
+                  businessName={shopConfig.shopName}
+                  style={{ width: '80px', height: '80px' }}
+                />
+                <div style={{
+                  fontSize: '10px',
+                  color: 'rgba(255,255,255,0.8)',
+                  marginTop: '6px'
                 }}>
-                  {selectedPendingBills.length}
-                </span>
-              )}
-            </button>
+                  PhonePe | UPI | Cards
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Items List */}
@@ -1183,6 +1232,13 @@ const quickItems = [
           customerName={customer.name}
           onClose={() => setShowPendingBillSelector(false)}
           onSelectBills={handlePendingBillsSelected}
+        />
+      )}
+
+      {/* UPI Settings Modal */}
+      {showUPISettings && (
+        <UPISettings
+          onClose={() => setShowUPISettings(false)}
         />
       )}
     </div>
