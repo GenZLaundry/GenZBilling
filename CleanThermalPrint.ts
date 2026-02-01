@@ -14,9 +14,20 @@ export interface BillData {
     rate: number;
     amount: number;
   }>;
+  previousBills?: Array<{
+    billNumber: string;
+    items: Array<{
+      name: string;
+      quantity: number;
+      rate: number;
+      amount: number;
+    }>;
+    total: number;
+  }>;
   subtotal: number;
   discount?: number;
   deliveryCharge?: number;
+  previousBalance?: number;
   grandTotal: number;
   thankYouMessage?: string;
 }
@@ -204,8 +215,37 @@ export const printCleanThermalBill = (billData: BillData, onError?: (message: st
   <!-- ITEMS HEADER -->
   <div class="items-header">ORDER DETAILS</div>
   
-  <!-- ITEMS LIST -->
+  <!-- PREVIOUS BILLS (if any) -->
+  ${billData.previousBills && billData.previousBills.length > 0 ? `
   <div style="margin-bottom: 2mm;">
+    <div style="font-size: 9pt; font-weight: bold; color: #e67e22; margin-bottom: 1mm; padding: 1mm; background: rgba(230, 126, 34, 0.1); border-radius: 1mm;">
+      📋 PREVIOUS BILLS (${billData.previousBills.length} bills)
+    </div>
+    ${billData.previousBills.map(prevBill => `
+    <div style="margin-bottom: 1mm; padding: 1mm; background: rgba(230, 126, 34, 0.05); border-left: 2px solid #e67e22;">
+      <div style="font-size: 8pt; font-weight: bold; margin-bottom: 0.5mm;">Bill: ${prevBill.billNumber}</div>
+      ${prevBill.items.map(item => `
+      <div class="item-row" style="font-size: 7pt;">
+        <div style="width: 50%;">${item.name}</div>
+        <div style="width: 50%; text-align: right;">
+          ${item.quantity} × ₹${item.rate} = ₹${item.amount}
+        </div>
+      </div>
+      `).join('')}
+      <div style="text-align: right; font-weight: bold; font-size: 8pt; margin-top: 0.5mm; color: #e67e22;">
+        Previous Bill Total: ₹${prevBill.total}
+      </div>
+    </div>
+    `).join('')}
+  </div>
+  ` : ''}
+  
+  <!-- CURRENT ORDER ITEMS -->
+  ${billData.items.length > 0 ? `
+  <div style="margin-bottom: 2mm;">
+    <div style="font-size: 9pt; font-weight: bold; color: #3498db; margin-bottom: 1mm; padding: 1mm; background: rgba(52, 152, 219, 0.1); border-radius: 1mm;">
+      🛍️ CURRENT ORDER (${billData.items.length} items)
+    </div>
     ${billData.items.map(item => `
     <div class="item-row">
       <div style="width: 50%; font-weight: bold;">${item.name}</div>
@@ -215,9 +255,28 @@ export const printCleanThermalBill = (billData: BillData, onError?: (message: st
     </div>
     `).join('')}
   </div>
+  ` : ''}
   
   <!-- TOTALS SECTION -->
   <div class="totals-section">
+    ${billData.previousBills && billData.previousBills.length > 0 ? `
+    <div class="total-row" style="color: #e67e22;">
+      <span>Previous Bills Total:</span>
+      <span class="bold">₹${billData.previousBills.reduce((sum, bill) => sum + bill.total, 0)}</span>
+    </div>
+    ` : ''}
+    ${billData.previousBalance && billData.previousBalance > 0 ? `
+    <div class="total-row" style="color: #f39c12;">
+      <span>Previous Balance:</span>
+      <span class="bold">₹${billData.previousBalance}</span>
+    </div>
+    ` : ''}
+    ${billData.items.length > 0 ? `
+    <div class="total-row">
+      <span>Current Order:</span>
+      <span class="bold">₹${billData.items.reduce((sum, item) => sum + item.amount, 0)}</span>
+    </div>
+    ` : ''}
     <div class="total-row">
       <span>Subtotal:</span>
       <span class="bold">₹${billData.subtotal}</span>
