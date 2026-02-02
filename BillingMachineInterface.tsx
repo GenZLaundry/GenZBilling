@@ -32,6 +32,7 @@ interface BillingMachineInterfaceProps {
 const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLogout, onSwitchToAdmin }) => {
   const { showAlert, showConfirm } = useAlert();
   const [customer, setCustomer] = useState<Customer>({ name: '', phone: '' });
+  const [billDate, setBillDate] = useState<string>(new Date().toISOString().split('T')[0]); // Default to today
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [currentItem, setCurrentItem] = useState('');
   const [currentPrice, setCurrentPrice] = useState('');
@@ -263,6 +264,7 @@ const quickItems = [
         address: shopConfig.address,
         phone: shopConfig.contact,
         billNumber,
+        billDate,
         customerName: customer.name,
         customerPhone: customer.phone,
         items: orderItems.map(item => ({
@@ -633,32 +635,48 @@ const quickItems = [
         {/* Left Panel */}
         <div className="glass" style={{ width: '60%', borderRadius: '20px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           
-          {/* Customer Section */}
+          {/* Customer Section - Ultra Compact */}
           <div style={{
-            padding: '25px', background: 'linear-gradient(135deg, #ffffff, #f8f9fa)', color: '#2c3e50'
+            padding: '10px 20px', background: 'linear-gradient(135deg, #ffffff, #f8f9fa)', color: '#2c3e50'
           }}>
-            <h3 style={{ margin: '0 0 20px 0', fontSize: '20px', fontWeight: 'bold' }}>
-              👤 Customer Information
-            </h3>
-            <div style={{ display: 'flex', gap: '15px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 140px 60px', gap: '8px', alignItems: 'center' }}>
               <input
-                type="text" placeholder="Customer Name *" value={customer.name}
+                type="text" placeholder="👤 Customer Name *" value={customer.name}
                 onChange={(e) => setCustomer({ ...customer, name: e.target.value })}
                 style={{ 
-                  flex: 1, padding: '15px', borderRadius: '12px', fontSize: '16px', outline: 'none',
-                  background: 'rgba(44, 62, 80, 0.1)', border: '2px solid rgba(44, 62, 80, 0.2)', 
+                  padding: '8px 10px', borderRadius: '6px', fontSize: '13px', outline: 'none',
+                  background: 'rgba(44, 62, 80, 0.1)', border: '1px solid rgba(44, 62, 80, 0.2)', 
                   color: '#2c3e50', transition: 'all 0.3s ease'
                 }}
               />
               <input
-                type="tel" placeholder="📱 Phone Number" value={customer.phone}
+                type="tel" placeholder="📱 Phone" value={customer.phone}
                 onChange={(e) => setCustomer({ ...customer, phone: e.target.value })}
                 style={{ 
-                  flex: 1, padding: '15px', borderRadius: '12px', fontSize: '16px', outline: 'none',
-                  background: 'rgba(44, 62, 80, 0.1)', border: '2px solid rgba(44, 62, 80, 0.2)', 
+                  padding: '8px 10px', borderRadius: '6px', fontSize: '13px', outline: 'none',
+                  background: 'rgba(44, 62, 80, 0.1)', border: '1px solid rgba(44, 62, 80, 0.2)', 
                   color: '#2c3e50', transition: 'all 0.3s ease'
                 }}
               />
+              <input
+                type="date" value={billDate}
+                onChange={(e) => setBillDate(e.target.value)}
+                style={{ 
+                  padding: '8px 10px', borderRadius: '6px', fontSize: '12px', outline: 'none',
+                  background: 'rgba(44, 62, 80, 0.1)', border: '1px solid rgba(44, 62, 80, 0.2)', 
+                  color: '#2c3e50', transition: 'all 0.3s ease'
+                }}
+              />
+              <button
+                onClick={() => setBillDate(new Date().toISOString().split('T')[0])}
+                style={{
+                  padding: '8px 6px', borderRadius: '6px', fontSize: '10px', fontWeight: 'bold',
+                  background: 'linear-gradient(135deg, #3498db, #2980b9)', color: 'white', cursor: 'pointer',
+                  border: 'none', whiteSpace: 'nowrap'
+                }}
+              >
+                Today
+              </button>
             </div>
           </div>
 

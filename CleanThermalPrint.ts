@@ -6,6 +6,7 @@ export interface BillData {
   address: string;
   phone: string;
   billNumber: string;
+  billDate?: string;
   customerName?: string;
   customerPhone?: string;
   items: Array<{
@@ -43,10 +44,19 @@ export const printCleanThermalBill = (billData: BillData, onError?: (message: st
     return;
   }
 
-  const currentDate = new Date().toLocaleString('en-IN', {
-    day: '2-digit',
-    month: '2-digit', 
-    year: 'numeric',
+  const currentDate = billData.billDate 
+    ? new Date(billData.billDate).toLocaleDateString('en-IN', {
+        day: '2-digit',
+        month: '2-digit', 
+        year: 'numeric'
+      })
+    : new Date().toLocaleDateString('en-IN', {
+        day: '2-digit',
+        month: '2-digit', 
+        year: 'numeric'
+      });
+  
+  const currentTime = new Date().toLocaleTimeString('en-IN', {
     hour: '2-digit',
     minute: '2-digit'
   });
@@ -80,104 +90,146 @@ export const printCleanThermalBill = (billData: BillData, onError?: (message: st
     * { margin: 0 !important; padding: 0 !important; box-sizing: border-box !important; }
     
     body {
-      width: 80mm !important; padding: 3mm !important;
-      font-family: 'Arial', 'Helvetica', sans-serif !important; font-size: 10pt !important;
-      line-height: 1.2 !important; background: white !important; color: black !important;
-      font-weight: 600 !important;
+      width: 80mm !important; padding: 4mm !important;
+      font-family: 'Courier New', 'Arial', monospace !important; font-size: 9pt !important;
+      line-height: 1.3 !important; background: #ffffff !important; color: #000000 !important;
+      font-weight: bold !important;
+      
+      /* PROFESSIONAL BLACK & WHITE THERMAL PRINTING */
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
     }
     
     .center { text-align: center !important; }
-    .bold { font-weight: bold !important; }
-    .xl { font-size: 16pt !important; font-weight: bold !important; }
-    .large { font-size: 14pt !important; font-weight: bold !important; }
-    .medium { font-size: 12pt !important; }
-    .small { font-size: 9pt !important; }
+    .left { text-align: left !important; }
+    .right { text-align: right !important; }
+    .bold { font-weight: 900 !important; }
+    .normal { font-weight: normal !important; }
     
+    /* PROFESSIONAL HEADER */
     .header {
       text-align: center !important; padding: 2mm 0 !important;
-      border-bottom: 2px solid #000 !important; margin-bottom: 2mm !important;
+      margin-bottom: 3mm !important;
+    }
+    
+    /* BUSINESS INFO BOX - Single box for name and address */
+    .business-info-box {
+      border: 2px solid #000000 !important;
+      padding: 3mm !important;
+      margin-bottom: 3mm !important;
+      display: inline-block !important;
+      text-align: center !important;
     }
     
     .business-name {
-      font-size: 18pt !important; font-weight: bold !important;
-      text-transform: uppercase !important; letter-spacing: 1px !important;
+      font-size: 20pt !important; font-weight: 900 !important;
+      letter-spacing: 2px !important; margin-bottom: 1mm !important;
+    }
+    
+    .business-subtitle {
+      font-size: 11pt !important; font-weight: bold !important;
+      letter-spacing: 1px !important; margin-bottom: 2mm !important;
+    }
+    
+    .business-info {
+      font-size: 8pt !important; font-weight: bold !important;
+      line-height: 1.4 !important; margin-top: 2mm !important;
+      color: #000000 !important;
+    }
+    
+    /* BILL INFO BOX */
+    .bill-info-box {
+      border: 2px solid #000000 !important;
+      padding: 2mm !important; margin: 3mm 0 !important;
+    }
+    
+    .bill-info-row {
+      display: flex !important; justify-content: space-between !important;
+      padding: 0.5mm 0 !important; font-size: 9pt !important;
+      border-bottom: 1px dotted #000000 !important;
+    }
+    
+    .bill-info-row:last-child {
+      border-bottom: none !important;
+    }
+    
+    /* SECTION HEADERS */
+    .section-header {
+      padding: 2mm !important; text-align: center !important;
+      font-size: 10pt !important; font-weight: 900 !important;
+      margin: 3mm 0 1mm 0 !important;
+      letter-spacing: 1px !important;
+      color: #000000 !important;
+      border-top: 2px solid #000000 !important;
+      border-bottom: 2px solid #000000 !important;
+    }
+    
+    /* ITEM TABLE */
+    .item-table-header {
+      display: flex !important; justify-content: space-between !important;
+      padding: 1mm 0 !important; font-size: 8pt !important;
+      font-weight: 900 !important; border-bottom: 2px solid #000000 !important;
       margin-bottom: 1mm !important;
     }
     
-    .bill-info {
-      background: #f8f8f8 !important; padding: 2mm !important;
-      border: 1px solid #ddd !important; border-radius: 1mm !important;
-      margin-bottom: 2mm !important;
-    }
-    
-    .bill-row {
+    .item-table-row {
       display: flex !important; justify-content: space-between !important;
-      margin-bottom: 0.5mm !important; font-size: 9pt !important;
+      padding: 1mm 0 !important; font-size: 8pt !important;
+      border-bottom: 1px dotted #000000 !important;
+      align-items: flex-start !important;
     }
     
-    .items-header {
-      background: #e8e8e8 !important; padding: 1mm !important;
-      border: 1px solid #ccc !important; font-weight: bold !important;
-      text-align: center !important; margin-bottom: 1mm !important;
-      font-size: 9pt !important;
+    .item-name { width: 50% !important; font-weight: bold !important; }
+    .item-qty { width: 15% !important; text-align: center !important; }
+    .item-price { width: 17.5% !important; text-align: right !important; }
+    .item-total { width: 17.5% !important; text-align: right !important; font-weight: bold !important; }
+    
+    /* TOTALS SECTION */
+    .totals-box {
+      border: 2px solid #000000 !important;
+      padding: 2mm !important; margin: 3mm 0 !important;
     }
     
-    .item-row {
+    .total-line {
       display: flex !important; justify-content: space-between !important;
-      padding: 0.5mm 0 !important; border-bottom: 1px dotted #ccc !important;
-      align-items: center !important; font-size: 8pt !important;
+      padding: 0.5mm 0 !important; font-size: 9pt !important;
     }
     
-    .totals-section {
-      background: #f5f5f5 !important; padding: 2mm !important;
-      border: 1px solid #ddd !important; border-radius: 1mm !important;
-      margin: 2mm 0 !important;
+    .grand-total-box {
+      padding: 3mm !important; text-align: center !important;
+      margin: 3mm 0 !important; font-size: 18pt !important;
+      font-weight: 900 !important; letter-spacing: 1px !important;
+      color: #000000 !important;
+      border-top: 3px solid #000000 !important;
+      border-bottom: 3px solid #000000 !important;
     }
     
-    .total-row {
-      display: flex !important; justify-content: space-between !important;
-      margin-bottom: 0.5mm !important; font-size: 10pt !important;
-    }
-    
-    .grand-total {
-      background: #000 !important; color: #fff !important;
-      padding: 2mm !important; border-radius: 2mm !important;
-      text-align: center !important; margin: 2mm 0 !important;
-      font-size: 16pt !important; font-weight: bold !important;
-    }
-    
-    .payment-section {
-      text-align: center !important; margin: 3mm 0 !important;
-      padding: 3mm !important; border: 3px solid #000 !important;
-      border-radius: 3mm !important;
-      background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%) !important;
+    /* PAYMENT SECTION */
+    .payment-box {
+      border: 3px solid #000000 !important;
+      padding: 3mm !important; text-align: center !important;
+      margin: 3mm 0 !important;
     }
     
     .qr-code {
-      width: 45mm !important; height: 45mm !important;
-      border: 3px solid #000 !important; border-radius: 3mm !important;
-      background: white !important; padding: 2mm !important;
+      width: 40mm !important; height: 40mm !important;
+      border: 2px solid #000000 !important;
+      background: #ffffff !important; padding: 1mm !important;
       margin: 2mm auto !important; display: block !important;
       
-      /* ULTRA HIGH QUALITY FOR THERMAL PRINTERS */
+      /* THERMAL PRINTER OPTIMIZATION */
       image-rendering: pixelated !important;
       image-rendering: -moz-crisp-edges !important;
       image-rendering: crisp-edges !important;
-      filter: contrast(5.0) brightness(1.8) saturate(0) !important;
-      -webkit-filter: contrast(5.0) brightness(1.8) saturate(0) !important;
-      -ms-interpolation-mode: nearest-neighbor !important;
-      box-shadow: inset 0 0 0 2px #000, 0 2px 4px rgba(0,0,0,0.3) !important;
-      
-      /* Additional thermal printer optimizations */
-      -webkit-print-color-adjust: exact !important;
-      print-color-adjust: exact !important;
-      -webkit-transform: translateZ(0) !important;
-      transform: translateZ(0) !important;
+      filter: contrast(2.0) brightness(1.0) !important;
+      -webkit-filter: contrast(2.0) brightness(1.0) !important;
     }
     
-    .footer {
-      text-align: center !important; margin-top: 3mm !important;
-      padding-top: 2mm !important; border-top: 1px solid #ddd !important;
+    /* FOOTER */
+    .footer-box {
+      border-top: 2px solid #000000 !important;
+      padding-top: 2mm !important; margin-top: 3mm !important;
+      text-align: center !important; font-size: 8pt !important;
     }
   </style>
 </head>
@@ -185,54 +237,70 @@ export const printCleanThermalBill = (billData: BillData, onError?: (message: st
 
   <!-- PROFESSIONAL HEADER -->
   <div class="header">
-    <div class="business-name">${billData.businessName}</div>
-    <div class="small">${billData.address}</div>
-    <div class="small">📞 ${billData.phone}</div>
+    <!-- Business Name and Address in Single Box -->
+    <div class="business-info-box">
+      <div class="business-name">GEN-Z</div>
+      <div class="business-subtitle">LAUNDRY & DRY CLEANERS</div>
+      <div class="business-info">
+        ${billData.address}<br>
+        📞 ${billData.phone}
+      </div>
+    </div>
   </div>
   
-  <!-- BILL INFORMATION -->
-  <div class="bill-info">
-    <div class="bill-row">
-      <span class="bold">Bill No:</span>
-      <span class="bold">${billData.billNumber}</span>
-    </div>
-    <div class="bill-row">
-      <span>Date:</span>
-      <span>${currentDate.split(',')[0]}</span>
-    </div>
-    <div class="bill-row">
-      <span>Time:</span>
-      <span>${currentDate.split(',')[1]?.trim()}</span>
-    </div>
+  <!-- BILL INFORMATION BOX -->
+  <div class="bill-info-box">
     ${billData.customerName ? `
-    <div class="bill-row">
-      <span>Customer:</span>
+    <div class="bill-info-row">
+      <span>Customer Name:</span>
       <span class="bold">${billData.customerName}</span>
     </div>
     ` : ''}
+    <div class="bill-info-row">
+      <span class="bold">Bill No:</span>
+      <span class="bold">${billData.billNumber}</span>
+    </div>
+    <div class="bill-info-row">
+      <span>Date:</span>
+      <span>${currentDate}</span>
+    </div>
+    <div class="bill-info-row">
+      <span>Time:</span>
+      <span>${currentTime}</span>
+    </div>
   </div>
   
-  <!-- ITEMS HEADER -->
-  <div class="items-header">ORDER DETAILS</div>
+  <!-- ORDER DETAILS SECTION -->
+  <div class="section-header">ORDER DETAILS</div>
   
   <!-- PREVIOUS BILLS (if any) -->
   ${billData.previousBills && billData.previousBills.length > 0 ? `
-  <div style="margin-bottom: 2mm;">
-    <div style="font-size: 9pt; font-weight: bold; color: #e67e22; margin-bottom: 1mm; padding: 1mm; background: rgba(230, 126, 34, 0.1); border-radius: 1mm;">
-      📋 PREVIOUS BILLS (${billData.previousBills.length} bills)
+  <div style="margin-bottom: 3mm;">
+    <div style="font-size: 9pt; font-weight: bold; padding: 1mm; border: 1px solid #000000; text-align: center; margin-bottom: 2mm;">
+      📋 PREVIOUS BILLS (${billData.previousBills.reduce((sum, bill) => sum + bill.items.reduce((itemSum, item) => itemSum + item.quantity, 0), 0)} items from ${billData.previousBills.length} bills)
     </div>
     ${billData.previousBills.map(prevBill => `
-    <div style="margin-bottom: 1mm; padding: 1mm; background: rgba(230, 126, 34, 0.05); border-left: 2px solid #e67e22;">
-      <div style="font-size: 8pt; font-weight: bold; margin-bottom: 0.5mm;">Bill: ${prevBill.billNumber}</div>
+    <div style="margin-bottom: 2mm; border: 1px solid #000000; padding: 1mm;">
+      <div style="font-size: 8pt; font-weight: bold; margin-bottom: 1mm;">Bill: ${prevBill.billNumber}</div>
+      
+      <!-- Previous Bill Items Table -->
+      <div class="item-table-header">
+        <div class="item-name">ITEM</div>
+        <div class="item-qty">QTY</div>
+        <div class="item-price">PRICE</div>
+        <div class="item-total">TOTAL</div>
+      </div>
+      
       ${prevBill.items.map(item => `
-      <div class="item-row" style="font-size: 7pt;">
-        <div style="width: 50%;">${item.name}</div>
-        <div style="width: 50%; text-align: right;">
-          ${item.quantity} × ₹${item.rate} = ₹${item.amount}
-        </div>
+      <div class="item-table-row">
+        <div class="item-name">${item.name}</div>
+        <div class="item-qty">${item.quantity}</div>
+        <div class="item-price">₹${item.rate}</div>
+        <div class="item-total">₹${item.amount}</div>
       </div>
       `).join('')}
-      <div style="text-align: right; font-weight: bold; font-size: 8pt; margin-top: 0.5mm; color: #e67e22;">
+      
+      <div style="text-align: right; font-weight: bold; font-size: 9pt; margin-top: 1mm; border-top: 2px solid #000000; padding-top: 1mm;">
         Previous Bill Total: ₹${prevBill.total}
       </div>
     </div>
@@ -242,53 +310,62 @@ export const printCleanThermalBill = (billData: BillData, onError?: (message: st
   
   <!-- CURRENT ORDER ITEMS -->
   ${billData.items.length > 0 ? `
-  <div style="margin-bottom: 2mm;">
-    <div style="font-size: 9pt; font-weight: bold; color: #3498db; margin-bottom: 1mm; padding: 1mm; background: rgba(52, 152, 219, 0.1); border-radius: 1mm;">
-      🛍️ CURRENT ORDER (${billData.items.length} items)
+  <div style="margin-bottom: 3mm;">
+    <div style="font-size: 9pt; font-weight: bold; padding: 1mm; border: 1px solid #000000; text-align: center; margin-bottom: 2mm;">
+      🛍️ CURRENT ORDER (${billData.items.reduce((sum, item) => sum + item.quantity, 0)} items)
     </div>
+    
+    <!-- Current Order Items Table -->
+    <div class="item-table-header">
+      <div class="item-name">ITEM</div>
+      <div class="item-qty">QTY</div>
+      <div class="item-price">PRICE</div>
+      <div class="item-total">TOTAL</div>
+    </div>
+    
     ${billData.items.map(item => `
-    <div class="item-row">
-      <div style="width: 50%; font-weight: bold;">${item.name}</div>
-      <div style="width: 50%; text-align: right;">
-        ${item.quantity} × ₹${item.rate} = <strong>₹${item.amount}</strong>
-      </div>
+    <div class="item-table-row">
+      <div class="item-name">${item.name}</div>
+      <div class="item-qty">${item.quantity}</div>
+      <div class="item-price">₹${item.rate}</div>
+      <div class="item-total">₹${item.amount}</div>
     </div>
     `).join('')}
   </div>
   ` : ''}
   
   <!-- TOTALS SECTION -->
-  <div class="totals-section">
+  <div class="totals-box">
     ${billData.previousBills && billData.previousBills.length > 0 ? `
-    <div class="total-row" style="color: #e67e22;">
+    <div class="total-line">
       <span>Previous Bills Total:</span>
       <span class="bold">₹${billData.previousBills.reduce((sum, bill) => sum + bill.total, 0)}</span>
     </div>
     ` : ''}
     ${billData.previousBalance && billData.previousBalance > 0 ? `
-    <div class="total-row" style="color: #f39c12;">
+    <div class="total-line">
       <span>Previous Balance:</span>
       <span class="bold">₹${billData.previousBalance}</span>
     </div>
     ` : ''}
     ${billData.items.length > 0 ? `
-    <div class="total-row">
+    <div class="total-line">
       <span>Current Order:</span>
       <span class="bold">₹${billData.items.reduce((sum, item) => sum + item.amount, 0)}</span>
     </div>
     ` : ''}
-    <div class="total-row">
+    <div class="total-line">
       <span>Subtotal:</span>
       <span class="bold">₹${billData.subtotal}</span>
     </div>
     ${billData.discount && billData.discount > 0 ? `
-    <div class="total-row" style="color: #e74c3c;">
+    <div class="total-line">
       <span>Discount:</span>
       <span class="bold">-₹${billData.discount}</span>
     </div>
     ` : ''}
     ${billData.deliveryCharge && billData.deliveryCharge > 0 ? `
-    <div class="total-row">
+    <div class="total-line">
       <span>Delivery:</span>
       <span class="bold">₹${billData.deliveryCharge}</span>
     </div>
@@ -296,32 +373,35 @@ export const printCleanThermalBill = (billData: BillData, onError?: (message: st
   </div>
   
   <!-- GRAND TOTAL -->
-  <div class="grand-total">💰 TOTAL: ₹${billData.grandTotal}</div>
+  <div class="grand-total-box">TOTAL: ₹${billData.grandTotal}</div>
   
-  <!-- PAYMENT SECTION - ALWAYS SHOW DYNAMIC QR -->
-  <div class="payment-section">
-    <div class="large" style="margin-bottom: 2mm; color: #2c3e50;">💳 SCAN TO PAY</div>
-    <div class="xl" style="color: #e74c3c; margin-bottom: 2mm;">₹${billData.grandTotal}</div>
+  <!-- PAYMENT SECTION -->
+  <div class="payment-box">
+    <div style="font-size: 12pt; font-weight: bold; margin-bottom: 2mm;">SCAN TO PAY</div>
+    <div style="font-size: 16pt; font-weight: bold; margin-bottom: 2mm;">₹${billData.grandTotal}</div>
     
     <img src="${qrCodeUrl}" alt="UPI Payment QR Code" class="qr-code" 
          crossorigin="anonymous"
          loading="eager">
     
-    <div class="medium bold" style="color: #27ae60; margin: 1mm 0;">
-      📱 PhonePe | GPay | Paytm | UPI
+    <div style="font-size: 9pt; font-weight: bold; margin: 2mm 0;">
+      PhonePe | GPay | Paytm | UPI
     </div>
-    <div class="small" style="color: #7f8c8d; font-family: monospace;">
+    <div style="font-size: 7pt; font-family: monospace;">
       UPI: ${upiConfig.upiId || '6367493127@ybl'}
     </div>
   </div>
   
   <!-- FOOTER -->
-  <div class="footer">
-    <div class="medium" style="font-style: italic; margin-bottom: 1mm; color: #2c3e50;">
-      ${billData.thankYouMessage || '🙏 Thank you for choosing us!'}
+  <div class="footer-box">
+    <div style="font-size: 9pt; font-weight: bold; margin-bottom: 1mm;">
+      ${billData.thankYouMessage || 'Thank you for choosing Gen-Z laundry!'}
     </div>
-    <div class="small" style="color: #95a5a6;">
-      Visit us again • ${billData.businessName}
+    <div style="font-size: 7pt;">
+      Visit www.genzlaundry.com
+    </div>
+    <div style="font-size: 7pt; margin-top: 1mm;">
+      Visit us again • Gen-Z Laundry & Dry Cleaners
     </div>
   </div>
 
