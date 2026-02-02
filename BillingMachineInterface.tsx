@@ -55,6 +55,10 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
   const [searchQuery, setSearchQuery] = useState('');
   const [showUPISettings, setShowUPISettings] = useState(false);
   const [showItemListManager, setShowItemListManager] = useState(false);
+  const [showCustomerHistory, setShowCustomerHistory] = useState(false);
+  const [customerHistory, setCustomerHistory] = useState<any[]>([]);
+  const [showQuickDiscount, setShowQuickDiscount] = useState(false);
+  const [lastBillTotal, setLastBillTotal] = useState(0);
   
   const itemInputRef = useRef<HTMLInputElement>(null);
   const priceInputRef = useRef<HTMLInputElement>(null);
@@ -94,10 +98,75 @@ const quickItems = [
   { name: 'Blanket (Single)', price: 200, washTypes: ['WASH'], icon: '🛌' }
 ];
 
+  const quickDiscounts = [
+    { label: '5%', value: 5, type: 'percentage' },
+    { label: '10%', value: 10, type: 'percentage' },
+    { label: '15%', value: 15, type: 'percentage' },
+    { label: '₹20', value: 20, type: 'fixed' },
+    { label: '₹50', value: 50, type: 'fixed' },
+    { label: '₹100', value: 100, type: 'fixed' }
+  ];
+
+  const deliveryTimeSlots = [
+    '9:00 AM - 12:00 PM',
+    '12:00 PM - 3:00 PM', 
+    '3:00 PM - 6:00 PM',
+    '6:00 PM - 9:00 PM'
+  ];
+
+  const applyQuickDiscount = (discountItem: any) => {
+    const subtotal = calculateSubtotal();
+    if (discountItem.type === 'percentage') {
+      setDiscount(Math.round((subtotal * discountItem.value) / 100));
+    } else {
+      setDiscount(discountItem.value);
+    }
+    setShowQuickDiscount(false);
+  };
+
+  const loadCustomerHistory = async (phone: string) => {
+    if (!phone || phone.length < 10) return;
+    
+    try {
+      const response = await apiService.getBillsByCustomer(phone);
+      if (response.success && response.data) {
+        setCustomerHistory(response.data.slice(0, 5)); // Last 5 bills
+      }
+    } catch (error) {
+      console.log('Could not load customer history:', error);
+      // Fallback to localStorage
+      const localHistory = JSON.parse(localStorage.getItem('laundry_bill_history') || '[]');
+      const customerBills = localHistory.filter((bill: any) => 
+        bill.customerPhone === phone
+      ).slice(0, 5);
+      setCustomerHistory(customerBills);
+    }
+  };
+
+  const addFromHistory = (historyBill: any) => {
+    const newItems = historyBill.items.map((item: any) => ({
+      id: `${Date.now()}-${Math.random()}`,
+      name: item.name,
+      quantity: item.quantity,
+      price: item.rate,
+      washType: 'WASH' as any,
+      total: item.amount
+    }));
+    setOrderItems([...orderItems, ...newItems]);
+    setShowCustomerHistory(false);
+    showAlert({ message: `Added ${newItems.length} items from previous order`, type: 'success' });
+  };
+
   // Filter quick items based on search query
   const filteredQuickItems = quickItems.filter(item =>
     item.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  useEffect(() => {
+    if (customer.phone && customer.phone.length >= 10) {
+      loadCustomerHistory(customer.phone);
+    }
+  }, [customer.phone]);
 
 
   useEffect(() => {
@@ -216,7 +285,7 @@ const quickItems = [
 
   const processOrder = async () => {
     if (!customer.name || (orderItems.length === 0 && selectedPendingBills.length === 0 && previousBalance === 0)) {
-      showAlert({ message: 'Please enter customer name and add items, select pending bills, or add previous balance', type: 'warning' });
+      showAlert({ message: 'Please enter customer name and add items, select pending bills, or add previous due', type: 'warning' });
       return;
     }
     
@@ -234,10 +303,10 @@ const quickItems = [
         ...selectedPendingBills.flatMap(bill => bill.items)
       ];
 
-      // Add previous balance as a line item if it exists
+      // Add previous due as a line item if it exists
       if (previousBalance > 0) {
         allItems.push({
-          name: 'Previous Balance',
+          name: 'Previous Due',
           quantity: 1,
           rate: previousBalance,
           amount: previousBalance
@@ -502,7 +571,7 @@ const quickItems = [
   const clearOrder = () => {
     if ((orderItems.length > 0 || selectedPendingBills.length > 0 || previousBalance > 0)) {
       showConfirm(
-        'Clear all items, pending bills, and previous balance?',
+        'Clear all items, pending bills, and previous due?',
         () => {
           setOrderItems([]);
           setSelectedPendingBills([]);
@@ -532,24 +601,118 @@ const quickItems = [
   return (
     <div style={{
       minHeight: '100vh',
-      background: 'linear-gradient(135deg, #1e3c72 0%, #2a5298 50%, #3b82f6 100%)',
-      fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif",
-      position: 'relative'
+      background: '#1f2937',
+      fontFamily: "'Segoe UI', 'Roboto', sans-serif",
+      color: '#f9fafb'
     }}>
+
       <style>{`
-        .glass { background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.2); }
-        .input-modern { background: rgba(255, 255, 255, 0.15); border: 2px solid rgba(255, 255, 255, 0.2); color: white; transition: all 0.3s ease; }
-        .input-modern:focus { background: rgba(255, 255, 255, 0.25); border-color: rgba(255, 255, 255, 0.5); box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.1); }
-        .input-modern::placeholder { color: rgba(255, 255, 255, 0.7); }
-        .btn-modern { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); border: none; font-weight: 600; }
-        .btn-modern:hover { transform: translateY(-2px); }
-        .quick-item { background: rgba(255, 255, 255, 0.1); border: 2px solid rgba(255, 255, 255, 0.2); transition: all 0.3s ease; }
-        .quick-item:hover { background: rgba(255, 255, 255, 0.2); transform: translateY(-3px) scale(1.02); }
+        .professional-card { 
+          background: '#374151'; 
+          border: 1px solid '#4b5563'; 
+          box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+          transition: box-shadow 0.2s ease;
+        }
         
-        /* Search input styling */
-        input[type="text"]::placeholder {
-          color: rgba(255, 255, 255, 0.5);
-          font-style: italic;
+        .professional-card:hover { 
+          box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+        }
+        
+        .professional-input { 
+          background: '#4b5563'; 
+          border: 1px solid '#6b7280'; 
+          color: '#f9fafb'; 
+          transition: border-color 0.2s ease;
+        }
+        
+        .professional-input:focus { 
+          border-color: '#3b82f6'; 
+          box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+          outline: none;
+        }
+        
+        .professional-input::placeholder {
+          color: '#9ca3af';
+        }
+        
+        .professional-btn { 
+          transition: all 0.2s ease; 
+          border: none; 
+          font-weight: 500;
+          cursor: pointer;
+        }
+        
+        .professional-btn:hover { 
+          transform: translateY(-1px); 
+          box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .professional-btn:active { 
+          transform: translateY(0); 
+        }
+        
+        .quick-item-professional { 
+          background: '#4b5563'; 
+          border: 1px solid '#6b7280'; 
+          transition: all 0.3s ease;
+          color: '#f9fafb';
+          position: relative;
+          overflow: hidden;
+        }
+        
+        .quick-item-professional::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: -100%;
+          width: 100%;
+          height: 100%;
+          background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.2), transparent);
+          transition: left 0.5s ease;
+        }
+        
+        .quick-item-professional:hover::before {
+          left: 100%;
+        }
+        
+        .quick-item-professional:hover { 
+          border-color: '#3b82f6'; 
+          box-shadow: 0 4px 16px rgba(59, 130, 246, 0.4);
+          transform: translateY(-4px) scale(1.02);
+          background: linear-gradient(135deg, #374151, #4b5563);
+        }
+        
+        .item-list-professional {
+          background: '#4b5563';
+          border: 1px solid '#6b7280';
+          transition: all 0.2s ease;
+        }
+        
+        .item-list-professional:hover {
+          background: '#374151';
+        }
+        
+        .scrollable-area {
+          overflow-y: auto;
+          scrollbar-width: thin;
+          scrollbar-color: '#6b7280' '#374151';
+        }
+        
+        .scrollable-area::-webkit-scrollbar {
+          width: 6px;
+        }
+        
+        .scrollable-area::-webkit-scrollbar-track {
+          background: '#374151';
+        }
+        
+        .scrollable-area::-webkit-scrollbar-thumb {
+          background: '#6b7280';
+          border-radius: 3px;
+        }
+        
+        .scrollable-area::-webkit-scrollbar-thumb:hover {
+          background: '#9ca3af';
         }
       `}</style>
 
@@ -581,204 +744,689 @@ const quickItems = [
         </div>
       )}
 
-      {/* Header */}
-      <div className="glass" style={{
-        color: 'white', padding: '15px 25px', display: 'flex', justifyContent: 'space-between',
-        alignItems: 'center', margin: '10px', borderRadius: '15px', boxShadow: '0 6px 24px rgba(0, 0, 0, 0.2)'
+      {/* Professional Header */}
+      <div className="professional-card" style={{
+        padding: '16px 24px', display: 'flex', justifyContent: 'space-between',
+        alignItems: 'center', margin: '0', borderRadius: '0', borderBottom: '2px solid #4b5563',
+        background: '#374151'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-          <img src="/logo.png" alt="Logo" style={{
-            height: '50px', width: '50px', borderRadius: '12px',
-            background: 'rgba(255, 255, 255, 0.9)', padding: '6px',
-            boxShadow: '0 8px 20px rgba(0,0,0,0.3)'
-          }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div style={{
+            width: '48px', height: '48px', borderRadius: '12px',
+            background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)', 
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)',
+            border: '2px solid rgba(255, 255, 255, 0.1)',
+            overflow: 'hidden'
+          }}>
+            <img 
+              src="/logo.png" 
+              alt="GenZ Laundry Logo"
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                borderRadius: '10px'
+              }}
+              onError={(e) => {
+                // Fallback to text logo if image fails to load
+                e.target.style.display = 'none';
+                e.target.parentElement.innerHTML = `
+                  <div style="display: flex; flex-direction: column; align-items: center; line-height: 0.8; color: white; font-weight: bold;">
+                    <span style="font-size: 14px;">G</span>
+                    <span style="font-size: 14px;">Z</span>
+                  </div>
+                `;
+              }}
+            />
+          </div>
           <div>
-            <h1 style={{ margin: 0, fontSize: '28px', fontWeight: '700', letterSpacing: '-0.5px' }}>
-              {shopConfig.shopName} POS
+            <h1 style={{ 
+              margin: 0, fontSize: '24px', fontWeight: '600', 
+              color: '#f9fafb',
+              background: 'linear-gradient(135deg, #f9fafb, #d1d5db)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text'
+            }}>
+              {shopConfig.shopName} - POS
             </h1>
-            <p style={{ margin: '5px 0 0 0', fontSize: '16px', opacity: 0.9 }}>
-              Bill #{billNumber} • {new Date().toLocaleDateString('en-IN')}
+            <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: '#d1d5db' }}>
+              Invoice #{billNumber} • {new Date().toLocaleDateString('en-IN')}
             </p>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
-          <div className="glass" style={{ padding: '12px 20px', borderRadius: '15px', textAlign: 'right' }}>
-            <div style={{ fontSize: '14px', opacity: 0.8 }}>Operator</div>
-            <div style={{ fontSize: '18px', fontWeight: 'bold' }}>👤 Admin</div>
+        
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          <div style={{ 
+            padding: '8px 16px', borderRadius: '6px', 
+            background: '#4b5563', border: '1px solid #6b7280'
+          }}>
+            <div style={{ fontSize: '12px', color: '#d1d5db', marginBottom: '2px' }}>Operator</div>
+            <div style={{ fontSize: '14px', fontWeight: '500', color: '#f9fafb' }}>Admin User</div>
           </div>
+          
           {onLogout && (
-            <div style={{ display: 'flex', gap: '10px' }}>
+            <div style={{ display: 'flex', gap: '8px' }}>
               {onSwitchToAdmin && (
-                <button onClick={onSwitchToAdmin} className="btn-modern" style={{
-                  padding: '12px 24px', borderRadius: '15px', fontSize: '14px',
-                  background: 'linear-gradient(135deg, #9b59b6, #8e44ad)', color: 'white', cursor: 'pointer',
-                  border: 'none'
+                <button onClick={onSwitchToAdmin} className="professional-btn" style={{
+                  padding: '8px 16px', borderRadius: '6px', fontSize: '14px',
+                  background: '#7c3aed', color: 'white'
                 }}>
-                  🛠️ Admin
+                  Admin Panel
                 </button>
               )}
-              <button onClick={onLogout} className="btn-modern" style={{
-                padding: '12px 24px', borderRadius: '15px', fontSize: '14px',
-                background: 'linear-gradient(135deg, #e74c3c, #c0392b)', color: 'white', cursor: 'pointer',
-                border: 'none'
+              <button onClick={onLogout} className="professional-btn" style={{
+                padding: '8px 16px', borderRadius: '6px', fontSize: '14px',
+                background: '#ef4444', color: 'white'
               }}>
-                🚪 Logout
+                Logout
               </button>
             </div>
           )}
         </div>
       </div>
 
-      {/* Main Content */}
-      <div style={{ display: 'flex', padding: '0 15px 15px', gap: '20px', height: 'calc(100vh - 120px)' }}>
+      {/* Main Content - Professional Layout */}
+      <div style={{ display: 'flex', height: 'calc(100vh - 80px)' }}>
         
-        {/* Left Panel */}
-        <div className="glass" style={{ width: '60%', borderRadius: '20px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        {/* Left Panel - Input Section */}
+        <div className="professional-card" style={{ 
+          width: '65%', display: 'flex', flexDirection: 'column',
+          margin: '0', borderRadius: '0', borderRight: '1px solid #4b5563',
+          background: '#374151'
+        }}>
           
-          {/* Customer Section - Ultra Compact */}
+          {/* Customer Section */}
           <div style={{
-            padding: '10px 20px', background: 'linear-gradient(135deg, #ffffff, #f8f9fa)', color: '#2c3e50'
+            padding: '24px 28px', 
+            borderBottom: '1px solid #4b5563'
           }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 140px 60px', gap: '8px', alignItems: 'center' }}>
-              <input
-                type="text" placeholder="👤 Customer Name *" value={customer.name}
-                onChange={(e) => setCustomer({ ...customer, name: e.target.value })}
-                style={{ 
-                  padding: '8px 10px', borderRadius: '6px', fontSize: '13px', outline: 'none',
-                  background: 'rgba(44, 62, 80, 0.1)', border: '1px solid rgba(44, 62, 80, 0.2)', 
-                  color: '#2c3e50', transition: 'all 0.3s ease'
-                }}
-              />
-              <input
-                type="tel" placeholder="📱 Phone" value={customer.phone}
-                onChange={(e) => setCustomer({ ...customer, phone: e.target.value })}
-                style={{ 
-                  padding: '8px 10px', borderRadius: '6px', fontSize: '13px', outline: 'none',
-                  background: 'rgba(44, 62, 80, 0.1)', border: '1px solid rgba(44, 62, 80, 0.2)', 
-                  color: '#2c3e50', transition: 'all 0.3s ease'
-                }}
-              />
-              <input
-                type="date" value={billDate}
-                onChange={(e) => setBillDate(e.target.value)}
-                style={{ 
-                  padding: '8px 10px', borderRadius: '6px', fontSize: '12px', outline: 'none',
-                  background: 'rgba(44, 62, 80, 0.1)', border: '1px solid rgba(44, 62, 80, 0.2)', 
-                  color: '#2c3e50', transition: 'all 0.3s ease'
-                }}
-              />
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              marginBottom: '20px',
+              gap: '12px'
+            }}>
+              <div style={{
+                width: '36px', height: '36px', borderRadius: '8px',
+                background: '#3b82f6', 
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: 'white', fontSize: '16px'
+              }}>
+                👤
+              </div>
+              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '600', color: '#f9fafb' }}>
+                Customer Information
+              </h3>
+            </div>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 160px 90px', gap: '16px' }}>
+              {/* Customer Name Input */}
+              <div style={{ position: 'relative' }}>
+                <label style={{
+                  position: 'absolute',
+                  top: '-8px',
+                  left: '12px',
+                  background: '#374151',
+                  padding: '2px 8px',
+                  fontSize: '12px',
+                  fontWeight: '500',
+                  color: '#d1d5db',
+                  borderRadius: '4px',
+                  zIndex: 1
+                }}>
+                  Customer Name *
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <div style={{
+                    position: 'absolute',
+                    left: '12px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    color: '#9ca3af',
+                    fontSize: '16px',
+                    pointerEvents: 'none'
+                  }}>
+                    👤
+                  </div>
+                  <input
+                    type="text" 
+                    placeholder="Enter customer name" 
+                    value={customer.name}
+                    onChange={(e) => setCustomer({ ...customer, name: e.target.value })}
+                    className="professional-input"
+                    style={{ 
+                      width: '100%',
+                      padding: '12px 16px 12px 40px', 
+                      borderRadius: '8px', 
+                      fontSize: '14px',
+                      fontWeight: '500',
+                      transition: 'all 0.2s ease'
+                    }}
+                  />
+                </div>
+              </div>
+              
+              {/* Phone Number Input with History */}
+              <div style={{ position: 'relative' }}>
+                <label style={{
+                  position: 'absolute',
+                  top: '-8px',
+                  left: '12px',
+                  background: '#374151',
+                  padding: '2px 8px',
+                  fontSize: '12px',
+                  fontWeight: '500',
+                  color: '#d1d5db',
+                  borderRadius: '4px',
+                  zIndex: 1
+                }}>
+                  Phone Number
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <div style={{
+                    position: 'absolute',
+                    left: '12px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    color: '#9ca3af',
+                    fontSize: '16px',
+                    pointerEvents: 'none'
+                  }}>
+                    📱
+                  </div>
+                  <input
+                    type="tel" 
+                    placeholder="Enter phone number" 
+                    value={customer.phone}
+                    onChange={(e) => setCustomer({ ...customer, phone: e.target.value })}
+                    className="professional-input"
+                    style={{ 
+                      width: '100%',
+                      padding: '12px 40px 12px 40px', 
+                      borderRadius: '8px', 
+                      fontSize: '14px',
+                      fontWeight: '500',
+                      transition: 'all 0.2s ease'
+                    }}
+                  />
+                  {customerHistory.length > 0 && (
+                    <button
+                      onClick={() => setShowCustomerHistory(true)}
+                      style={{
+                        position: 'absolute',
+                        right: '8px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: '#3b82f6',
+                        border: 'none',
+                        color: 'white',
+                        borderRadius: '4px',
+                        padding: '4px 6px',
+                        fontSize: '10px',
+                        cursor: 'pointer',
+                        fontWeight: '500'
+                      }}
+                      title="View customer history"
+                    >
+                      📋 {customerHistory.length}
+                    </button>
+                  )}
+                </div>
+              </div>
+              
+              {/* Date Input */}
+              <div style={{ position: 'relative' }}>
+                <label style={{
+                  position: 'absolute',
+                  top: '-8px',
+                  left: '12px',
+                  background: '#374151',
+                  padding: '2px 8px',
+                  fontSize: '12px',
+                  fontWeight: '500',
+                  color: '#d1d5db',
+                  borderRadius: '4px',
+                  zIndex: 1
+                }}>
+                  Bill Date
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <div style={{
+                    position: 'absolute',
+                    left: '12px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    color: '#9ca3af',
+                    fontSize: '16px',
+                    pointerEvents: 'none'
+                  }}>
+                    📅
+                  </div>
+                  <input
+                    type="date" 
+                    value={billDate}
+                    onChange={(e) => setBillDate(e.target.value)}
+                    className="professional-input"
+                    style={{ 
+                      width: '100%',
+                      padding: '12px 16px 12px 40px', 
+                      borderRadius: '8px', 
+                      fontSize: '14px',
+                      fontWeight: '500',
+                      transition: 'all 0.2s ease'
+                    }}
+                  />
+                </div>
+              </div>
+              
+              {/* Today Button */}
               <button
                 onClick={() => setBillDate(new Date().toISOString().split('T')[0])}
+                className="professional-btn"
                 style={{
-                  padding: '8px 6px', borderRadius: '6px', fontSize: '10px', fontWeight: 'bold',
-                  background: 'linear-gradient(135deg, #3498db, #2980b9)', color: 'white', cursor: 'pointer',
-                  border: 'none', whiteSpace: 'nowrap'
+                  padding: '12px 16px', 
+                  borderRadius: '8px', 
+                  fontSize: '13px', 
+                  fontWeight: '600',
+                  background: 'linear-gradient(135deg, #3b82f6, #2563eb)', 
+                  color: 'white',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  boxShadow: '0 2px 4px rgba(59, 130, 246, 0.3)'
                 }}
               >
-                Today
+                📅 Today
               </button>
             </div>
           </div>
 
           {/* Item Entry */}
-          <div style={{ padding: '25px', background: 'rgba(52, 73, 94, 0.8)', color: 'white' }}>
-            <h3 style={{ margin: '0 0 20px 0', fontSize: '20px', color: '#ecf0f1' }}>➕ Add Item</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr auto', gap: '15px', alignItems: 'end' }}>
-              <div>
-                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 'bold', color: '#bdc3c7' }}>Item Name</label>
-                <input
-                  ref={itemInputRef} type="text" value={currentItem} onChange={(e) => setCurrentItem(e.target.value)}
-                  placeholder="Enter item name" className="input-modern"
-                  style={{ width: '100%', padding: '15px', borderRadius: '12px', fontSize: '16px', outline: 'none' }}
-                  onKeyPress={(e) => handleKeyPress(e, 'addItem')}
-                />
-              </div>
-              <div>
-                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 'bold', color: '#bdc3c7' }}>Price (₹)</label>
-                <input
-                  ref={priceInputRef} type="number" value={currentPrice} onChange={(e) => setCurrentPrice(e.target.value)}
-                  placeholder="0" className="input-modern"
-                  style={{ width: '100%', padding: '15px', borderRadius: '12px', fontSize: '16px', outline: 'none' }}
-                  onKeyPress={(e) => handleKeyPress(e, 'addItem')}
-                />
-              </div>
-              <div>
-                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 'bold', color: '#bdc3c7' }}>Quantity</label>
-                <input
-                  type="number" value={currentQuantity} onChange={(e) => setCurrentQuantity(parseInt(e.target.value) || 0)}
-                  min="0" className="input-modern"
-                  style={{ width: '100%', padding: '15px', borderRadius: '12px', fontSize: '16px', outline: 'none' }}
-                />
-              </div>
-              <div>
-                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 'bold', color: '#bdc3c7' }}>Wash Type</label>
-                <select
-                  value={currentWashType} onChange={(e) => setCurrentWashType(e.target.value as any)}
-                  className="input-modern" style={{ padding: '15px', borderRadius: '12px', fontSize: '16px', outline: 'none', cursor: 'pointer' }}
-                >
-                  <option value="WASH">🧺 WASH</option>
-                  <option value="IRON">🔥 IRON</option>
-                  <option value="WASH+IRON">🧺🔥 WASH+IRON</option>
-                  <option value="DRY CLEAN">✨ DRY CLEAN</option>
-                </select>
-              </div>
-              <button onClick={addItemToOrder} className="btn-modern" style={{
-                padding: '15px 25px', borderRadius: '12px', fontSize: '16px', fontWeight: 'bold',
-                background: 'linear-gradient(135deg, #27ae60, #2ecc71)', color: 'white', cursor: 'pointer'
+          <div style={{ 
+            padding: '24px 28px', 
+            borderBottom: '1px solid #4b5563'
+          }}>
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              marginBottom: '20px',
+              gap: '12px'
+            }}>
+              <div style={{
+                width: '36px', height: '36px', borderRadius: '8px',
+                background: '#10b981', 
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: 'white', fontSize: '16px'
               }}>
-                ➕ ADD
+                ➕
+              </div>
+              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '600', color: '#f9fafb' }}>
+                Add New Item
+              </h3>
+            </div>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1.2fr auto', gap: '16px' }}>
+              {/* Item Name Input */}
+              <div style={{ position: 'relative' }}>
+                <label style={{
+                  position: 'absolute',
+                  top: '-8px',
+                  left: '12px',
+                  background: '#374151',
+                  padding: '2px 8px',
+                  fontSize: '12px',
+                  fontWeight: '500',
+                  color: '#d1d5db',
+                  borderRadius: '4px',
+                  zIndex: 1
+                }}>
+                  Item Name *
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <div style={{
+                    position: 'absolute',
+                    left: '12px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    color: '#9ca3af',
+                    fontSize: '16px',
+                    pointerEvents: 'none'
+                  }}>
+                    🏷️
+                  </div>
+                  <input
+                    ref={itemInputRef} 
+                    type="text" 
+                    value={currentItem} 
+                    onChange={(e) => setCurrentItem(e.target.value)}
+                    placeholder="Enter item name" 
+                    className="professional-input"
+                    style={{ 
+                      width: '100%',
+                      padding: '12px 16px 12px 40px', 
+                      borderRadius: '8px', 
+                      fontSize: '14px',
+                      fontWeight: '500',
+                      transition: 'all 0.2s ease'
+                    }}
+                    onKeyPress={(e) => handleKeyPress(e, 'addItem')}
+                  />
+                </div>
+              </div>
+              
+              {/* Price Input */}
+              <div style={{ position: 'relative' }}>
+                <label style={{
+                  position: 'absolute',
+                  top: '-8px',
+                  left: '12px',
+                  background: '#374151',
+                  padding: '2px 8px',
+                  fontSize: '12px',
+                  fontWeight: '500',
+                  color: '#d1d5db',
+                  borderRadius: '4px',
+                  zIndex: 1
+                }}>
+                  Price (₹)
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <div style={{
+                    position: 'absolute',
+                    left: '12px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    color: '#9ca3af',
+                    fontSize: '16px',
+                    pointerEvents: 'none'
+                  }}>
+                    ₹
+                  </div>
+                  <input
+                    ref={priceInputRef} 
+                    type="number" 
+                    value={currentPrice} 
+                    onChange={(e) => setCurrentPrice(e.target.value)}
+                    placeholder="0.00" 
+                    className="professional-input"
+                    style={{ 
+                      width: '100%',
+                      padding: '12px 16px 12px 40px', 
+                      borderRadius: '8px', 
+                      fontSize: '14px',
+                      fontWeight: '500',
+                      transition: 'all 0.2s ease'
+                    }}
+                    onKeyPress={(e) => handleKeyPress(e, 'addItem')}
+                  />
+                </div>
+              </div>
+              
+              {/* Quantity Input */}
+              <div style={{ position: 'relative' }}>
+                <label style={{
+                  position: 'absolute',
+                  top: '-8px',
+                  left: '12px',
+                  background: '#374151',
+                  padding: '2px 8px',
+                  fontSize: '12px',
+                  fontWeight: '500',
+                  color: '#d1d5db',
+                  borderRadius: '4px',
+                  zIndex: 1
+                }}>
+                  Quantity
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <div style={{
+                    position: 'absolute',
+                    left: '12px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    color: '#9ca3af',
+                    fontSize: '16px',
+                    pointerEvents: 'none'
+                  }}>
+                    #
+                  </div>
+                  <input
+                    type="number" 
+                    value={currentQuantity} 
+                    onChange={(e) => setCurrentQuantity(parseInt(e.target.value) || 0)}
+                    min="0" 
+                    className="professional-input"
+                    style={{ 
+                      width: '100%',
+                      padding: '12px 16px 12px 40px', 
+                      borderRadius: '8px', 
+                      fontSize: '14px',
+                      fontWeight: '500',
+                      transition: 'all 0.2s ease'
+                    }}
+                  />
+                </div>
+              </div>
+              
+              {/* Wash Type Select */}
+              <div style={{ position: 'relative' }}>
+                <label style={{
+                  position: 'absolute',
+                  top: '-8px',
+                  left: '12px',
+                  background: '#374151',
+                  padding: '2px 8px',
+                  fontSize: '12px',
+                  fontWeight: '500',
+                  color: '#d1d5db',
+                  borderRadius: '4px',
+                  zIndex: 1
+                }}>
+                  Service Type
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <div style={{
+                    position: 'absolute',
+                    left: '12px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    color: '#9ca3af',
+                    fontSize: '16px',
+                    pointerEvents: 'none'
+                  }}>
+                    🧺
+                  </div>
+                  <select
+                    value={currentWashType} 
+                    onChange={(e) => setCurrentWashType(e.target.value as any)}
+                    className="professional-input" 
+                    style={{ 
+                      width: '100%',
+                      padding: '12px 16px 12px 40px', 
+                      borderRadius: '8px', 
+                      fontSize: '14px', 
+                      cursor: 'pointer',
+                      fontWeight: '500',
+                      transition: 'all 0.2s ease',
+                      appearance: 'none',
+                      backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%239ca3af' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e")`,
+                      backgroundPosition: 'right 12px center',
+                      backgroundRepeat: 'no-repeat',
+                      backgroundSize: '16px'
+                    }}
+                  >
+                    <option value="WASH">🧺 WASH ONLY</option>
+                    <option value="IRON">🔥 IRON ONLY</option>
+                    <option value="WASH+IRON">🧺🔥 WASH + IRON</option>
+                    <option value="DRY CLEAN">✨ DRY CLEAN</option>
+                  </select>
+                </div>
+              </div>
+              
+              {/* Add Button */}
+              <button 
+                onClick={addItemToOrder} 
+                className="professional-btn" 
+                style={{
+                  padding: '12px 20px', 
+                  borderRadius: '8px', 
+                  fontSize: '14px', 
+                  fontWeight: '600',
+                  background: 'linear-gradient(135deg, #10b981, #059669)', 
+                  color: 'white',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  boxShadow: '0 2px 4px rgba(16, 185, 129, 0.3)',
+                  minHeight: '48px'
+                }}
+              >
+                ➕ Add Item
               </button>
             </div>
           </div>
 
           {/* Quick Items */}
-          <div style={{ padding: '25px', flex: 1, overflow: 'auto', background: 'rgba(255, 255, 255, 0.05)' }}>
-            <h3 style={{ margin: '0 0 15px 0', fontSize: '20px', color: 'white' }}>⚡ Quick Items</h3>
-            
-            {/* Search Bar */}
-            <div style={{ marginBottom: '20px' }}>
-              <input
-                type="text"
-                placeholder="🔍 Search items..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '12px 16px',
-                  borderRadius: '10px',
-                  border: '2px solid rgba(255, 255, 255, 0.2)',
-                  background: 'rgba(255, 255, 255, 0.1)',
-                  color: 'white',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  outline: 'none',
-                  transition: 'all 0.3s ease',
-                  boxSizing: 'border-box'
-                }}
-                onFocus={(e) => {
-                  e.target.style.borderColor = 'rgba(255, 255, 255, 0.4)';
-                  e.target.style.background = 'rgba(255, 255, 255, 0.15)';
-                }}
-                onBlur={(e) => {
-                  e.target.style.borderColor = 'rgba(255, 255, 255, 0.2)';
-                  e.target.style.background = 'rgba(255, 255, 255, 0.1)';
-                }}
-              />
+          <div className="scrollable-area" style={{ 
+            padding: '24px 28px', flex: 1, overflow: 'auto',
+            borderTop: '2px solid #4b5563'
+          }}>
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              marginBottom: '20px',
+              gap: '12px',
+              paddingBottom: '16px',
+              borderBottom: '1px solid #4b5563'
+            }}>
+              <div style={{
+                width: '36px', height: '36px', borderRadius: '8px',
+                background: 'linear-gradient(135deg, #f59e0b, #d97706)', 
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: 'white', fontSize: '16px',
+                boxShadow: '0 2px 8px rgba(245, 158, 11, 0.3)'
+              }}>
+                ⚡
+              </div>
+              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '600', color: '#f9fafb' }}>
+                Quick Add Items
+              </h3>
             </div>
             
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '15px' }}>
+            {/* Enhanced Search Bar */}
+            <div style={{ marginBottom: '20px', position: 'relative' }}>
+              <label style={{
+                position: 'absolute',
+                top: '-8px',
+                left: '12px',
+                background: '#374151',
+                padding: '2px 8px',
+                fontSize: '12px',
+                fontWeight: '500',
+                color: '#d1d5db',
+                borderRadius: '4px',
+                zIndex: 1
+              }}>
+                Search Items
+              </label>
+              <div style={{ position: 'relative' }}>
+                <div style={{
+                  position: 'absolute',
+                  left: '12px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  color: '#9ca3af',
+                  fontSize: '16px',
+                  pointerEvents: 'none'
+                }}>
+                  🔍
+                </div>
+                <input
+                  type="text"
+                  placeholder="Type to search items..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="professional-input"
+                  style={{
+                    width: '100%',
+                    padding: '12px 16px 12px 40px',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    transition: 'all 0.2s ease'
+                  }}
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    style={{
+                      position: 'absolute',
+                      right: '12px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      background: 'none',
+                      border: 'none',
+                      color: '#9ca3af',
+                      cursor: 'pointer',
+                      fontSize: '16px',
+                      padding: '4px'
+                    }}
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            </div>
+            
+            <div style={{ 
+              display: 'grid', 
+              gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', 
+              gap: '12px' 
+            }}>
               {filteredQuickItems.length > 0 ? (
                 filteredQuickItems.map((item, index) => (
                   <button
-                    key={index} onClick={() => addQuickItem(item)} className="quick-item"
+                    key={index} 
+                    onClick={() => addQuickItem(item)} 
+                    className="quick-item-professional"
                     style={{
-                      padding: '20px 15px', borderRadius: '15px', cursor: 'pointer',
-                      fontSize: '14px', fontWeight: 'bold', textAlign: 'center', color: 'white'
+                      padding: '18px 14px', borderRadius: '8px', cursor: 'pointer',
+                      fontSize: '12px', fontWeight: '500', textAlign: 'center',
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px',
+                      minHeight: '110px', justifyContent: 'center',
+                      boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
                     }}
                   >
-                    <div style={{ fontSize: '24px', marginBottom: '8px' }}>{item.icon}</div>
-                    <div>{item.name}</div>
-                    <div style={{ fontSize: '12px', marginTop: '5px', opacity: 0.8 }}>₹{item.price}</div>
+                    <div style={{ 
+                      fontSize: '28px',
+                      filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2))'
+                    }}>
+                      {item.icon}
+                    </div>
+                    <div style={{ 
+                      fontSize: '12px', 
+                      fontWeight: '600', 
+                      lineHeight: '1.2',
+                      color: '#f9fafb',
+                      textAlign: 'center'
+                    }}>
+                      {item.name}
+                    </div>
+                    <div style={{ 
+                      fontSize: '15px', 
+                      fontWeight: '700', 
+                      color: '#10b981',
+                      background: 'rgba(16, 185, 129, 0.1)',
+                      padding: '4px 8px',
+                      borderRadius: '4px',
+                      border: '1px solid rgba(16, 185, 129, 0.3)'
+                    }}>
+                      ₹{item.price}
+                    </div>
                   </button>
                 ))
               ) : (
@@ -786,12 +1434,13 @@ const quickItems = [
                   gridColumn: '1 / -1',
                   textAlign: 'center',
                   padding: '40px 20px',
-                  color: 'rgba(255, 255, 255, 0.6)',
-                  fontSize: '16px'
+                  color: '#9ca3af'
                 }}>
                   <div style={{ fontSize: '48px', marginBottom: '16px' }}>🔍</div>
-                  <div style={{ fontWeight: '500', marginBottom: '8px' }}>No items found</div>
-                  <div style={{ fontSize: '14px', opacity: 0.8 }}>
+                  <div style={{ fontSize: '16px', fontWeight: '500', marginBottom: '8px' }}>
+                    No items found
+                  </div>
+                  <div style={{ fontSize: '14px' }}>
                     Try searching with different keywords
                   </div>
                 </div>
@@ -800,235 +1449,177 @@ const quickItems = [
           </div>
         </div>
 
-        {/* Right Panel - Bill Summary with New Layout */}
-        <div className="glass" style={{ width: '40%', borderRadius: '20px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        {/* Right Panel - Bill Summary */}
+        <div className="professional-card" style={{ 
+          width: '35%', display: 'flex', flexDirection: 'column',
+          margin: '0', borderRadius: '0', background: '#374151'
+        }}>
           
           {/* Bill Header */}
           <div style={{
-            padding: '15px 20px', 
-            background: 'linear-gradient(135deg, #2c3e50, #34495e)', 
+            padding: '16px 20px', 
+            background: '#1f2937', 
             color: 'white',
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center'
           }}>
-            <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 'bold' }}>
-              🧾 BILL SUMMARY
-            </h2>
+            <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '600' }}>
+              Bill Summary
+            </h3>
             
-            {/* Right side controls */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              {/* Manage Items Button */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <button
                 onClick={() => setShowItemListManager(true)}
+                className="professional-btn"
                 style={{
                   padding: '6px 10px',
-                  borderRadius: '6px',
-                  border: 'none',
-                  background: 'linear-gradient(135deg, #9b59b6, #8e44ad)',
+                  borderRadius: '4px',
+                  background: '#7c3aed',
                   color: 'white',
-                  cursor: 'pointer',
                   fontSize: '11px',
-                  fontWeight: 'bold',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px'
+                  fontWeight: '500'
                 }}
               >
-                🛠️ MANAGE ITEMS
-                {orderItems.length > 0 && (
-                  <span style={{ 
-                    background: 'rgba(255, 255, 255, 0.3)', 
-                    borderRadius: '8px', 
-                    padding: '1px 4px', 
-                    fontSize: '9px' 
-                  }}>
-                    {orderItems.length}
-                  </span>
-                )}
+                Manage ({orderItems.length})
               </button>
               
               <button
                 onClick={() => setShowPendingBillSelector(true)}
+                className="professional-btn"
                 style={{
                   padding: '6px 10px',
-                  borderRadius: '6px',
-                  border: 'none',
-                  background: 'linear-gradient(135deg, #3498db, #2980b9)',
+                  borderRadius: '4px',
+                  background: '#3b82f6',
                   color: 'white',
-                  cursor: 'pointer',
                   fontSize: '11px',
-                  fontWeight: 'bold',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px'
+                  fontWeight: '500'
                 }}
               >
-                📋 PREVIOUS BILLS
-                {selectedPendingBills.length > 0 && (
-                  <span style={{ 
-                    background: 'rgba(255, 255, 255, 0.3)', 
-                    borderRadius: '8px', 
-                    padding: '1px 4px', 
-                    fontSize: '9px' 
-                  }}>
-                    {selectedPendingBills.length}
-                  </span>
-                )}
+                Previous ({selectedPendingBills.length})
               </button>
               
-              <div style={{ 
-                background: 'rgba(46, 204, 113, 0.2)', 
-                borderRadius: '8px', 
-                padding: '8px 12px',
-                border: '1px solid rgba(46, 204, 113, 0.4)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}>
-                <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#2ecc71' }}>UPI</span>
-                <button
-                  onClick={() => setShowUPISettings(true)}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: '#2ecc71',
-                    cursor: 'pointer',
-                    fontSize: '10px',
-                    padding: '2px 6px',
-                    borderRadius: '4px',
-                    fontWeight: 'bold'
-                  }}
-                  title="Configure UPI Settings"
-                >
-                  ⚙️
-                </button>
-              </div>
+              <button
+                onClick={() => setShowQuickDiscount(true)}
+                className="professional-btn"
+                style={{
+                  padding: '6px 8px',
+                  borderRadius: '4px',
+                  background: '#f59e0b',
+                  color: 'white',
+                  fontSize: '11px',
+                  fontWeight: '500'
+                }}
+              >
+                💰 Discount
+              </button>
+              
+              <button
+                onClick={() => setShowUPISettings(true)}
+                className="professional-btn"
+                style={{
+                  padding: '6px 8px',
+                  borderRadius: '4px',
+                  background: '#10b981',
+                  color: 'white',
+                  fontSize: '11px',
+                  fontWeight: '500'
+                }}
+              >
+                UPI
+              </button>
             </div>
           </div>
 
-          {/* Items List - Simple and Clear */}
-          <div style={{ flex: 1, overflow: 'auto', background: 'rgba(255, 255, 255, 0.02)' }}>
+          {/* Items List - Scrollable */}
+          <div className="scrollable-area" style={{ 
+            flex: 1, overflow: 'auto', maxHeight: 'calc(100vh - 400px)'
+          }}>
             {orderItems.length === 0 && selectedPendingBills.length === 0 && previousBalance === 0 ? (
               <div style={{ 
                 padding: '40px 20px', 
                 textAlign: 'center', 
-                color: 'rgba(255, 255, 255, 0.6)', 
-                fontSize: '14px'
+                color: '#9ca3af'
               }}>
-                <div style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.4 }}>📝</div>
-                <div style={{ fontSize: '16px', fontWeight: '500', marginBottom: '8px' }}>No items added yet</div>
-                <div style={{ fontSize: '12px', opacity: 0.7 }}>Add items to see bill summary</div>
+                <div style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.5 }}>📝</div>
+                <div style={{ fontSize: '16px', fontWeight: '500', marginBottom: '8px' }}>No items added</div>
+                <div style={{ fontSize: '14px' }}>Add items to see bill summary</div>
               </div>
             ) : (
-              <div style={{ padding: '15px' }}>
+              <div style={{ padding: '16px' }}>
                 
                 {/* Current Order Items */}
                 {orderItems.length > 0 && (
                   <div style={{ marginBottom: '20px' }}>
                     <div style={{ 
                       fontSize: '14px', 
-                      fontWeight: 'bold', 
-                      color: '#3498db', 
+                      fontWeight: '600', 
+                      color: '#f9fafb', 
                       marginBottom: '12px',
                       padding: '8px 12px',
-                      background: 'rgba(52, 152, 219, 0.1)',
-                      borderRadius: '8px',
-                      border: '1px solid rgba(52, 152, 219, 0.3)',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center'
+                      background: '#4b5563',
+                      borderRadius: '4px',
+                      border: '1px solid #6b7280'
                     }}>
-                      <span>🛍️ CURRENT ORDER ({orderItems.length} items)</span>
-                      <button
-                        onClick={() => setShowItemListManager(true)}
-                        style={{
-                          background: 'rgba(52, 152, 219, 0.3)',
-                          border: '1px solid rgba(52, 152, 219, 0.5)',
-                          borderRadius: '4px',
-                          padding: '4px 8px',
-                          color: '#3498db',
-                          cursor: 'pointer',
-                          fontSize: '10px',
-                          fontWeight: 'bold',
-                          transition: 'all 0.2s ease'
-                        }}
-                        onMouseOver={(e) => {
-                          e.target.style.background = 'rgba(52, 152, 219, 0.5)';
-                          e.target.style.color = 'white';
-                        }}
-                        onMouseOut={(e) => {
-                          e.target.style.background = 'rgba(52, 152, 219, 0.3)';
-                          e.target.style.color = '#3498db';
-                        }}
-                      >
-                        🛠️ MANAGE
-                      </button>
+                      Current Order ({orderItems.reduce((sum, item) => sum + item.quantity, 0)} items)
                     </div>
                     
                     {orderItems.map((item) => (
-                      <div key={item.id} style={{
-                        background: 'rgba(255, 255, 255, 0.08)',
-                        borderRadius: '8px',
+                      <div key={item.id} className="item-list-professional" style={{
+                        borderRadius: '4px',
                         padding: '12px',
                         marginBottom: '8px',
-                        border: '1px solid rgba(255, 255, 255, 0.1)',
                         display: 'flex',
                         justifyContent: 'space-between',
                         alignItems: 'center'
                       }}>
                         <div style={{ flex: 1 }}>
                           <div style={{ 
-                            color: 'white', 
-                            fontWeight: '600', 
+                            fontWeight: '500', 
                             fontSize: '14px', 
-                            marginBottom: '4px'
+                            marginBottom: '4px',
+                            color: '#f9fafb'
                           }}>
                             {item.name}
                           </div>
                           <div style={{ 
                             fontSize: '12px', 
-                            color: 'rgba(255, 255, 255, 0.7)',
+                            color: '#d1d5db',
                             display: 'flex',
-                            gap: '12px',
-                            alignItems: 'center'
+                            gap: '12px'
                           }}>
                             <span style={{ 
-                              background: 'rgba(52, 152, 219, 0.2)',
-                              padding: '2px 8px',
-                              borderRadius: '4px',
+                              background: '#6b7280',
+                              padding: '2px 6px',
+                              borderRadius: '3px',
                               fontSize: '11px',
                               fontWeight: '500'
                             }}>
                               {item.washType}
                             </span>
-                            <span>Qty: <strong>{item.quantity}</strong></span>
-                            <span>Rate: <strong>₹{item.price}</strong></span>
+                            <span>Qty: {item.quantity}</span>
+                            <span>Rate: ₹{item.price}</span>
                           </div>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                           <div style={{ 
-                            color: '#2ecc71', 
-                            fontWeight: 'bold', 
+                            color: '#10b981', 
+                            fontWeight: '600', 
                             fontSize: '16px' 
                           }}>
                             ₹{item.total}
                           </div>
                           <button
                             onClick={() => removeItem(item.id)}
+                            className="professional-btn"
                             style={{
-                              background: 'rgba(231, 76, 60, 0.8)',
-                              border: 'none',
-                              borderRadius: '6px',
-                              padding: '6px 8px',
+                              background: '#ef4444',
                               color: 'white',
-                              cursor: 'pointer',
+                              padding: '4px 8px',
+                              borderRadius: '4px',
                               fontSize: '12px',
-                              fontWeight: 'bold',
-                              transition: 'all 0.2s ease'
+                              fontWeight: '500'
                             }}
-                            onMouseOver={(e) => e.target.style.background = 'rgba(231, 76, 60, 1)'}
-                            onMouseOut={(e) => e.target.style.background = 'rgba(231, 76, 60, 0.8)'}
                           >
                             Remove
                           </button>
@@ -1043,74 +1634,64 @@ const quickItems = [
                   <div style={{ marginBottom: '20px' }}>
                     <div style={{ 
                       fontSize: '14px', 
-                      fontWeight: 'bold', 
-                      color: '#e67e22', 
+                      fontWeight: '600', 
+                      color: '#495057', 
                       marginBottom: '12px',
                       padding: '8px 12px',
-                      background: 'rgba(230, 126, 34, 0.1)',
-                      borderRadius: '8px',
-                      border: '1px solid rgba(230, 126, 34, 0.3)'
+                      background: '#fff3cd',
+                      borderRadius: '4px',
+                      border: '1px solid #ffeaa7'
                     }}>
-                      📋 PREVIOUS BILLS ({selectedPendingBills.length} bills)
+                      Previous Bills ({selectedPendingBills.length} bills)
                     </div>
                     
                     {selectedPendingBills.map((bill) => {
                       const billId = bill.id || bill._id;
                       return (
-                      <div key={billId} style={{
-                        background: 'rgba(230, 126, 34, 0.1)',
-                        borderRadius: '8px',
+                      <div key={billId} className="item-list-professional" style={{
+                        borderRadius: '4px',
                         padding: '12px',
                         marginBottom: '8px',
-                        border: '1px solid rgba(230, 126, 34, 0.3)',
                         display: 'flex',
                         justifyContent: 'space-between',
-                        alignItems: 'center'
+                        alignItems: 'center',
+                        background: '#fff3cd'
                       }}>
                         <div style={{ flex: 1 }}>
                           <div style={{ 
-                            color: 'white', 
-                            fontWeight: '600', 
+                            fontWeight: '500', 
                             fontSize: '14px', 
-                            marginBottom: '4px'
+                            marginBottom: '4px',
+                            color: '#212529'
                           }}>
                             {bill.billNumber}
                           </div>
                           <div style={{ 
                             fontSize: '12px', 
-                            color: 'rgba(255, 255, 255, 0.7)',
-                            display: 'flex',
-                            gap: '12px',
-                            alignItems: 'center'
+                            color: '#6c757d'
                           }}>
-                            <span>{bill.items.length} items</span>
-                            <span>•</span>
-                            <span>{new Date(bill.createdAt).toLocaleDateString()}</span>
+                            {bill.items.length} items • {new Date(bill.createdAt).toLocaleDateString()}
                           </div>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                           <div style={{ 
-                            color: '#e67e22', 
-                            fontWeight: 'bold', 
+                            color: '#fd7e14', 
+                            fontWeight: '600', 
                             fontSize: '16px' 
                           }}>
                             ₹{bill.grandTotal}
                           </div>
                           <button
                             onClick={() => removePendingBill(billId)}
+                            className="professional-btn"
                             style={{
-                              background: 'rgba(231, 76, 60, 0.8)',
-                              border: 'none',
-                              borderRadius: '6px',
-                              padding: '6px 8px',
+                              background: '#dc3545',
                               color: 'white',
-                              cursor: 'pointer',
+                              padding: '4px 8px',
+                              borderRadius: '4px',
                               fontSize: '12px',
-                              fontWeight: 'bold',
-                              transition: 'all 0.2s ease'
+                              fontWeight: '500'
                             }}
-                            onMouseOver={(e) => e.target.style.background = 'rgba(231, 76, 60, 1)'}
-                            onMouseOut={(e) => e.target.style.background = 'rgba(231, 76, 60, 0.8)'}
                           >
                             Remove
                           </button>
@@ -1120,70 +1701,65 @@ const quickItems = [
                   </div>
                 )}
 
-                {/* Previous Balance */}
+                {/* Previous Due */}
                 {previousBalance > 0 && (
                   <div style={{ marginBottom: '20px' }}>
                     <div style={{ 
                       fontSize: '14px', 
-                      fontWeight: 'bold', 
-                      color: '#f39c12', 
+                      fontWeight: '600', 
+                      color: '#495057', 
                       marginBottom: '12px',
                       padding: '8px 12px',
-                      background: 'rgba(243, 156, 18, 0.1)',
-                      borderRadius: '8px',
-                      border: '1px solid rgba(243, 156, 18, 0.3)'
+                      background: '#f8d7da',
+                      borderRadius: '4px',
+                      border: '1px solid #f5c6cb'
                     }}>
-                      💰 PREVIOUS BALANCE
+                      Previous Due
                     </div>
                     
-                    <div style={{
-                      background: 'rgba(243, 156, 18, 0.1)',
-                      borderRadius: '8px',
+                    <div className="item-list-professional" style={{
+                      borderRadius: '4px',
                       padding: '12px',
-                      border: '1px solid rgba(243, 156, 18, 0.3)',
                       display: 'flex',
                       justifyContent: 'space-between',
-                      alignItems: 'center'
+                      alignItems: 'center',
+                      background: '#f8d7da'
                     }}>
                       <div style={{ flex: 1 }}>
                         <div style={{ 
-                          color: 'white', 
-                          fontWeight: '600', 
+                          fontWeight: '500', 
                           fontSize: '14px', 
-                          marginBottom: '4px'
+                          marginBottom: '4px',
+                          color: '#212529'
                         }}>
                           Outstanding Amount
                         </div>
                         <div style={{ 
                           fontSize: '12px', 
-                          color: 'rgba(255, 255, 255, 0.7)'
+                          color: '#6c757d'
                         }}>
-                          Previous balance to settle
+                          Previous due to settle
                         </div>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                         <div style={{ 
-                          color: '#f39c12', 
-                          fontWeight: 'bold', 
+                          color: '#dc3545', 
+                          fontWeight: '600', 
                           fontSize: '16px' 
                         }}>
                           ₹{previousBalance}
                         </div>
                         <button
                           onClick={() => setPreviousBalance(0)}
+                          className="professional-btn"
                           style={{
-                            background: 'rgba(231, 76, 60, 0.8)',
-                            border: 'none',
-                            borderRadius: '6px',
-                            padding: '6px 8px',
+                            background: '#dc3545',
                             color: 'white',
-                            cursor: 'pointer',
+                            padding: '4px 8px',
+                            borderRadius: '4px',
                             fontSize: '12px',
-                            fontWeight: 'bold',
-                            transition: 'all 0.2s ease'
+                            fontWeight: '500'
                           }}
-                          onMouseOver={(e) => e.target.style.background = 'rgba(231, 76, 60, 1)'}
-                          onMouseOut={(e) => e.target.style.background = 'rgba(231, 76, 60, 0.8)'}
                         >
                           Remove
                         </button>
@@ -1197,9 +1773,9 @@ const quickItems = [
 
           {/* Bill Footer - Professional Calculations & Actions */}
           <div style={{ 
-            background: 'linear-gradient(135deg, #34495e, #2c3e50)', 
+            background: 'linear-gradient(135deg, #000000ff, #408999ff)', 
             padding: '20px',
-            borderTop: '1px solid rgba(255, 255, 255, 0.1)'
+            borderTop: '1px solid rgba(91, 56, 56, 0.1)'
           }}>
             
             {/* Quick Adjustments */}
@@ -1713,111 +2289,7 @@ const quickItems = [
                   </div>
                 </div>
 
-                {/* Action Buttons - PRINT TAGS, CLEAR ALL, PRINT BILL */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <div style={{ display: 'flex', gap: '4px' }}>
-                    <button
-                      onClick={printClothingTags} 
-                      disabled={orderItems.length === 0 || !customer.name}
-                      style={{
-                        flex: 1,
-                        padding: '6px', 
-                        borderRadius: '4px', 
-                        fontSize: '9px', 
-                        fontWeight: '600',
-                        background: orderItems.length === 0 || !customer.name 
-                          ? 'rgba(189, 195, 199, 0.3)' 
-                          : 'linear-gradient(135deg, #f39c12, #e67e22)',
-                        color: 'white', 
-                        cursor: orderItems.length === 0 || !customer.name ? 'not-allowed' : 'pointer',
-                        border: 'none',
-                        textAlign: 'center',
-                        transition: 'all 0.2s ease'
-                      }}
-                      onMouseOver={(e) => {
-                        if (orderItems.length > 0 && customer.name) {
-                          e.target.style.transform = 'translateY(-1px)';
-                          e.target.style.boxShadow = '0 2px 6px rgba(243, 156, 18, 0.3)';
-                        }
-                      }}
-                      onMouseOut={(e) => {
-                        e.target.style.transform = 'translateY(0)';
-                        e.target.style.boxShadow = 'none';
-                      }}
-                    >
-                      🏷️ PRINT TAGS
-                    </button>
-                    
-                    <button
-                      onClick={clearOrder} 
-                      disabled={orderItems.length === 0 && selectedPendingBills.length === 0 && previousBalance === 0}
-                      style={{
-                        flex: 1,
-                        padding: '6px', 
-                        borderRadius: '4px', 
-                        fontSize: '9px', 
-                        fontWeight: '600',
-                        background: (orderItems.length === 0 && selectedPendingBills.length === 0 && previousBalance === 0) 
-                          ? 'rgba(189, 195, 199, 0.3)' 
-                          : 'linear-gradient(135deg, #95a5a6, #7f8c8d)',
-                        color: 'white', 
-                        cursor: (orderItems.length === 0 && selectedPendingBills.length === 0 && previousBalance === 0) 
-                          ? 'not-allowed' 
-                          : 'pointer',
-                        border: 'none',
-                        textAlign: 'center',
-                        transition: 'all 0.2s ease'
-                      }}
-                      onMouseOver={(e) => {
-                        if (orderItems.length > 0 || selectedPendingBills.length > 0 || previousBalance > 0) {
-                          e.target.style.transform = 'translateY(-1px)';
-                          e.target.style.boxShadow = '0 2px 6px rgba(149, 165, 166, 0.3)';
-                        }
-                      }}
-                      onMouseOut={(e) => {
-                        e.target.style.transform = 'translateY(0)';
-                        e.target.style.boxShadow = 'none';
-                      }}
-                    >
-                      🗑️ CLEAR ALL
-                    </button>
-                  </div>
 
-                  <button
-                    onClick={processOrder} 
-                    disabled={!customer.name || (orderItems.length === 0 && selectedPendingBills.length === 0 && previousBalance === 0) || isProcessing}
-                    style={{
-                      width: '100%',
-                      padding: '8px', 
-                      borderRadius: '6px', 
-                      fontSize: '10px', 
-                      fontWeight: 'bold',
-                      background: (!customer.name || (orderItems.length === 0 && selectedPendingBills.length === 0 && previousBalance === 0) || isProcessing) 
-                        ? 'rgba(189, 195, 199, 0.3)' 
-                        : 'linear-gradient(135deg, #27ae60, #2ecc71)',
-                      color: 'white', 
-                      cursor: (!customer.name || (orderItems.length === 0 && selectedPendingBills.length === 0 && previousBalance === 0) || isProcessing) 
-                        ? 'not-allowed' 
-                        : 'pointer',
-                      border: 'none',
-                      textAlign: 'center',
-                      transition: 'all 0.2s ease',
-                      boxShadow: '0 2px 4px rgba(39, 174, 96, 0.2)'
-                    }}
-                    onMouseOver={(e) => {
-                      if (customer.name && (orderItems.length > 0 || selectedPendingBills.length > 0 || previousBalance > 0) && !isProcessing) {
-                        e.target.style.transform = 'translateY(-1px)';
-                        e.target.style.boxShadow = '0 4px 8px rgba(39, 174, 96, 0.4)';
-                      }
-                    }}
-                    onMouseOut={(e) => {
-                      e.target.style.transform = 'translateY(0)';
-                      e.target.style.boxShadow = '0 2px 4px rgba(39, 174, 96, 0.2)';
-                    }}
-                  >
-                    {isProcessing ? '⏳ Processing...' : '🧾 PRINT BILL & GENERATE RECEIPT'}
-                  </button>
-                </div>
               </div>
             </div>
           </div>
@@ -1847,6 +2319,161 @@ const quickItems = [
           onUpdateOrderItems={setOrderItems}
           onClose={() => setShowItemListManager(false)}
         />
+      )}
+
+      {/* Customer History Modal */}
+      {showCustomerHistory && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center',
+          zIndex: 1000, backdropFilter: 'blur(10px)'
+        }}>
+          <div style={{
+            background: '#374151', borderRadius: '12px', padding: '24px', width: '500px', maxHeight: '70vh',
+            overflow: 'auto', border: '1px solid #4b5563'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h3 style={{ margin: 0, color: '#f9fafb', fontSize: '18px', fontWeight: '600' }}>
+                📋 Customer History - {customer.name}
+              </h3>
+              <button onClick={() => setShowCustomerHistory(false)} style={{
+                background: '#ef4444', color: 'white', border: 'none', borderRadius: '6px',
+                padding: '6px 12px', cursor: 'pointer', fontSize: '12px', fontWeight: '500'
+              }}>
+                ✕ Close
+              </button>
+            </div>
+            
+            {customerHistory.length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {customerHistory.map((bill, index) => (
+                  <div key={index} style={{
+                    background: '#4b5563', borderRadius: '8px', padding: '16px',
+                    border: '1px solid #6b7280'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                      <div style={{ color: '#f9fafb', fontWeight: '600', fontSize: '14px' }}>
+                        {bill.billNumber}
+                      </div>
+                      <div style={{ color: '#10b981', fontWeight: '600', fontSize: '16px' }}>
+                        ₹{bill.grandTotal}
+                      </div>
+                    </div>
+                    <div style={{ color: '#d1d5db', fontSize: '12px', marginBottom: '8px' }}>
+                      {new Date(bill.createdAt).toLocaleDateString()} • {bill.items.length} items
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ color: '#9ca3af', fontSize: '11px' }}>
+                        {bill.items.slice(0, 3).map((item: any) => item.name).join(', ')}
+                        {bill.items.length > 3 && ` +${bill.items.length - 3} more`}
+                      </div>
+                      <button
+                        onClick={() => addFromHistory(bill)}
+                        style={{
+                          background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px',
+                          padding: '4px 8px', cursor: 'pointer', fontSize: '11px', fontWeight: '500'
+                        }}
+                      >
+                        ➕ Add Items
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ textAlign: 'center', color: '#9ca3af', padding: '40px 20px' }}>
+                <div style={{ fontSize: '48px', marginBottom: '16px' }}>📋</div>
+                <div>No previous orders found</div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Quick Discount Modal */}
+      {showQuickDiscount && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center',
+          zIndex: 1000, backdropFilter: 'blur(10px)'
+        }}>
+          <div style={{
+            background: '#374151', borderRadius: '12px', padding: '24px', width: '400px',
+            border: '1px solid #4b5563'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h3 style={{ margin: 0, color: '#f9fafb', fontSize: '18px', fontWeight: '600' }}>
+                💰 Quick Discount
+              </h3>
+              <button onClick={() => setShowQuickDiscount(false)} style={{
+                background: '#ef4444', color: 'white', border: 'none', borderRadius: '6px',
+                padding: '6px 12px', cursor: 'pointer', fontSize: '12px', fontWeight: '500'
+              }}>
+                ✕ Close
+              </button>
+            </div>
+            
+            <div style={{ marginBottom: '16px', color: '#d1d5db', fontSize: '14px' }}>
+              Subtotal: ₹{calculateSubtotal()}
+            </div>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '16px' }}>
+              {quickDiscounts.map((discountItem, index) => (
+                <button
+                  key={index}
+                  onClick={() => applyQuickDiscount(discountItem)}
+                  style={{
+                    background: '#4b5563', color: '#f9fafb', border: '1px solid #6b7280',
+                    borderRadius: '8px', padding: '12px', cursor: 'pointer', fontSize: '14px',
+                    fontWeight: '600', transition: 'all 0.2s ease'
+                  }}
+                  onMouseOver={(e) => {
+                    e.target.style.background = '#3b82f6';
+                    e.target.style.borderColor = '#3b82f6';
+                  }}
+                  onMouseOut={(e) => {
+                    e.target.style.background = '#4b5563';
+                    e.target.style.borderColor = '#6b7280';
+                  }}
+                >
+                  {discountItem.label}
+                </button>
+              ))}
+            </div>
+            
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <input
+                type="number"
+                placeholder="Custom amount"
+                className="professional-input"
+                style={{
+                  flex: 1, padding: '12px', borderRadius: '8px', fontSize: '14px'
+                }}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    const value = parseFloat((e.target as HTMLInputElement).value);
+                    if (value > 0) {
+                      setDiscount(value);
+                      setShowQuickDiscount(false);
+                    }
+                  }
+                }}
+              />
+              <button
+                onClick={() => {
+                  setDiscount(0);
+                  setShowQuickDiscount(false);
+                }}
+                style={{
+                  background: '#ef4444', color: 'white', border: 'none', borderRadius: '8px',
+                  padding: '12px 16px', cursor: 'pointer', fontSize: '14px', fontWeight: '500'
+                }}
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

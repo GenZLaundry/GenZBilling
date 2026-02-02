@@ -245,7 +245,7 @@ export const printThermalBill = (billData: BillData, onError?: (message: string)
       ` : ''}
       ${billData.previousBalance && billData.previousBalance > 0 ? `
       <div class="row small">
-        <span>Previous Balance:</span>
+        <span>Previous Due:</span>
         <span>₹${billData.previousBalance}</span>
       </div>
       ` : ''}
@@ -402,7 +402,7 @@ export const generateThermalESCPOS = (billData: BillData): string => {
     commands += ('Previous Bills Total: ₹' + billData.previousBills.reduce((sum, bill) => sum + bill.total, 0)).padStart(32) + '\n';
   }
   if (billData.previousBalance && billData.previousBalance > 0) {
-    commands += ('Previous Balance: ₹' + billData.previousBalance).padStart(32) + '\n';
+    commands += ('Previous Due: ₹' + billData.previousBalance).padStart(32) + '\n';
   }
   if (billData.items.length > 0) {
     commands += ('Current Order: ₹' + billData.items.reduce((sum, item) => sum + item.amount, 0)).padStart(32) + '\n';

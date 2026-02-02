@@ -344,7 +344,7 @@ export const printCleanThermalBill = (billData: BillData, onError?: (message: st
     ` : ''}
     ${billData.previousBalance && billData.previousBalance > 0 ? `
     <div class="total-line">
-      <span>Previous Balance:</span>
+      <span>Previous Due:</span>
       <span class="bold">₹${billData.previousBalance}</span>
     </div>
     ` : ''}

@@ -374,7 +374,7 @@ const BillManager: React.FC<BillManagerProps> = ({ onClose }) => {
 
               <input
                 type="number"
-                placeholder="Previous Balance (₹)"
+                placeholder="Previous Due (₹)"
                 value={editFormData.previousBalance}
                 onChange={(e) => setEditFormData({ ...editFormData, previousBalance: parseFloat(e.target.value) || 0 })}
                 style={{ padding: '10px', borderRadius: '8px', border: '2px solid #dee2e6', fontSize: '14px' }}
