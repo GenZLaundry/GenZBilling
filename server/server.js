@@ -5,6 +5,11 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 
+// Set server timezone to Indian Standard Time (Delhi/Kolkata)
+process.env.TZ = 'Asia/Kolkata';
+console.log('🕐 Server timezone set to:', process.env.TZ);
+console.log('🕐 Current server time:', new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }));
+
 // Load environment variables (works both locally and in production)
 if (process.env.NODE_ENV !== 'production') {
   require('dotenv').config();
