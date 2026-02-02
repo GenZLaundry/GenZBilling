@@ -280,7 +280,7 @@ const quickItems = [
         previousBalance,
         grandTotal: calculateTotal(),
         status: 'completed',
-        thankYouMessage: 'Thank you for choosing Gen-z laundry! Visit www.genzlaundry.com'
+        thankYouMessage: 'Thank you for choosing Gen-z laundry!'
       };
 
       console.log('🧾 Processing bill:', billData);

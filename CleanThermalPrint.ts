@@ -398,7 +398,7 @@ export const printCleanThermalBill = (billData: BillData, onError?: (message: st
       ${billData.thankYouMessage || 'Thank you for choosing Gen-Z laundry!'}
     </div>
     <div style="font-size: 7pt;">
-      Visit www.genzlaundry.com
+      Website: www.genzlaundry.com
     </div>
     <div style="font-size: 7pt; margin-top: 1mm;">
       Visit us again • Gen-Z Laundry & Dry Cleaners
