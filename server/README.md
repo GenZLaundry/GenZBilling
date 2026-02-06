@@ -22,7 +22,7 @@ npm install
 ### 2. Environment Setup
 The `.env` file is already configured with your MongoDB Atlas connection:
 ```
-MONGODB_URI=mongodb+srv://......................................../genzlaundry
+MONGODB_URI=mongodb+srv://genzadmin:uNd78VXJ2I@genzlaundry.yl3vi98.mongodb.net/genzlaundry
 PORT=8000
 NODE_ENV=development
 CORS_ORIGIN=http://localhost:3000
@@ -162,7 +162,7 @@ The frontend automatically connects to this API and provides:
 ### Environment Variables for Production
 ```bash
 NODE_ENV=production
-MONGODB_URI=mongodb+srv:.............................................../genzlaundry
+MONGODB_URI=mongodb+srv://genzadmin:uNd78VXJ2I@genzlaundry.yl3vi98.mongodb.net/genzlaundry
 PORT=8000
 CORS_ORIGIN=https://your-frontend-domain.com
 ```
@@ -192,6 +192,5 @@ For issues or questions:
 2. Verify MongoDB connection in Atlas dashboard
 3. Test API endpoints with Postman or curl
 4. Check CORS settings if frontend can't connect
-
 
 The system is designed to be robust and handle both online and offline scenarios gracefully!

@@ -497,7 +497,7 @@ const quickItems = [
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Clothing Tags - ${billNumber}</title>
+  <title>Clothing Tags</title>
   <style>
     @page { size: 4.25in auto; margin: 0; }
     @media print {
@@ -505,47 +505,84 @@ const quickItems = [
       .tag { page-break-after: always; }
       .tag:last-child { page-break-after: avoid; }
     }
-    body { font-family: 'Courier New', monospace; margin: 0; padding: 3mm; background: #f0f0f0; width: 4.25in; }
-    .tag { width: 50mm; height: 30mm; border: 2px solid #000; margin: 2mm auto; padding: 2mm; background: white; display: block; position: relative; box-sizing: border-box; page-break-inside: avoid; }
-    .tag-header { display: flex; justify-content: space-between; align-items: center; font-size: 7px; font-weight: bold; margin-bottom: 1mm; border-bottom: 1px solid #000; padding-bottom: 0.5mm; }
-    .business-name { font-size: 8px; font-weight: bold; }
-    .date { font-size: 6px; }
-    .item-section { text-align: center; margin: 1mm 0; }
-    .item-name { font-size: 9px; font-weight: bold; margin-bottom: 0.5mm; }
-    .bill-number { font-size: 10px; font-weight: bold; letter-spacing: 0.5px; margin-bottom: 0.5mm; }
-    .barcode { font-size: 8px; font-weight: bold; font-family: 'Courier New', monospace; letter-spacing: 1px; border: 1px solid #000; padding: 1px 2px; margin: 1mm 0; }
-    .wash-type { font-size: 6px; font-weight: bold; background: #000; color: white; padding: 1px 3px; margin-top: 0.5mm; }
-    .bottom-section { position: absolute; bottom: 1.5mm; left: 2mm; right: 2mm; display: flex; justify-content: space-between; align-items: center; font-size: 6px; border-top: 1px solid #000; padding-top: 0.5mm; }
-    .customer-info { font-size: 5px; max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .tag-counter { background: #000; color: white; padding: 1px 3px; font-size: 7px; font-weight: bold; }
-    .price { font-size: 6px; font-weight: bold; }
+    body { 
+      font-family: 'Arial Black', 'Arial', sans-serif; 
+      margin: 0; 
+      padding: 3mm; 
+      background: #f5f5f5; 
+      width: 4.25in; 
+    }
+    .tag { 
+      width: 60mm; 
+      height: 40mm; 
+      border: 2px solid #000; 
+      margin: 3mm auto; 
+      padding: 3mm; 
+      background: white; 
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      box-sizing: border-box; 
+      page-break-inside: avoid;
+      overflow: hidden;
+    }
+    .top-row { 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center; 
+      font-size: 8px; 
+      font-weight: bold;
+      padding-bottom: 2mm;
+      border-bottom: 1px solid #000;
+    }
+    .customer-name { 
+      text-align: center; 
+      font-size: 16px; 
+      font-weight: 900; 
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin: 3mm 0;
+      line-height: 1.3;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      hyphens: auto;
+      max-width: 100%;
+      padding: 0 2mm;
+    }
+    .bill-info { 
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 14px; 
+      font-weight: bold; 
+      letter-spacing: 1px; 
+      font-family: 'Courier New', monospace;
+      margin: 2mm 0;
+      padding: 0 2mm;
+    }
+    .tag-number { 
+      font-size: 12px; 
+      font-weight: bold;
+    }
   </style>
 </head>
 <body>
-  <div style="text-align: center; margin-bottom: 3mm; font-weight: bold; font-size: 10px;">
-    TSC TL240 Clothing Tags - ${tags.length} Tags
+  <div style="text-align: center; margin-bottom: 4mm; font-weight: bold; font-size: 14px; border: 2px solid #000; padding: 3mm; background: white;">
+    GENZ LAUNDRY - ${tags.length} TAGS
   </div>
   
   ${tags.map(tag => `
     <div class="tag">
-      <div class="tag-header">
-        <span class="business-name">${tag.businessName}</span>
-        <span class="date">${tag.date}</span>
+      <div class="top-row">
+        <span>${tag.businessName}</span>
+        <span>${tag.date}</span>
       </div>
       
-      <div class="item-section">
-        <div class="item-name">${tag.itemName}</div>
-        <div class="bill-number">${tag.billNumber}</div>
-        <div class="barcode">*${tag.barcode}*</div>
-        <div class="wash-type">${tag.washType}</div>
-      </div>
+      <div class="customer-name">${tag.customerName}</div>
       
-      <div class="bottom-section">
-        <div>
-          <div class="customer-info">${tag.customerName.substring(0, 10)}</div>
-          <div class="price">₹${tag.price}</div>
-        </div>
-        <span class="tag-counter">${tag.tagIndex}/${tag.totalTags}</span>
+      <div class="bill-info">
+        <span>${tag.billNumber}</span>
+        <span class="tag-number">${tag.tagIndex} / ${tag.totalTags}</span>
       </div>
     </div>
   `).join('')}
