@@ -38,12 +38,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
   const [showNotifications, setShowNotifications] = useState(false);
   const [statusFilter, setStatusFilter] = useState('');
   const [dateFilter, setDateFilter] = useState('');
+  const [startDateFilter, setStartDateFilter] = useState('');
+  const [endDateFilter, setEndDateFilter] = useState('');
   const [showDataImport, setShowDataImport] = useState(false);
   const [showBackupRestore, setShowBackupRestore] = useState(false);
   const [showBulkOperations, setShowBulkOperations] = useState(false);
   const [selectedBills, setSelectedBills] = useState<string[]>([]);
   const [showCustomerManager, setShowCustomerManager] = useState(false);
   const [showReportsGenerator, setShowReportsGenerator] = useState(false);
+  const [dateFilteredRevenue, setDateFilteredRevenue] = useState(0);
+  const [dateFilteredBillCount, setDateFilteredBillCount] = useState(0);
 
   // Update time every second
   useEffect(() => {
@@ -770,8 +774,54 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
     
     const matchesStatus = statusFilter === '' || bill.status === statusFilter;
     
-    return matchesSearch && matchesStatus;
+    // Date filtering
+    let matchesDate = true;
+    if (startDateFilter || endDateFilter) {
+      const billDate = new Date(bill.createdAt);
+      if (startDateFilter) {
+        const startDate = new Date(startDateFilter);
+        startDate.setHours(0, 0, 0, 0);
+        matchesDate = matchesDate && billDate >= startDate;
+      }
+      if (endDateFilter) {
+        const endDate = new Date(endDateFilter);
+        endDate.setHours(23, 59, 59, 999);
+        matchesDate = matchesDate && billDate <= endDate;
+      }
+    }
+    
+    return matchesSearch && matchesStatus && matchesDate;
   });
+
+  // Calculate revenue for filtered date range
+  useEffect(() => {
+    if (startDateFilter || endDateFilter) {
+      const filtered = billHistory.filter(bill => {
+        const billDate = new Date(bill.createdAt);
+        let matches = true;
+        
+        if (startDateFilter) {
+          const startDate = new Date(startDateFilter);
+          startDate.setHours(0, 0, 0, 0);
+          matches = matches && billDate >= startDate;
+        }
+        if (endDateFilter) {
+          const endDate = new Date(endDateFilter);
+          endDate.setHours(23, 59, 59, 999);
+          matches = matches && billDate <= endDate;
+        }
+        
+        return matches;
+      });
+      
+      const revenue = filtered.reduce((sum, bill) => sum + (bill.grandTotal || 0), 0);
+      setDateFilteredRevenue(revenue);
+      setDateFilteredBillCount(filtered.length);
+    } else {
+      setDateFilteredRevenue(0);
+      setDateFilteredBillCount(0);
+    }
+  }, [startDateFilter, endDateFilter, billHistory]);
 
   return (
     <div style={{
@@ -2715,7 +2765,7 @@ Revenue per Customer: ₹${Math.round(systemReport.totalRevenue / systemReport.u
               marginBottom: '25px',
               border: '1px solid rgba(255, 255, 255, 0.2)'
             }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '15px', alignItems: 'end' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '15px', alignItems: 'end', marginBottom: '15px' }}>
                 <div>
                   <label style={{ color: 'white', display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '500' }}>
                     🔍 Search Bills
@@ -2765,6 +2815,8 @@ Revenue per Customer: ₹${Math.round(systemReport.totalRevenue / systemReport.u
                     onClick={() => {
                       setSearchTerm('');
                       setStatusFilter('');
+                      setStartDateFilter('');
+                      setEndDateFilter('');
                     }}
                     style={{
                       width: '100%',
@@ -2780,6 +2832,63 @@ Revenue per Customer: ₹${Math.round(systemReport.totalRevenue / systemReport.u
                   >
                     🗑️ Clear Filters
                   </button>
+                </div>
+              </div>
+              
+              {/* Date Range Filter */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr', gap: '15px', alignItems: 'end' }}>
+                <div>
+                  <label style={{ color: 'white', display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '500' }}>
+                    📅 Start Date
+                  </label>
+                  <input
+                    type="date"
+                    value={startDateFilter}
+                    onChange={(e) => setStartDateFilter(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '12px 16px',
+                      borderRadius: '10px',
+                      border: 'none',
+                      background: 'rgba(255, 255, 255, 0.9)',
+                      fontSize: '14px',
+                      fontWeight: '500'
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ color: 'white', display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '500' }}>
+                    📅 End Date
+                  </label>
+                  <input
+                    type="date"
+                    value={endDateFilter}
+                    onChange={(e) => setEndDateFilter(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '12px 16px',
+                      borderRadius: '10px',
+                      border: 'none',
+                      background: 'rgba(255, 255, 255, 0.9)',
+                      fontSize: '14px',
+                      fontWeight: '500'
+                    }}
+                  />
+                </div>
+                <div>
+                  {(startDateFilter || endDateFilter) && (
+                    <div style={{
+                      padding: '12px 16px',
+                      borderRadius: '10px',
+                      background: 'linear-gradient(135deg, #27ae60, #2ecc71)',
+                      color: 'white',
+                      fontSize: '14px',
+                      fontWeight: 'bold',
+                      textAlign: 'center'
+                    }}>
+                      💰 Revenue: ₹{dateFilteredRevenue.toFixed(2)} • 📋 Bills: {dateFilteredBillCount}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

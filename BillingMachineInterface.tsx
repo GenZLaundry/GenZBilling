@@ -541,7 +541,7 @@ const quickItems = [
       font-weight: 900; 
       text-transform: uppercase;
       letter-spacing: 0.5px;
-      margin: 3mm 0;
+      margin: 2mm 0;
       line-height: 1.3;
       word-wrap: break-word;
       overflow-wrap: break-word;
@@ -557,19 +557,29 @@ const quickItems = [
       font-weight: bold; 
       letter-spacing: 1px; 
       font-family: 'Courier New', monospace;
-      margin: 2mm 0;
+      margin: 1mm 0;
       padding: 0 2mm;
     }
     .tag-number { 
       font-size: 12px; 
+      font-weight: 900;
+      border: 2px solid #000;
+      padding: 4px 10px;
+      border-radius: 5px;
+      background: white;
+    }
+    .website { 
+      text-align: center;
+      font-size: 9px; 
       font-weight: bold;
+      margin-top: 1mm;
+      padding-top: 1.5mm;
+      border-top: 1px solid #000;
+      letter-spacing: 0.3px;
     }
   </style>
 </head>
 <body>
-  <div style="text-align: center; margin-bottom: 4mm; font-weight: bold; font-size: 14px; border: 2px solid #000; padding: 3mm; background: white;">
-    GENZ LAUNDRY - ${tags.length} TAGS
-  </div>
   
   ${tags.map(tag => `
     <div class="tag">
@@ -584,6 +594,8 @@ const quickItems = [
         <span>${tag.billNumber}</span>
         <span class="tag-number">${tag.tagIndex} / ${tag.totalTags}</span>
       </div>
+      
+      <div class="website">www.genzlaundry.com</div>
     </div>
   `).join('')}
   
