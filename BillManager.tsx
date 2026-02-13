@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import apiService from './api';
 import { useAlert } from './GlobalAlert';
+import BillShareButton from './BillShareButton';
+import { ShareableBillData } from './BillShareUtils';
 
 interface Bill {
   _id: string;
@@ -513,27 +515,46 @@ const BillManager: React.FC<BillManagerProps> = ({ onClose }) => {
                       )}
                     </div>
                     
-                    <div style={{ display: 'flex', gap: '8px', marginLeft: '15px' }}>
-                      <button
-                        onClick={() => handleEdit(bill)}
-                        style={{
-                          background: '#3498db', color: 'white', border: 'none',
-                          borderRadius: '6px', padding: '8px 12px', cursor: 'pointer', fontSize: '12px',
-                          fontWeight: 'bold'
+                    <div style={{ display: 'flex', gap: '8px', marginLeft: '15px', flexDirection: 'column' }}>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button
+                          onClick={() => handleEdit(bill)}
+                          style={{
+                            background: '#3498db', color: 'white', border: 'none',
+                            borderRadius: '6px', padding: '8px 12px', cursor: 'pointer', fontSize: '12px',
+                            fontWeight: 'bold'
+                          }}
+                        >
+                          ✏️ Edit
+                        </button>
+                        <button
+                          onClick={() => handleDelete(bill)}
+                          style={{
+                            background: '#e74c3c', color: 'white', border: 'none',
+                            borderRadius: '6px', padding: '8px 12px', cursor: 'pointer', fontSize: '12px',
+                            fontWeight: 'bold'
+                          }}
+                        >
+                          🗑️ Delete
+                        </button>
+                      </div>
+                      <BillShareButton 
+                        billData={{
+                          billNumber: bill.billNumber,
+                          customerName: bill.customerName,
+                          customerPhone: bill.customerPhone,
+                          items: bill.items,
+                          subtotal: bill.subtotal,
+                          discount: bill.discount,
+                          deliveryCharge: bill.deliveryCharge,
+                          previousBalance: bill.previousBalance,
+                          grandTotal: bill.grandTotal,
+                          businessName: 'GenZ Laundry',
+                          businessPhone: '+91 9256930727',
+                          billDate: bill.createdAt
                         }}
-                      >
-                        ✏️ Edit
-                      </button>
-                      <button
-                        onClick={() => handleDelete(bill)}
-                        style={{
-                          background: '#e74c3c', color: 'white', border: 'none',
-                          borderRadius: '6px', padding: '8px 12px', cursor: 'pointer', fontSize: '12px',
-                          fontWeight: 'bold'
-                        }}
-                      >
-                        🗑️ Delete
-                      </button>
+                        variant="icon"
+                      />
                     </div>
                   </div>
                 </div>

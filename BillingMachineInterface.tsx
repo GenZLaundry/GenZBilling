@@ -9,6 +9,8 @@ import UPIStatusIndicator from './UPIStatusIndicator';
 import ItemListManager from './ItemListManager';
 import apiService from './api';
 import { useAlert } from './GlobalAlert';
+import BillShareButton from './BillShareButton';
+import { ShareableBillData } from './BillShareUtils';
 
 interface OrderItem {
   id: string;
@@ -59,6 +61,7 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
   const [customerHistory, setCustomerHistory] = useState<any[]>([]);
   const [showQuickDiscount, setShowQuickDiscount] = useState(false);
   const [lastBillTotal, setLastBillTotal] = useState(0);
+  const [lastGeneratedBill, setLastGeneratedBill] = useState<ShareableBillData | null>(null);
   
   const itemInputRef = useRef<HTMLInputElement>(null);
   const priceInputRef = useRef<HTMLInputElement>(null);
@@ -431,20 +434,24 @@ const quickItems = [
       console.log('🖨️ Printing clean thermal bill...');
       await printCleanThermalBill(billData, (message) => showAlert({ message, type: 'error' }));
       
+      // Store bill data for sharing
+      setLastGeneratedBill({
+        billNumber: billData.billNumber,
+        customerName: billData.customerName || '',
+        customerPhone: billData.customerPhone,
+        items: billData.items,
+        subtotal: billData.subtotal,
+        discount: billData.discount,
+        deliveryCharge: billData.deliveryCharge,
+        previousBalance: billData.previousBalance,
+        grandTotal: billData.grandTotal,
+        businessName: billData.businessName,
+        businessPhone: billData.phone,
+        billDate: billDate
+      });
+      
       setShowSuccess(true);
-      setTimeout(() => {
-        setShowSuccess(false);
-        setOrderItems([]);
-        setCustomer({ name: '', phone: '' });
-        setDiscount(0);
-        setDeliveryCharge(0);
-        setPreviousBalance(0);
-        setSelectedPendingBills([]);
-        setBillNumber(`GZ${Date.now().toString().slice(-6)}`);
-        if (itemInputRef.current) {
-          itemInputRef.current.focus();
-        }
-      }, 2000);
+      // Removed auto-close - user must manually close the success modal
     } catch (error) {
       console.error('❌ Order processing failed:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
@@ -774,8 +781,54 @@ const quickItems = [
         }}>
           <div className="glass" style={{
             padding: '30px', borderRadius: '20px', textAlign: 'center',
-            boxShadow: '0 20px 40px rgba(0,0,0,0.3)', color: 'white'
+            boxShadow: '0 20px 40px rgba(0,0,0,0.3)', color: 'white',
+            position: 'relative', maxWidth: '600px'
           }}>
+            {/* Close Button */}
+            <button
+              onClick={() => {
+                setShowSuccess(false);
+                setOrderItems([]);
+                setCustomer({ name: '', phone: '' });
+                setDiscount(0);
+                setDeliveryCharge(0);
+                setPreviousBalance(0);
+                setSelectedPendingBills([]);
+                setBillNumber(`GZ${Date.now().toString().slice(-6)}`);
+                if (itemInputRef.current) {
+                  itemInputRef.current.focus();
+                }
+              }}
+              style={{
+                position: 'absolute',
+                top: '15px',
+                right: '15px',
+                background: 'rgba(255, 255, 255, 0.2)',
+                border: 'none',
+                borderRadius: '50%',
+                width: '35px',
+                height: '35px',
+                cursor: 'pointer',
+                fontSize: '20px',
+                color: 'white',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'all 0.2s'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.3)';
+                e.currentTarget.style.transform = 'scale(1.1)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
+                e.currentTarget.style.transform = 'scale(1)';
+              }}
+              title="Close"
+            >
+              ✕
+            </button>
+
             <div style={{ fontSize: '80px', marginBottom: '20px', animation: 'pulse 2s infinite' }}>✅</div>
             <h2 style={{ margin: 0, fontSize: '28px', fontWeight: 'bold', marginBottom: '10px' }}>
               Success!
@@ -789,6 +842,50 @@ const quickItems = [
                 </>
               )}
             </p>
+            {lastGeneratedBill && (
+              <div style={{ marginTop: '20px' }}>
+                <BillShareButton billData={lastGeneratedBill} variant="full" />
+              </div>
+            )}
+            
+            {/* Continue Button */}
+            <button
+              onClick={() => {
+                setShowSuccess(false);
+                setOrderItems([]);
+                setCustomer({ name: '', phone: '' });
+                setDiscount(0);
+                setDeliveryCharge(0);
+                setPreviousBalance(0);
+                setSelectedPendingBills([]);
+                setBillNumber(`GZ${Date.now().toString().slice(-6)}`);
+                if (itemInputRef.current) {
+                  itemInputRef.current.focus();
+                }
+              }}
+              style={{
+                marginTop: '20px',
+                background: 'rgba(255, 255, 255, 0.2)',
+                color: 'white',
+                border: '2px solid rgba(255, 255, 255, 0.3)',
+                padding: '12px 30px',
+                borderRadius: '10px',
+                cursor: 'pointer',
+                fontSize: '16px',
+                fontWeight: 'bold',
+                transition: 'all 0.2s'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.3)';
+                e.currentTarget.style.transform = 'scale(1.05)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
+                e.currentTarget.style.transform = 'scale(1)';
+              }}
+            >
+              Continue to Next Bill
+            </button>
           </div>
         </div>
       )}
