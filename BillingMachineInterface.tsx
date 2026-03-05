@@ -461,7 +461,7 @@ const quickItems = [
     }
   };
 
-  const printClothingTags = () => {
+  const printClothingTags = async () => {
     if (!customer.name || orderItems.length === 0) {
       showAlert({ message: 'Please add items and customer name first', type: 'warning' });
       return;
@@ -482,17 +482,30 @@ const quickItems = [
           businessName: shopConfig.shopName,
           billNumber,
           customerName: customer.name,
+          customerPhone: customer.phone,
           itemName: item.name.toUpperCase(),
           washType: item.washType,
           tagIndex: tagCounter,
           totalTags: totalTags,
           date: currentDate,
           barcode: `GZ${billNumber}${tagCounter.toString().padStart(3, '0')}`,
+          qrCode: `GZ${billNumber}${tagCounter.toString().padStart(3, '0')}`,
           price: item.price
         });
         tagCounter++;
       }
     });
+    
+    // Save tag history to database
+    try {
+      const response = await apiService.post('/tag-history', { tags });
+      if (response.success) {
+        console.log('✅ Tag history saved:', response.data);
+      }
+    } catch (error) {
+      console.error('❌ Failed to save tag history:', error);
+      // Don't block printing if history save fails
+    }
     
     const printWindow = window.open('', '_blank', 'width=800,height=600');
     if (!printWindow) {
@@ -622,6 +635,21 @@ const quickItems = [
 
     printWindow.document.write(tagHTML);
     printWindow.document.close();
+    
+    // Update tag status to "printed" after printing
+    setTimeout(async () => {
+      try {
+        const response = await apiService.patch(`/tag-history/bill/${billNumber}/status`, {
+          status: 'printed',
+          note: `${tags.length} tags printed successfully`
+        });
+        if (response.success) {
+          console.log('✅ Tag status updated to printed');
+        }
+      } catch (error) {
+        console.error('❌ Failed to update tag status:', error);
+      }
+    }, 2000); // Wait 2 seconds for print dialog
   };
 
   const clearOrder = () => {

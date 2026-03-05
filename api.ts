@@ -289,6 +289,89 @@ class ApiService {
     });
   }
 
+  // ===== TAG HISTORY API =====
+  async getTagHistory(params: {
+    page?: number;
+    limit?: number;
+    billNumber?: string;
+    customerName?: string;
+    customerPhone?: string;
+    status?: string;
+    startDate?: string;
+    endDate?: string;
+  } = {}) {
+    const queryParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined) {
+        queryParams.append(key, value.toString());
+      }
+    });
+
+    return this.request(`/tag-history?${queryParams.toString()}`);
+  }
+
+  async getBillTags(billNumber: string) {
+    return this.request(`/tag-history/bill/${encodeURIComponent(billNumber)}`);
+  }
+
+  async getCustomerTags(phone: string) {
+    return this.request(`/tag-history/customer/${encodeURIComponent(phone)}`);
+  }
+
+  async createTagHistory(tags: any[]) {
+    return this.request('/tag-history', {
+      method: 'POST',
+      body: JSON.stringify({ tags }),
+    });
+  }
+
+  async updateTagStatus(tagId: string, status: string, note?: string) {
+    return this.request(`/tag-history/${tagId}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status, note }),
+    });
+  }
+
+  async bulkUpdateTagsByBill(billNumber: string, status: string, note?: string) {
+    return this.request(`/tag-history/bill/${encodeURIComponent(billNumber)}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status, note }),
+    });
+  }
+
+  async getTagStats(params: {
+    startDate?: string;
+    endDate?: string;
+  } = {}) {
+    const queryParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined) {
+        queryParams.append(key, value.toString());
+      }
+    });
+
+    return this.request(`/tag-history/stats/overview?${queryParams.toString()}`);
+  }
+
+  async deleteTag(tagId: string) {
+    return this.request(`/tag-history/${tagId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async deleteAllBillTags(billNumber: string) {
+    return this.request(`/tag-history/bill/${encodeURIComponent(billNumber)}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async updateTag(tagId: string, data: any) {
+    return this.request(`/tag-history/${tagId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
   // ===== AUTHENTICATION API =====
   async login(credentials: { username: string; password: string }) {
     return this.request('/auth/login', {
@@ -310,6 +393,39 @@ class ApiService {
   // ===== UTILITY METHODS =====
   async healthCheck() {
     return this.request('/health');
+  }
+
+  // Generic HTTP methods for flexibility
+  async get(endpoint: string, params?: any) {
+    const queryParams = params ? new URLSearchParams(params).toString() : '';
+    return this.request(`${endpoint}${queryParams ? '?' + queryParams : ''}`);
+  }
+
+  async post(endpoint: string, data?: any) {
+    return this.request(endpoint, {
+      method: 'POST',
+      body: data ? JSON.stringify(data) : undefined,
+    });
+  }
+
+  async patch(endpoint: string, data?: any) {
+    return this.request(endpoint, {
+      method: 'PATCH',
+      body: data ? JSON.stringify(data) : undefined,
+    });
+  }
+
+  async put(endpoint: string, data?: any) {
+    return this.request(endpoint, {
+      method: 'PUT',
+      body: data ? JSON.stringify(data) : undefined,
+    });
+  }
+
+  async delete(endpoint: string) {
+    return this.request(endpoint, {
+      method: 'DELETE',
+    });
   }
 
   // Connection test with detailed logging
