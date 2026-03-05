@@ -23,6 +23,7 @@ const analyticsRoutes = require('./routes/analytics');
 const shopConfigRoutes = require('./routes/shopConfig');
 const expenseRoutes = require('./routes/expenses');
 const authRoutes = require('./routes/simpleAuth');
+const tagHistoryRoutes = require('./routes/tagHistory');
 
 // Middleware
 app.use(helmet());
@@ -97,6 +98,7 @@ app.use('/api/bills', billRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/shop-config', shopConfigRoutes);
 app.use('/api/expenses', expenseRoutes);
+app.use('/api/tag-history', tagHistoryRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

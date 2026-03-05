@@ -5,6 +5,9 @@ import AddPreviousBill from './AddPreviousBill';
 import AnalyticsDashboard from './AnalyticsDashboard';
 import ExpenseManager from './ExpenseManager';
 import BillManager from './BillManager';
+import TagHistoryViewer from './TagHistoryViewer';
+import RevenueDashboard from './RevenueDashboard';
+import ComprehensiveRevenueDashboard from './ComprehensiveRevenueDashboard';
 import apiService from './api';
 import { useAlert } from './GlobalAlert';
 
@@ -15,7 +18,7 @@ interface AdminDashboardProps {
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogout }) => {
   const { showAlert, showConfirm } = useAlert();
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'settings' | 'pending' | 'history' | 'analytics' | 'expenses' | 'manage'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'settings' | 'pending' | 'history' | 'analytics' | 'expenses' | 'manage' | 'tags' | 'revenue'>('dashboard');
   const [shopConfig, setShopConfig] = useState<ShopConfig>({
     shopName: 'GenZ Laundry',
     address: 'Sabji Mandi Circle,Ratanada, Jodhpur (342011)',
@@ -48,6 +51,22 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
   const [showReportsGenerator, setShowReportsGenerator] = useState(false);
   const [dateFilteredRevenue, setDateFilteredRevenue] = useState(0);
   const [dateFilteredBillCount, setDateFilteredBillCount] = useState(0);
+  
+  // Password change states
+  const [passwordChange, setPasswordChange] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [showPasswordSection, setShowPasswordSection] = useState(false);
+  
+  // PIN change states
+  const [pinChange, setPinChange] = useState({
+    currentPin: '',
+    newPin: '',
+    confirmPin: ''
+  });
+  const [showPinSection, setShowPinSection] = useState(false);
 
   // Update time every second
   useEffect(() => {
@@ -61,6 +80,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
     loadPendingBills();
     loadBillHistory();
     testDatabaseConnection();
+    loadDashboardAnalytics();
   }, []);
 
   // Update notifications when bill data changes
@@ -597,6 +617,87 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
     }
   };
 
+  // Change admin password
+  const changeAdminPassword = () => {
+    // Get current stored credentials
+    const storedUsername = localStorage.getItem('adminUsername') || 'admin';
+    const storedPassword = localStorage.getItem('adminPassword') || 'admin123';
+
+    // Validate current password
+    if (passwordChange.currentPassword !== storedPassword) {
+      showAlert({ message: 'Current password is incorrect!', type: 'error' });
+      return;
+    }
+
+    // Validate new password
+    if (passwordChange.newPassword.length < 6) {
+      showAlert({ message: 'New password must be at least 6 characters long!', type: 'error' });
+      return;
+    }
+
+    // Validate password confirmation
+    if (passwordChange.newPassword !== passwordChange.confirmPassword) {
+      showAlert({ message: 'New passwords do not match!', type: 'error' });
+      return;
+    }
+
+    // Save new password
+    localStorage.setItem('adminPassword', passwordChange.newPassword);
+    
+    // Clear form
+    setPasswordChange({
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: ''
+    });
+    
+    setShowPasswordSection(false);
+    showAlert({ message: 'Password changed successfully! Please remember your new password.', type: 'success' });
+  };
+
+  // Change admin PIN
+  const changeAdminPin = () => {
+    // Get current stored PIN
+    const storedPin = localStorage.getItem('adminPin') || '1234';
+
+    // Validate current PIN
+    if (pinChange.currentPin !== storedPin) {
+      showAlert({ message: 'Current PIN is incorrect!', type: 'error' });
+      return;
+    }
+
+    // Validate new PIN
+    if (pinChange.newPin.length < 4 || pinChange.newPin.length > 6) {
+      showAlert({ message: 'New PIN must be 4-6 digits!', type: 'error' });
+      return;
+    }
+
+    // Validate PIN is numeric
+    if (!/^\d+$/.test(pinChange.newPin)) {
+      showAlert({ message: 'PIN must contain only numbers!', type: 'error' });
+      return;
+    }
+
+    // Validate PIN confirmation
+    if (pinChange.newPin !== pinChange.confirmPin) {
+      showAlert({ message: 'New PINs do not match!', type: 'error' });
+      return;
+    }
+
+    // Save new PIN
+    localStorage.setItem('adminPin', pinChange.newPin);
+    
+    // Clear form
+    setPinChange({
+      currentPin: '',
+      newPin: '',
+      confirmPin: ''
+    });
+    
+    setShowPinSection(false);
+    showAlert({ message: 'PIN changed successfully! Use this PIN to access admin panel.', type: 'success' });
+  };
+
   const loadPendingBills = async () => {
     try {
       console.log('🔄 Loading pending bills from database...');
@@ -824,7 +925,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
   }, [startDateFilter, endDateFilter, billHistory]);
 
   return (
-    <div style={{
+    <>
+      {activeTab === 'revenue' ? (
+        <ComprehensiveRevenueDashboard 
+          onClose={() => setActiveTab('dashboard')} 
+          bills={[...pendingBills, ...billHistory]} 
+        />
+      ) : (
+        <div style={{
       minHeight: '100vh',
       background: 'linear-gradient(135deg, #1e3c72 0%, #2a5298 25%, #3b82f6 50%, #6366f1 75%, #8b5cf6 100%)',
       fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif",
@@ -1183,11 +1291,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
         }}>
           {[
             { key: 'dashboard', label: '🏠 Dashboard', icon: '🏠', color: '#3498db', description: 'Overview & Stats' },
+            { key: 'revenue', label: '💰 Revenue', icon: '💰', color: '#27ae60', description: 'Monthly Revenue' },
             { key: 'analytics', label: '📊 Analytics', icon: '📊', color: '#9b59b6', description: 'Business Reports' },
             { key: 'manage', label: '🛠️ Data Manager', icon: '🛠️', color: '#27ae60', description: 'Edit & Delete' },
             { key: 'expenses', label: '💸 Expenses', icon: '💸', color: '#e74c3c', description: 'Track Costs' },
             { key: 'pending', label: '📋 Pending', icon: '📋', color: '#f39c12', description: 'Active Bills' },
             { key: 'history', label: '📚 History', icon: '📚', color: '#1abc9c', description: 'Completed Bills' },
+            { key: 'tags', label: '🏷️ Tag History', icon: '🏷️', color: '#16a085', description: 'Track Tags' },
             { key: 'settings', label: '⚙️ Settings', icon: '⚙️', color: '#34495e', description: 'Store Config' }
           ].map((tab, index) => (
             <button
@@ -1479,6 +1589,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
                     loadAnalyticsData();
                     setShowAnalytics(true);
                   }},
+                  { title: 'Revenue', icon: '💰', color: '#1abc9c', action: () => setActiveTab('revenue') },
                   { title: 'Expenses', icon: '💸', color: '#e74c3c', action: () => setShowExpenseManager(true) },
                   { title: 'Edit Bills', icon: '✏️', color: '#27ae60', action: () => setShowBillManager(true) },
                   { title: 'Add Previous', icon: '📋', color: '#e67e22', action: () => setShowAddPreviousBill(true) },
@@ -2459,104 +2570,386 @@ Revenue per Customer: ₹${Math.round(systemReport.totalRevenue / systemReport.u
           </div>
         )}
 
+        {activeTab === 'tags' && (
+          <TagHistoryViewer />
+        )}
+
         {activeTab === 'settings' && (
           <div>
-            <h2 style={{ color: 'white', marginBottom: '12px', fontSize: '18px' }}>🏪 Store Configuration</h2>
-            <div style={{ display: 'grid', gap: '10px', maxWidth: '400px' }}>
-              <div>
-                <label style={{ color: 'white', display: 'block', marginBottom: '8px' }}>
-                  Store Name
-                </label>
-                <input
-                  type="text"
-                  value={shopConfig.shopName}
-                  onChange={(e) => setShopConfig({...shopConfig, shopName: e.target.value})}
+            <h2 style={{ color: 'white', marginBottom: '20px', fontSize: '24px' }}>⚙️ Settings</h2>
+            
+            {/* Store Configuration Section */}
+            <div style={{ 
+              background: 'rgba(255, 255, 255, 0.1)', 
+              borderRadius: '12px', 
+              padding: '25px',
+              marginBottom: '20px'
+            }}>
+              <h3 style={{ color: 'white', marginBottom: '20px', fontSize: '18px' }}>🏪 Store Configuration</h3>
+              <div style={{ display: 'grid', gap: '15px', maxWidth: '500px' }}>
+                <div>
+                  <label style={{ color: 'white', display: 'block', marginBottom: '8px', fontWeight: '500' }}>
+                    Store Name
+                  </label>
+                  <input
+                    type="text"
+                    value={shopConfig.shopName}
+                    onChange={(e) => setShopConfig({...shopConfig, shopName: e.target.value})}
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      background: 'rgba(255, 255, 255, 0.9)',
+                      fontSize: '16px'
+                    }}
+                  />
+                </div>
+                
+                <div>
+                  <label style={{ color: 'white', display: 'block', marginBottom: '8px', fontWeight: '500' }}>
+                    Address
+                  </label>
+                  <textarea
+                    value={shopConfig.address}
+                    onChange={(e) => setShopConfig({...shopConfig, address: e.target.value})}
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      background: 'rgba(255, 255, 255, 0.9)',
+                      fontSize: '16px',
+                      minHeight: '80px',
+                      resize: 'vertical'
+                    }}
+                  />
+                </div>
+                
+                <div>
+                  <label style={{ color: 'white', display: 'block', marginBottom: '8px', fontWeight: '500' }}>
+                    Contact Number
+                  </label>
+                  <input
+                    type="text"
+                    value={shopConfig.contact}
+                    onChange={(e) => setShopConfig({...shopConfig, contact: e.target.value})}
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      background: 'rgba(255, 255, 255, 0.9)',
+                      fontSize: '16px'
+                    }}
+                  />
+                </div>
+                
+                <div>
+                  <label style={{ color: 'white', display: 'block', marginBottom: '8px', fontWeight: '500' }}>
+                    GST Number (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={shopConfig.gstNumber || ''}
+                    onChange={(e) => setShopConfig({...shopConfig, gstNumber: e.target.value})}
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      borderRadius: '8px',
+                      border: 'none',
+                      background: 'rgba(255, 255, 255, 0.9)',
+                      fontSize: '16px'
+                    }}
+                  />
+                </div>
+                
+                <button
+                  onClick={saveShopConfig}
+                  disabled={loading}
                   style={{
-                    width: '100%',
-                    padding: '12px',
-                    borderRadius: '8px',
+                    background: loading ? 'rgba(189, 195, 199, 0.5)' : 'linear-gradient(45deg, #4CAF50, #45a049)',
                     border: 'none',
-                    background: 'rgba(255, 255, 255, 0.9)',
-                    fontSize: '16px'
-                  }}
-                />
-              </div>
-              
-              <div>
-                <label style={{ color: 'white', display: 'block', marginBottom: '8px' }}>
-                  Address
-                </label>
-                <textarea
-                  value={shopConfig.address}
-                  onChange={(e) => setShopConfig({...shopConfig, address: e.target.value})}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
                     borderRadius: '8px',
-                    border: 'none',
-                    background: 'rgba(255, 255, 255, 0.9)',
+                    padding: '15px 30px',
+                    color: 'white',
+                    cursor: loading ? 'not-allowed' : 'pointer',
                     fontSize: '16px',
-                    minHeight: '80px',
-                    resize: 'vertical'
+                    fontWeight: 'bold',
+                    marginTop: '10px'
                   }}
-                />
+                >
+                  {loading ? '💾 Saving...' : '💾 Save Store Settings'}
+                </button>
               </div>
-              
-              <div>
-                <label style={{ color: 'white', display: 'block', marginBottom: '8px' }}>
-                  Contact Number
-                </label>
-                <input
-                  type="text"
-                  value={shopConfig.contact}
-                  onChange={(e) => setShopConfig({...shopConfig, contact: e.target.value})}
+            </div>
+
+            {/* Password Change Section */}
+            <div style={{ 
+              background: 'rgba(255, 255, 255, 0.1)', 
+              borderRadius: '12px', 
+              padding: '25px'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                <h3 style={{ color: 'white', margin: 0, fontSize: '18px' }}>🔐 Admin Password</h3>
+                <button
+                  onClick={() => setShowPasswordSection(!showPasswordSection)}
                   style={{
-                    width: '100%',
-                    padding: '12px',
-                    borderRadius: '8px',
+                    background: showPasswordSection ? 'rgba(231, 76, 60, 0.8)' : 'linear-gradient(45deg, #667eea, #764ba2)',
                     border: 'none',
-                    background: 'rgba(255, 255, 255, 0.9)',
-                    fontSize: '16px'
+                    borderRadius: '8px',
+                    padding: '10px 20px',
+                    color: 'white',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: 'bold'
                   }}
-                />
+                >
+                  {showPasswordSection ? '✕ Cancel' : '🔑 Change Password'}
+                </button>
               </div>
-              
-              <div>
-                <label style={{ color: 'white', display: 'block', marginBottom: '8px' }}>
-                  GST Number (Optional)
-                </label>
-                <input
-                  type="text"
-                  value={shopConfig.gstNumber || ''}
-                  onChange={(e) => setShopConfig({...shopConfig, gstNumber: e.target.value})}
+
+              {showPasswordSection && (
+                <div style={{ display: 'grid', gap: '15px', maxWidth: '500px' }}>
+                  <div>
+                    <label style={{ color: 'white', display: 'block', marginBottom: '8px', fontWeight: '500' }}>
+                      Current Password
+                    </label>
+                    <input
+                      type="password"
+                      value={passwordChange.currentPassword}
+                      onChange={(e) => setPasswordChange({...passwordChange, currentPassword: e.target.value})}
+                      placeholder="Enter current password"
+                      style={{
+                        width: '100%',
+                        padding: '12px',
+                        borderRadius: '8px',
+                        border: 'none',
+                        background: 'rgba(255, 255, 255, 0.9)',
+                        fontSize: '16px'
+                      }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ color: 'white', display: 'block', marginBottom: '8px', fontWeight: '500' }}>
+                      New Password
+                    </label>
+                    <input
+                      type="password"
+                      value={passwordChange.newPassword}
+                      onChange={(e) => setPasswordChange({...passwordChange, newPassword: e.target.value})}
+                      placeholder="Enter new password (min 6 characters)"
+                      style={{
+                        width: '100%',
+                        padding: '12px',
+                        borderRadius: '8px',
+                        border: 'none',
+                        background: 'rgba(255, 255, 255, 0.9)',
+                        fontSize: '16px'
+                      }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ color: 'white', display: 'block', marginBottom: '8px', fontWeight: '500' }}>
+                      Confirm New Password
+                    </label>
+                    <input
+                      type="password"
+                      value={passwordChange.confirmPassword}
+                      onChange={(e) => setPasswordChange({...passwordChange, confirmPassword: e.target.value})}
+                      placeholder="Re-enter new password"
+                      style={{
+                        width: '100%',
+                        padding: '12px',
+                        borderRadius: '8px',
+                        border: 'none',
+                        background: 'rgba(255, 255, 255, 0.9)',
+                        fontSize: '16px'
+                      }}
+                    />
+                  </div>
+
+                  <div style={{
+                    background: 'rgba(255, 193, 7, 0.2)',
+                    border: '1px solid rgba(255, 193, 7, 0.5)',
+                    borderRadius: '8px',
+                    padding: '12px',
+                    color: '#ffc107',
+                    fontSize: '13px'
+                  }}>
+                    ⚠️ <strong>Important:</strong> Make sure to remember your new password. You'll need it to login next time.
+                  </div>
+
+                  <button
+                    onClick={changeAdminPassword}
+                    disabled={!passwordChange.currentPassword || !passwordChange.newPassword || !passwordChange.confirmPassword}
+                    style={{
+                      background: (!passwordChange.currentPassword || !passwordChange.newPassword || !passwordChange.confirmPassword)
+                        ? 'rgba(189, 195, 199, 0.5)'
+                        : 'linear-gradient(45deg, #e74c3c, #c0392b)',
+                      border: 'none',
+                      borderRadius: '8px',
+                      padding: '15px 30px',
+                      color: 'white',
+                      cursor: (!passwordChange.currentPassword || !passwordChange.newPassword || !passwordChange.confirmPassword)
+                        ? 'not-allowed'
+                        : 'pointer',
+                      fontSize: '16px',
+                      fontWeight: 'bold',
+                      marginTop: '10px'
+                    }}
+                  >
+                    🔒 Update Password
+                  </button>
+                </div>
+              )}
+
+              {!showPasswordSection && (
+                <p style={{ color: 'rgba(255,255,255,0.7)', margin: 0, fontSize: '14px' }}>
+                  Click "Change Password" to update your admin login credentials
+                </p>
+              )}
+            </div>
+
+            {/* PIN Change Section */}
+            <div style={{ 
+              background: 'rgba(255, 255, 255, 0.1)', 
+              borderRadius: '12px', 
+              padding: '25px',
+              marginTop: '20px'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                <h3 style={{ color: 'white', margin: 0, fontSize: '18px' }}>🔢 Admin Panel PIN</h3>
+                <button
+                  onClick={() => setShowPinSection(!showPinSection)}
                   style={{
-                    width: '100%',
-                    padding: '12px',
-                    borderRadius: '8px',
+                    background: showPinSection ? 'rgba(231, 76, 60, 0.8)' : 'linear-gradient(45deg, #10b981, #059669)',
                     border: 'none',
-                    background: 'rgba(255, 255, 255, 0.9)',
-                    fontSize: '16px'
+                    borderRadius: '8px',
+                    padding: '10px 20px',
+                    color: 'white',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: 'bold'
                   }}
-                />
+                >
+                  {showPinSection ? '✕ Cancel' : '🔢 Change PIN'}
+                </button>
               </div>
-              
-              <button
-                onClick={saveShopConfig}
-                disabled={loading}
-                style={{
-                  background: loading ? 'rgba(189, 195, 199, 0.5)' : 'linear-gradient(45deg, #4CAF50, #45a049)',
-                  border: 'none',
-                  borderRadius: '8px',
-                  padding: '15px 30px',
-                  color: 'white',
-                  cursor: loading ? 'not-allowed' : 'pointer',
-                  fontSize: '16px',
-                  fontWeight: 'bold',
-                  marginTop: '20px'
-                }}
-              >
-                {loading ? '💾 Saving...' : '💾 Save Settings'}
-              </button>
+
+              {showPinSection && (
+                <div style={{ display: 'grid', gap: '15px', maxWidth: '500px' }}>
+                  <div>
+                    <label style={{ color: 'white', display: 'block', marginBottom: '8px', fontWeight: '500' }}>
+                      Current PIN
+                    </label>
+                    <input
+                      type="password"
+                      inputMode="numeric"
+                      maxLength={6}
+                      value={pinChange.currentPin}
+                      onChange={(e) => setPinChange({...pinChange, currentPin: e.target.value.replace(/\D/g, '')})}
+                      placeholder="Enter current PIN"
+                      style={{
+                        width: '100%',
+                        padding: '12px',
+                        borderRadius: '8px',
+                        border: 'none',
+                        background: 'rgba(255, 255, 255, 0.9)',
+                        fontSize: '16px',
+                        letterSpacing: '4px'
+                      }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ color: 'white', display: 'block', marginBottom: '8px', fontWeight: '500' }}>
+                      New PIN (4-6 digits)
+                    </label>
+                    <input
+                      type="password"
+                      inputMode="numeric"
+                      maxLength={6}
+                      value={pinChange.newPin}
+                      onChange={(e) => setPinChange({...pinChange, newPin: e.target.value.replace(/\D/g, '')})}
+                      placeholder="Enter new PIN"
+                      style={{
+                        width: '100%',
+                        padding: '12px',
+                        borderRadius: '8px',
+                        border: 'none',
+                        background: 'rgba(255, 255, 255, 0.9)',
+                        fontSize: '16px',
+                        letterSpacing: '4px'
+                      }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ color: 'white', display: 'block', marginBottom: '8px', fontWeight: '500' }}>
+                      Confirm New PIN
+                    </label>
+                    <input
+                      type="password"
+                      inputMode="numeric"
+                      maxLength={6}
+                      value={pinChange.confirmPin}
+                      onChange={(e) => setPinChange({...pinChange, confirmPin: e.target.value.replace(/\D/g, '')})}
+                      placeholder="Re-enter new PIN"
+                      style={{
+                        width: '100%',
+                        padding: '12px',
+                        borderRadius: '8px',
+                        border: 'none',
+                        background: 'rgba(255, 255, 255, 0.9)',
+                        fontSize: '16px',
+                        letterSpacing: '4px'
+                      }}
+                    />
+                  </div>
+
+                  <div style={{
+                    background: 'rgba(59, 130, 246, 0.2)',
+                    border: '1px solid rgba(59, 130, 246, 0.5)',
+                    borderRadius: '8px',
+                    padding: '12px',
+                    color: '#3b82f6',
+                    fontSize: '13px'
+                  }}>
+                    ℹ️ <strong>Info:</strong> This PIN is required when clicking "Admin Panel" button from billing screen.
+                  </div>
+
+                  <button
+                    onClick={changeAdminPin}
+                    disabled={!pinChange.currentPin || !pinChange.newPin || !pinChange.confirmPin}
+                    style={{
+                      background: (!pinChange.currentPin || !pinChange.newPin || !pinChange.confirmPin)
+                        ? 'rgba(189, 195, 199, 0.5)'
+                        : 'linear-gradient(45deg, #10b981, #059669)',
+                      border: 'none',
+                      borderRadius: '8px',
+                      padding: '15px 30px',
+                      color: 'white',
+                      cursor: (!pinChange.currentPin || !pinChange.newPin || !pinChange.confirmPin)
+                        ? 'not-allowed'
+                        : 'pointer',
+                      fontSize: '16px',
+                      fontWeight: 'bold',
+                      marginTop: '10px'
+                    }}
+                  >
+                    🔢 Update PIN
+                  </button>
+                </div>
+              )}
+
+              {!showPinSection && (
+                <p style={{ color: 'rgba(255,255,255,0.7)', margin: 0, fontSize: '14px' }}>
+                  Click "Change PIN" to update your admin panel access PIN (Default: 1234)
+                </p>
+              )}
             </div>
           </div>
         )}
@@ -3762,6 +4155,8 @@ Revenue per Customer: ₹${Math.round(systemReport.totalRevenue / systemReport.u
         </>
       )}
     </div>
+      )}
+    </>
   );
 };
 

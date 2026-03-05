@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import BillingMachineInterface from './BillingMachineInterface';
 import SecureAuth from './SecureAuth';
 import AdminDashboard from './AdminDashboard';
+import AdminPinEntry from './AdminPinEntry';
 import { EnhancedAlertProvider } from './GlobalAlert';
 import authApi from './authApi';
 import './App.css';
@@ -10,6 +11,7 @@ const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentView, setCurrentView] = useState<'billing' | 'admin'>('billing');
   const [isLoading, setIsLoading] = useState(true);
+  const [showPinEntry, setShowPinEntry] = useState(false);
 
   useEffect(() => {
     // Check authentication status using the new auth system
@@ -53,7 +55,16 @@ const App: React.FC = () => {
   };
 
   const switchToAdmin = () => {
+    setShowPinEntry(true);
+  };
+
+  const handlePinSuccess = () => {
+    setShowPinEntry(false);
     setCurrentView('admin');
+  };
+
+  const handlePinCancel = () => {
+    setShowPinEntry(false);
   };
 
   const switchToBilling = () => {
@@ -103,6 +114,14 @@ const App: React.FC = () => {
   return (
     <EnhancedAlertProvider>
       <div className="App">
+        {/* PIN Entry Modal */}
+        {showPinEntry && (
+          <AdminPinEntry 
+            onSuccess={handlePinSuccess} 
+            onCancel={handlePinCancel} 
+          />
+        )}
+
         {/* Global Alert Integration Complete */}
         {isAuthenticated ? (
           currentView === 'billing' ? (

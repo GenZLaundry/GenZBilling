@@ -24,10 +24,14 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLogin }) => {
     setIsLoading(true);
     setError('');
 
+    // Get stored credentials (with fallback to defaults)
+    const storedUsername = localStorage.getItem('adminUsername') || DEFAULT_ADMIN.username;
+    const storedPassword = localStorage.getItem('adminPassword') || DEFAULT_ADMIN.password;
+
     // Simulate loading for better UX
     setTimeout(() => {
-      if (credentials.username === DEFAULT_ADMIN.username && 
-          credentials.password === DEFAULT_ADMIN.password) {
+      if (credentials.username === storedUsername && 
+          credentials.password === storedPassword) {
         localStorage.setItem('adminAuthenticated', 'true');
         localStorage.setItem('adminLoginTime', Date.now().toString());
         onLogin(true);
