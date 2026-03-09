@@ -934,7 +934,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
       ) : (
         <div style={{
       minHeight: '100vh',
-      background: 'linear-gradient(135deg, #1e3c72 0%, #2a5298 25%, #3b82f6 50%, #6366f1 75%, #8b5cf6 100%)',
+      background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 25%, #0f3460 50%, #533483 75%, #7b2cbf 100%)',
       fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif",
       position: 'relative',
       overflow: 'hidden',
@@ -3340,9 +3340,31 @@ Revenue per Customer: ₹${Math.round(systemReport.totalRevenue / systemReport.u
                     justifyContent: 'space-between',
                     alignItems: 'center',
                     transition: 'all 0.3s ease',
-                    animation: `slideIn 0.5s ease-out ${index * 0.1}s both`
+                    animation: `slideIn 0.5s ease-out ${index * 0.1}s both`,
+                    position: 'relative'
                   }}>
-                    <div style={{ color: 'white', flex: 1 }}>
+                    {/* Serial Number Badge */}
+                    <div style={{
+                      position: 'absolute',
+                      top: '15px',
+                      left: '15px',
+                      background: 'linear-gradient(135deg, #667eea, #764ba2)',
+                      color: 'white',
+                      width: '40px',
+                      height: '40px',
+                      borderRadius: '50%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '16px',
+                      fontWeight: 'bold',
+                      boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)',
+                      border: '2px solid rgba(255, 255, 255, 0.3)'
+                    }}>
+                      {index + 1}
+                    </div>
+
+                    <div style={{ color: 'white', flex: 1, paddingLeft: '50px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '12px' }}>
                         <h4 style={{ margin: 0, fontSize: '18px', fontWeight: 'bold' }}>
                           {bill.customerName}

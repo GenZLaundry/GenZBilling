@@ -519,89 +519,111 @@ const quickItems = [
 <head>
   <title>Clothing Tags</title>
   <style>
-    @page { size: 4.25in auto; margin: 0; }
+    @page { size: 2in auto; margin: 0; }
     @media print {
       body { margin: 0; padding: 0; }
-      .tag { page-break-after: always; }
-      .tag:last-child { page-break-after: avoid; }
+      .tag { page-break-after: avoid; }
+      .tag-separator { page-break-after: avoid; }
     }
     body { 
-      font-family: 'Arial Black', 'Arial', sans-serif; 
+      font-family: 'Arial', sans-serif; 
       margin: 0; 
-      padding: 3mm; 
-      background: #f5f5f5; 
-      width: 4.25in; 
+      padding: 0; 
+      background: white; 
+      width: 2in;
     }
     .tag { 
-      width: 60mm; 
-      height: 40mm; 
-      border: 2px solid #000; 
-      margin: 3mm auto; 
-      padding: 3mm; 
+      width: 48mm;
+      height: 35mm;
+      border: 1.5px solid #000; 
+      margin: 0 auto; 
+      padding: 2mm; 
       background: white; 
       display: flex;
       flex-direction: column;
       justify-content: space-between;
       box-sizing: border-box; 
-      page-break-inside: avoid;
       overflow: hidden;
+    }
+    .tag-separator {
+      height: 10mm;
+      width: 100%;
+      margin: 0;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .tag-separator::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 50%;
+      border-top: 1px dotted #666;
+      z-index: 1;
+    }
+    .tag-separator::after {
+      content: '✂';
+      position: relative;
+      font-size: 14px;
+      color: #666;
+      background: white;
+      padding: 0 5px;
+      z-index: 2;
     }
     .top-row { 
       display: flex; 
       justify-content: space-between; 
       align-items: center; 
-      font-size: 8px; 
+      font-size: 7px; 
       font-weight: bold;
-      padding-bottom: 2mm;
+      padding-bottom: 1.5mm;
       border-bottom: 1px solid #000;
     }
     .customer-name { 
       text-align: center; 
-      font-size: 16px; 
+      font-size: 13px; 
       font-weight: 900; 
       text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin: 2mm 0;
-      line-height: 1.3;
+      letter-spacing: 0.3px;
+      margin: 1.5mm 0;
+      line-height: 1.2;
       word-wrap: break-word;
       overflow-wrap: break-word;
-      hyphens: auto;
       max-width: 100%;
-      padding: 0 2mm;
     }
     .bill-info { 
       display: flex;
       justify-content: space-between;
       align-items: center;
-      font-size: 14px; 
+      font-size: 11px; 
       font-weight: bold; 
-      letter-spacing: 1px; 
+      letter-spacing: 0.5px; 
       font-family: 'Courier New', monospace;
       margin: 1mm 0;
-      padding: 0 2mm;
     }
     .tag-number { 
-      font-size: 12px; 
+      font-size: 10px; 
       font-weight: 900;
-      border: 2px solid #000;
-      padding: 4px 10px;
-      border-radius: 5px;
+      border: 1.5px solid #000;
+      padding: 2px 6px;
+      border-radius: 3px;
       background: white;
     }
     .website { 
       text-align: center;
-      font-size: 9px; 
+      font-size: 7px; 
       font-weight: bold;
       margin-top: 1mm;
-      padding-top: 1.5mm;
+      padding-top: 1mm;
       border-top: 1px solid #000;
-      letter-spacing: 0.3px;
     }
   </style>
 </head>
 <body>
   
-  ${tags.map(tag => `
+  ${tags.map((tag, index) => `
     <div class="tag">
       <div class="top-row">
         <span>${tag.businessName}</span>
@@ -617,6 +639,7 @@ const quickItems = [
       
       <div class="website">www.genzlaundry.com</div>
     </div>
+    ${index < tags.length - 1 ? '<div class="tag-separator"></div>' : ''}
   `).join('')}
   
   <script>

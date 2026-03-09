@@ -6,27 +6,33 @@ interface ComprehensiveRevenueDashboardProps {
 }
 
 const ComprehensiveRevenueDashboard: React.FC<ComprehensiveRevenueDashboardProps> = ({ onClose, bills }) => {
-  const [timeFilter, setTimeFilter] = useState<'7days' | '30days' | '90days' | 'all'>('30days');
+  const [timeFilter, setTimeFilter] = useState<'today' | 'week' | 'month' | 'year' | 'all'>('month');
+  const [viewMode, setViewMode] = useState<'daily' | 'monthly' | 'yearly'>('daily');
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth());
+  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [hoveredStat, setHoveredStat] = useState<number | null>(null);
   const [hoveredDataPoint, setHoveredDataPoint] = useState<{ date: string; revenue: number } | null>(null);
 
-  // Filter bills based on time filter
+  // Get available years from bills
+  const availableYears = Array.from(new Set(bills.map(bill => new Date(bill.createdAt).getFullYear()))).sort((a, b) => b - a);
+  if (availableYears.length === 0) availableYears.push(new Date().getFullYear());
+
+  // Filter bills based on view mode and selected date
   const getFilteredBills = () => {
-    const now = new Date();
-    const filtered = bills.filter(bill => {
+    return bills.filter(bill => {
       const billDate = new Date(bill.createdAt);
-      const daysDiff = Math.floor((now.getTime() - billDate.getTime()) / (1000 * 60 * 60 * 24));
       
-      switch (timeFilter) {
-        case '7days': return daysDiff <= 7;
-        case '30days': return daysDiff <= 30;
-        case '90days': return daysDiff <= 90;
-        case 'all': return true;
-        default: return true;
+      if (viewMode === 'yearly') {
+        return billDate.getFullYear() === selectedYear;
+      } else if (viewMode === 'monthly') {
+        return billDate.getFullYear() === selectedYear && billDate.getMonth() === selectedMonth;
+      } else if (viewMode === 'daily') {
+        return bill.createdAt.startsWith(selectedDate);
       }
+      return true;
     });
-    return filtered;
   };
 
   const filteredBills = getFilteredBills();
@@ -46,20 +52,56 @@ const ComprehensiveRevenueDashboard: React.FC<ComprehensiveRevenueDashboardProps
   }, {} as Record<string, number>);
   const topCustomer = Object.entries(customerRevenue).sort(([, a], [, b]) => b - a)[0];
 
-  // Revenue over time data (based on time filter)
+  // Revenue over time data (based on view mode)
   const getRevenueData = () => {
     const data: { date: string; revenue: number }[] = [];
-    const days = timeFilter === '7days' ? 7 : timeFilter === '30days' ? 30 : timeFilter === '90days' ? 90 : 365;
     
-    for (let i = days - 1; i >= 0; i--) {
-      const date = new Date();
-      date.setDate(date.getDate() - i);
-      const dateStr = date.toISOString().split('T')[0];
-      const dayRevenue = filteredBills
-        .filter(bill => bill.createdAt.startsWith(dateStr))
-        .reduce((sum, bill) => sum + bill.grandTotal, 0);
-      data.push({ date: dateStr, revenue: dayRevenue });
+    if (viewMode === 'daily') {
+      // Daily view - show all days in selected month
+      const year = selectedYear;
+      const month = selectedMonth;
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      
+      for (let day = 1; day <= daysInMonth; day++) {
+        const date = new Date(year, month, day);
+        const dateStr = date.toISOString().split('T')[0];
+        const dayRevenue = bills
+          .filter(bill => bill.createdAt.startsWith(dateStr))
+          .reduce((sum, bill) => sum + bill.grandTotal, 0);
+        data.push({ 
+          date: `${day}`, 
+          revenue: dayRevenue 
+        });
+      }
+    } else if (viewMode === 'monthly') {
+      // Monthly view - show all 12 months for selected year
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      
+      for (let month = 0; month < 12; month++) {
+        const monthRevenue = bills
+          .filter(bill => {
+            const billDate = new Date(bill.createdAt);
+            return billDate.getMonth() === month && billDate.getFullYear() === selectedYear;
+          })
+          .reduce((sum, bill) => sum + bill.grandTotal, 0);
+        data.push({ 
+          date: months[month], 
+          revenue: monthRevenue 
+        });
+      }
+    } else if (viewMode === 'yearly') {
+      // Yearly view - show available years
+      availableYears.forEach(year => {
+        const yearRevenue = bills
+          .filter(bill => {
+            const billDate = new Date(bill.createdAt);
+            return billDate.getFullYear() === year;
+          })
+          .reduce((sum, bill) => sum + bill.grandTotal, 0);
+        data.push({ date: year.toString(), revenue: yearRevenue });
+      });
     }
+    
     return data;
   };
 
@@ -87,27 +129,54 @@ const ComprehensiveRevenueDashboard: React.FC<ComprehensiveRevenueDashboardProps
       left: 0,
       right: 0,
       bottom: 0,
-      background: '#0a0e27',
+      background: 'linear-gradient(135deg, #0a0e27 0%, #1a1a2e 50%, #16213e 100%)',
       zIndex: 999999,
       overflow: 'auto',
       fontFamily: 'system-ui, -apple-system, sans-serif'
     }}>
       <style>{`
         @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(10px); }
+          from { opacity: 0; transform: translateY(20px); }
           to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes slideIn {
+          from { opacity: 0; transform: translateX(-20px); }
+          to { opacity: 1; transform: translateX(0); }
         }
         @keyframes pulse {
           0%, 100% { transform: scale(1); }
           50% { transform: scale(1.05); }
         }
+        @keyframes shimmer {
+          0% { background-position: -1000px 0; }
+          100% { background-position: 1000px 0; }
+        }
+        @keyframes countUp {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
         .stat-card {
-          transition: all 0.3s ease;
+          transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
           cursor: pointer;
+          position: relative;
+          overflow: hidden;
+        }
+        .stat-card::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: -100%;
+          width: 100%;
+          height: 100%;
+          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+          transition: left 0.5s;
+        }
+        .stat-card:hover::before {
+          left: 100%;
         }
         .stat-card:hover {
-          transform: translateY(-5px) scale(1.02);
-          box-shadow: 0 10px 30px rgba(139, 92, 246, 0.3);
+          transform: translateY(-8px) scale(1.02);
+          box-shadow: 0 20px 40px rgba(0,0,0,0.4);
         }
         .chart-bar {
           transition: all 0.3s ease;
@@ -118,21 +187,50 @@ const ComprehensiveRevenueDashboard: React.FC<ComprehensiveRevenueDashboardProps
           transform: scaleY(1.05);
         }
         .filter-btn {
-          transition: all 0.2s ease;
+          transition: all 0.3s ease;
+          position: relative;
+          overflow: hidden;
         }
-        .filter-btn:hover {
+        .filter-btn::after {
+          content: '';
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          width: 0;
+          height: 0;
+          border-radius: 50%;
+          background: rgba(255,255,255,0.2);
+          transform: translate(-50%, -50%);
+          transition: width 0.3s, height 0.3s;
+        }
+        .filter-btn:hover::after {
+          width: 200px;
+          height: 200px;
+        }
+        .date-selector {
+          transition: all 0.3s ease;
+        }
+        .date-selector:hover {
           transform: scale(1.05);
-          box-shadow: 0 5px 15px rgba(99, 102, 241, 0.4);
+          box-shadow: 0 5px 15px rgba(139, 92, 246, 0.3);
+        }
+        .date-selector:focus {
+          outline: none;
+          box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.5);
         }
         .category-item {
-          transition: all 0.2s ease;
+          transition: all 0.3s ease;
           cursor: pointer;
         }
         .category-item:hover {
-          background: rgba(255,255,255,0.1);
-          transform: translateX(5px);
+          transform: translateX(10px);
+          background: rgba(255,255,255,0.05);
+        }
+        .revenue-number {
+          animation: countUp 0.6s ease-out;
         }
       `}</style>
+
       {/* Header */}
       <div style={{
         background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)',
@@ -143,50 +241,189 @@ const ComprehensiveRevenueDashboard: React.FC<ComprehensiveRevenueDashboardProps
         alignItems: 'center'
       }}>
         <div>
-          <h1 style={{ color: 'white', margin: 0, fontSize: '28px', fontWeight: '600' }}>
-            Dashboard Overview
+          <h1 style={{ 
+            color: 'white', 
+            margin: 0, 
+            fontSize: '32px', 
+            fontWeight: '700',
+            background: 'linear-gradient(135deg, #fff, #8b5cf6)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            animation: 'fadeIn 0.6s ease-out'
+          }}>
+            💰 Revenue Dashboard
           </h1>
-          <p style={{ color: 'rgba(255,255,255,0.6)', margin: '5px 0 0 0', fontSize: '14px' }}>
-            Real-time laundry business analytics
+          <p style={{ 
+            color: 'rgba(255,255,255,0.7)', 
+            margin: '8px 0 0 0', 
+            fontSize: '15px',
+            fontWeight: '500',
+            animation: 'fadeIn 0.8s ease-out'
+          }}>
+            {viewMode === 'yearly' && `📅 Showing data for ${selectedYear}`}
+            {viewMode === 'monthly' && `📅 ${new Date(selectedYear, selectedMonth).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`}
+            {viewMode === 'daily' && `📅 ${new Date(selectedDate).toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })}`}
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-          {['7 Days', '30 Days', '90 Days', 'All Time'].map((label, i) => {
-            const filterValue = ['7days', '30days', '90days', 'all'][i] as any;
-            const isActive = timeFilter === filterValue;
-            return (
-              <button
-                key={label}
-                onClick={() => setTimeFilter(filterValue)}
-                className="filter-btn"
+        <div style={{ display: 'flex', gap: '15px', alignItems: 'center', flexWrap: 'wrap' }}>
+          {/* View Mode Toggle */}
+          <div style={{ 
+            display: 'flex', 
+            gap: '4px', 
+            background: 'rgba(139, 92, 246, 0.15)', 
+            borderRadius: '10px',
+            padding: '4px',
+            border: '1px solid rgba(139, 92, 246, 0.3)',
+            boxShadow: '0 4px 15px rgba(139, 92, 246, 0.2)'
+          }}>
+            {[
+              { label: 'Daily', icon: '📅' },
+              { label: 'Monthly', icon: '📆' },
+              { label: 'Yearly', icon: '🗓️' }
+            ].map((item, i) => {
+              const modeValue = ['daily', 'monthly', 'yearly'][i] as any;
+              const isActive = viewMode === modeValue;
+              return (
+                <button
+                  key={item.label}
+                  onClick={() => setViewMode(modeValue)}
+                  style={{
+                    background: isActive ? 'linear-gradient(135deg, #8b5cf6, #6366f1)' : 'transparent',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '10px 18px',
+                    color: 'white',
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    fontWeight: '600',
+                    transition: 'all 0.3s ease',
+                    boxShadow: isActive ? '0 4px 12px rgba(139, 92, 246, 0.4)' : 'none',
+                    transform: isActive ? 'scale(1.05)' : 'scale(1)'
+                  }}
+                >
+                  {item.icon} {item.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Date Selectors based on view mode */}
+          {viewMode === 'yearly' && (
+            <select
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(Number(e.target.value))}
+              className="date-selector"
+              style={{
+                background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(99, 102, 241, 0.2))',
+                border: '2px solid rgba(139, 92, 246, 0.4)',
+                borderRadius: '10px',
+                padding: '10px 16px',
+                color: 'white',
+                fontSize: '14px',
+                cursor: 'pointer',
+                fontWeight: '600',
+                boxShadow: '0 4px 12px rgba(139, 92, 246, 0.2)'
+              }}
+            >
+              {availableYears.map(year => (
+                <option key={year} value={year} style={{ background: '#1a1a2e', color: 'white' }}>
+                  📅 {year}
+                </option>
+              ))}
+            </select>
+          )}
+
+          {viewMode === 'monthly' && (
+            <>
+              <select
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(Number(e.target.value))}
+                className="date-selector"
                 style={{
-                  background: isActive ? '#6366f1' : 'transparent',
-                  border: '1px solid rgba(255,255,255,0.2)',
-                  borderRadius: '6px',
-                  padding: '8px 16px',
+                  background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(99, 102, 241, 0.2))',
+                  border: '2px solid rgba(139, 92, 246, 0.4)',
+                  borderRadius: '10px',
+                  padding: '10px 16px',
                   color: 'white',
-                  fontSize: '13px',
+                  fontSize: '14px',
                   cursor: 'pointer',
-                  fontWeight: '500',
-                  boxShadow: isActive ? '0 5px 15px rgba(99, 102, 241, 0.4)' : 'none'
+                  fontWeight: '600',
+                  boxShadow: '0 4px 12px rgba(139, 92, 246, 0.2)'
                 }}
               >
-                {label}
-              </button>
-            );
-          })}
+                {availableYears.map(year => (
+                  <option key={year} value={year} style={{ background: '#1a1a2e', color: 'white' }}>
+                    {year}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                className="date-selector"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(99, 102, 241, 0.2))',
+                  border: '2px solid rgba(139, 92, 246, 0.4)',
+                  borderRadius: '10px',
+                  padding: '10px 16px',
+                  color: 'white',
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  fontWeight: '600',
+                  boxShadow: '0 4px 12px rgba(139, 92, 246, 0.2)'
+                }}
+              >
+                {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map((month, i) => (
+                  <option key={i} value={i} style={{ background: '#1a1a2e', color: 'white' }}>
+                    {month}
+                  </option>
+                ))}
+              </select>
+            </>
+          )}
+
+          {viewMode === 'daily' && (
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              className="date-selector"
+              style={{
+                background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(99, 102, 241, 0.2))',
+                border: '2px solid rgba(139, 92, 246, 0.4)',
+                borderRadius: '10px',
+                padding: '10px 16px',
+                color: 'white',
+                fontSize: '14px',
+                cursor: 'pointer',
+                fontWeight: '600',
+                colorScheme: 'dark',
+                boxShadow: '0 4px 12px rgba(139, 92, 246, 0.2)'
+              }}
+            />
+          )}
+
           <button
             onClick={onClose}
             style={{
-              background: '#ef4444',
+              background: 'linear-gradient(135deg, #ef4444, #dc2626)',
               border: 'none',
-              borderRadius: '6px',
-              padding: '8px 16px',
+              borderRadius: '10px',
+              padding: '10px 20px',
               color: 'white',
-              fontSize: '13px',
+              fontSize: '14px',
               cursor: 'pointer',
               fontWeight: '600',
-              marginLeft: '10px'
+              boxShadow: '0 4px 12px rgba(239, 68, 68, 0.3)',
+              transition: 'all 0.3s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'scale(1.05)';
+              e.currentTarget.style.boxShadow = '0 6px 20px rgba(239, 68, 68, 0.5)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'scale(1)';
+              e.currentTarget.style.boxShadow = '0 4px 12px rgba(239, 68, 68, 0.3)';
             }}
           >
             ✕ Close
@@ -257,50 +494,93 @@ const ComprehensiveRevenueDashboard: React.FC<ComprehensiveRevenueDashboardProps
               className="stat-card"
               onMouseEnter={() => setHoveredStat(i)}
               onMouseLeave={() => setHoveredStat(null)}
-              onClick={() => alert(`${stat.title}: ${stat.value}`)}
               style={{
-                background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)',
-                border: hoveredStat === i ? '1px solid rgba(139, 92, 246, 0.5)' : '1px solid rgba(255,255,255,0.1)',
-                borderRadius: '12px',
-                padding: '20px',
+                background: hoveredStat === i 
+                  ? `linear-gradient(135deg, ${stat.color}30, ${stat.color}15)` 
+                  : 'linear-gradient(135deg, rgba(30, 27, 75, 0.8), rgba(49, 46, 129, 0.8))',
+                border: hoveredStat === i ? `2px solid ${stat.color}` : '1px solid rgba(255,255,255,0.1)',
+                borderRadius: '16px',
+                padding: '24px',
                 position: 'relative',
                 overflow: 'hidden',
-                animation: `fadeIn 0.5s ease ${i * 0.1}s both`
+                animation: `fadeIn 0.6s ease ${i * 0.1}s both`,
+                boxShadow: hoveredStat === i ? `0 10px 30px ${stat.color}40` : '0 4px 15px rgba(0,0,0,0.2)'
               }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '15px' }}>
-                <div>
-                  <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '11px', fontWeight: '600', letterSpacing: '0.5px', marginBottom: '8px' }}>
-                    {stat.title}
+              {/* Animated background gradient */}
+              <div style={{
+                position: 'absolute',
+                top: '-50%',
+                right: '-50%',
+                width: '200%',
+                height: '200%',
+                background: `radial-gradient(circle, ${stat.color}20 0%, transparent 70%)`,
+                opacity: hoveredStat === i ? 1 : 0,
+                transition: 'opacity 0.5s ease',
+                pointerEvents: 'none'
+              }}></div>
+              
+              <div style={{ position: 'relative', zIndex: 1 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '15px' }}>
+                  <div>
+                    <div style={{ 
+                      color: 'rgba(255,255,255,0.6)', 
+                      fontSize: '11px', 
+                      fontWeight: '700', 
+                      letterSpacing: '1px', 
+                      marginBottom: '10px',
+                      textTransform: 'uppercase'
+                    }}>
+                      {stat.title}
+                    </div>
+                    <div className="revenue-number" style={{ 
+                      fontSize: '32px', 
+                      fontWeight: '800', 
+                      color: 'white', 
+                      marginBottom: '6px',
+                      textShadow: hoveredStat === i ? `0 0 20px ${stat.color}` : 'none'
+                    }}>
+                      {stat.value}
+                    </div>
+                    <div style={{ 
+                      fontSize: '12px', 
+                      color: '#10b981',
+                      fontWeight: '600',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}>
+                      <span>↗</span> {stat.change}
+                    </div>
                   </div>
-                  <div style={{ fontSize: '28px', fontWeight: 'bold', color: 'white', marginBottom: '5px' }}>
-                    {stat.value}
-                  </div>
-                  <div style={{ fontSize: '11px', color: '#10b981' }}>
-                    {stat.change}
+                  <div style={{
+                    fontSize: '40px',
+                    opacity: hoveredStat === i ? 0.8 : 0.3,
+                    transition: 'all 0.3s ease',
+                    transform: hoveredStat === i ? 'scale(1.2) rotate(10deg)' : 'scale(1)',
+                    filter: hoveredStat === i ? `drop-shadow(0 0 10px ${stat.color})` : 'none'
+                  }}>
+                    {stat.icon}
                   </div>
                 </div>
-                <div style={{
-                  fontSize: '32px',
-                  opacity: 0.3
-                }}>
-                  {stat.icon}
+                {/* Mini chart */}
+                <div style={{ display: 'flex', alignItems: 'flex-end', gap: '4px', height: '50px', marginTop: '15px' }}>
+                  {stat.chartData.map((height, idx) => (
+                    <div 
+                      key={idx} 
+                      className="chart-bar"
+                      style={{
+                        flex: 1,
+                        height: `${height}%`,
+                        background: hoveredStat === i 
+                          ? `linear-gradient(to top, ${stat.color}, ${stat.color}80)` 
+                          : `linear-gradient(to top, ${stat.color}60, ${stat.color}30)`,
+                        borderRadius: '4px 4px 0 0',
+                        transition: 'all 0.3s ease',
+                        boxShadow: hoveredStat === i ? `0 0 10px ${stat.color}` : 'none'
+                      }}
+                    ></div>
+                  ))}
                 </div>
-              </div>
-              {/* Mini chart */}
-              <div style={{ display: 'flex', alignItems: 'flex-end', gap: '3px', height: '40px' }}>
-                {stat.chartData.map((height, idx) => (
-                  <div 
-                    key={idx} 
-                    className="chart-bar"
-                    style={{
-                      flex: 1,
-                      height: `${height}%`,
-                      background: stat.color,
-                      borderRadius: '2px 2px 0 0',
-                      opacity: hoveredStat === i ? 0.8 : 0.6
-                    }}
-                  ></div>
-                ))}
               </div>
             </div>
           ))}

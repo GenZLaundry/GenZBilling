@@ -261,81 +261,110 @@ const TagHistoryViewer: React.FC = () => {
 <head>
   <title>Reprint Tags - ${bill.billNumber}</title>
   <style>
-    @page { size: 4.25in auto; margin: 0; }
+    @page { size: 2in auto; margin: 0; }
     @media print {
       body { margin: 0; padding: 0; }
-      .tag { page-break-after: always; }
-      .tag:last-child { page-break-after: avoid; }
+      .tag { page-break-after: avoid; }
+      .tag-separator { page-break-after: avoid; }
     }
     body { 
-      font-family: 'Arial Black', 'Arial', sans-serif; 
+      font-family: 'Arial', sans-serif; 
       margin: 0; 
-      padding: 3mm; 
-      background: #f5f5f5; 
-      width: 4.25in; 
+      padding: 0; 
+      background: white; 
+      width: 2in;
     }
     .tag { 
-      width: 60mm; 
-      height: 40mm; 
-      border: 2px solid #000; 
-      margin: 3mm auto; 
-      padding: 3mm; 
+      width: 48mm;
+      height: 35mm;
+      border: 1.5px solid #000; 
+      margin: 0 auto; 
+      padding: 2mm; 
       background: white; 
       display: flex;
       flex-direction: column;
       justify-content: space-between;
       box-sizing: border-box; 
-      page-break-inside: avoid;
       overflow: hidden;
+    }
+    .tag-separator {
+      height: 10mm;
+      width: 100%;
+      margin: 0;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .tag-separator::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 50%;
+      border-top: 1px dotted #666;
+      z-index: 1;
+    }
+    .tag-separator::after {
+      content: '✂';
+      position: relative;
+      font-size: 14px;
+      color: #666;
+      background: white;
+      padding: 0 5px;
+      z-index: 2;
     }
     .top-row { 
       display: flex; 
       justify-content: space-between; 
       align-items: center; 
-      font-size: 8px; 
+      font-size: 7px; 
       font-weight: bold;
-      padding-bottom: 2mm;
+      padding-bottom: 1.5mm;
       border-bottom: 1px solid #000;
     }
     .customer-name { 
       text-align: center; 
-      font-size: 16px; 
+      font-size: 13px; 
       font-weight: 900; 
       text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin: 2mm 0;
-      line-height: 1.3;
+      letter-spacing: 0.3px;
+      margin: 1.5mm 0;
+      line-height: 1.2;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      max-width: 100%;
     }
     .bill-info { 
       display: flex;
       justify-content: space-between;
       align-items: center;
-      font-size: 14px; 
+      font-size: 11px; 
       font-weight: bold; 
-      letter-spacing: 1px; 
+      letter-spacing: 0.5px; 
       font-family: 'Courier New', monospace;
       margin: 1mm 0;
     }
     .tag-number { 
-      font-size: 12px; 
+      font-size: 10px; 
       font-weight: 900;
-      border: 2px solid #000;
-      padding: 4px 10px;
-      border-radius: 5px;
+      border: 1.5px solid #000;
+      padding: 2px 6px;
+      border-radius: 3px;
       background: white;
     }
     .website { 
       text-align: center;
-      font-size: 9px; 
+      font-size: 7px; 
       font-weight: bold;
       margin-top: 1mm;
-      padding-top: 1.5mm;
+      padding-top: 1mm;
       border-top: 1px solid #000;
     }
   </style>
 </head>
 <body>
-  ${bill.tags.map(tag => `
+  ${bill.tags.map((tag, index) => `
     <div class="tag">
       <div class="top-row">
         <span>GenZ Laundry</span>
@@ -348,6 +377,7 @@ const TagHistoryViewer: React.FC = () => {
       </div>
       <div class="website">www.genzlaundry.com</div>
     </div>
+    ${index < bill.tags.length - 1 ? '<div class="tag-separator"></div>' : ''}
   `).join('')}
   <script>
     window.onload = function() {
@@ -379,23 +409,23 @@ const TagHistoryViewer: React.FC = () => {
 <head>
   <title>Reprint Tag - ${tag.billNumber} (${tag.tagIndex}/${tag.totalTags})</title>
   <style>
-    @page { size: 4.25in auto; margin: 0; }
+    @page { size: 2in auto; margin: 0; }
     @media print {
       body { margin: 0; padding: 0; }
     }
     body { 
-      font-family: 'Arial Black', 'Arial', sans-serif; 
+      font-family: 'Arial', sans-serif; 
       margin: 0; 
-      padding: 3mm; 
-      background: #f5f5f5; 
-      width: 4.25in; 
+      padding: 0; 
+      background: white; 
+      width: 2in;
     }
     .tag { 
-      width: 60mm; 
-      height: 40mm; 
-      border: 2px solid #000; 
-      margin: 3mm auto; 
-      padding: 3mm; 
+      width: 48mm;
+      height: 35mm;
+      border: 1.5px solid #000; 
+      margin: 0 auto; 
+      padding: 2mm; 
       background: white; 
       display: flex;
       flex-direction: column;
@@ -407,44 +437,47 @@ const TagHistoryViewer: React.FC = () => {
       display: flex; 
       justify-content: space-between; 
       align-items: center; 
-      font-size: 8px; 
+      font-size: 7px; 
       font-weight: bold;
-      padding-bottom: 2mm;
+      padding-bottom: 1.5mm;
       border-bottom: 1px solid #000;
     }
     .customer-name { 
       text-align: center; 
-      font-size: 16px; 
+      font-size: 13px; 
       font-weight: 900; 
       text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin: 2mm 0;
-      line-height: 1.3;
+      letter-spacing: 0.3px;
+      margin: 1.5mm 0;
+      line-height: 1.2;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      max-width: 100%;
     }
     .bill-info { 
       display: flex;
       justify-content: space-between;
       align-items: center;
-      font-size: 14px; 
+      font-size: 11px; 
       font-weight: bold; 
-      letter-spacing: 1px; 
+      letter-spacing: 0.5px; 
       font-family: 'Courier New', monospace;
       margin: 1mm 0;
     }
     .tag-number { 
-      font-size: 12px; 
+      font-size: 10px; 
       font-weight: 900;
-      border: 2px solid #000;
-      padding: 4px 10px;
-      border-radius: 5px;
+      border: 1.5px solid #000;
+      padding: 2px 6px;
+      border-radius: 3px;
       background: white;
     }
     .website { 
       text-align: center;
-      font-size: 9px; 
+      font-size: 7px; 
       font-weight: bold;
       margin-top: 1mm;
-      padding-top: 1.5mm;
+      padding-top: 1mm;
       border-top: 1px solid #000;
     }
   </style>
@@ -539,7 +572,25 @@ const TagHistoryViewer: React.FC = () => {
 
       {/* Filters */}
       <div className="bg-white p-4 rounded-lg shadow mb-6">
-        <h3 className="text-lg font-semibold mb-3">Filters</h3>
+        <div className="flex justify-between items-center mb-3">
+          <h3 className="text-lg font-semibold">Filters</h3>
+          <button
+            onClick={() => {
+              setFilters({
+                billNumber: '',
+                customerName: '',
+                customerPhone: '',
+                status: '',
+                startDate: '',
+                endDate: ''
+              });
+              setCurrentPage(1);
+            }}
+            className="px-3 py-1 bg-gray-200 hover:bg-gray-300 rounded text-sm font-medium"
+          >
+            🔄 Clear All Filters
+          </button>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <input
             type="text"
@@ -591,6 +642,21 @@ const TagHistoryViewer: React.FC = () => {
 
       {/* Grouped Bills List */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="px-4 py-3 bg-gray-50 border-b flex justify-between items-center">
+          <div>
+            <span className="font-semibold text-gray-700">
+              Showing {groupedBills.length} bill{groupedBills.length !== 1 ? 's' : ''} 
+            </span>
+            <span className="text-gray-500 text-sm ml-2">
+              ({tags.length} total tag{tags.length !== 1 ? 's' : ''})
+            </span>
+          </div>
+          {(filters.billNumber || filters.customerName || filters.customerPhone || filters.status || filters.startDate || filters.endDate) && (
+            <span className="text-sm text-blue-600 font-medium">
+              🔍 Filters Active
+            </span>
+          )}
+        </div>
         {loading ? (
           <div className="p-8 text-center">Loading...</div>
         ) : groupedBills.length === 0 ? (
@@ -600,6 +666,7 @@ const TagHistoryViewer: React.FC = () => {
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
+                  <th className="px-4 py-3 text-left text-sm font-semibold">S.No</th>
                   <th className="px-4 py-3 text-left text-sm font-semibold">Bill #</th>
                   <th className="px-4 py-3 text-left text-sm font-semibold">Customer</th>
                   <th className="px-4 py-3 text-left text-sm font-semibold">Total Tags</th>
@@ -609,9 +676,10 @@ const TagHistoryViewer: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {groupedBills.map((bill) => (
+                {groupedBills.map((bill, billIndex) => (
                   <React.Fragment key={bill.billNumber}>
                     <tr className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-sm font-bold text-blue-600">{billIndex + 1}</td>
                       <td className="px-4 py-3 text-sm font-medium">{bill.billNumber}</td>
                       <td className="px-4 py-3 text-sm">
                         <div className="font-medium">{bill.customerName}</div>
@@ -659,12 +727,13 @@ const TagHistoryViewer: React.FC = () => {
                     </tr>
                     {expandedBills.has(bill.billNumber) && (
                       <tr>
-                        <td colSpan={6} className="px-4 py-3 bg-gray-50">
+                        <td colSpan={7} className="px-4 py-3 bg-gray-50">
                           <div className="ml-8">
                             <h4 className="font-semibold mb-2 text-sm">Individual Tags:</h4>
                             <table className="w-full text-sm">
                               <thead className="bg-gray-100">
                                 <tr>
+                                  <th className="px-3 py-2 text-left">S.No</th>
                                   <th className="px-3 py-2 text-left">Tag #</th>
                                   <th className="px-3 py-2 text-left">Item</th>
                                   <th className="px-3 py-2 text-left">Wash Type</th>
@@ -674,8 +743,9 @@ const TagHistoryViewer: React.FC = () => {
                                 </tr>
                               </thead>
                               <tbody className="divide-y">
-                                {bill.tags.sort((a, b) => a.tagIndex - b.tagIndex).map((tag) => (
+                                {bill.tags.sort((a, b) => a.tagIndex - b.tagIndex).map((tag, tagIndex) => (
                                   <tr key={tag._id} className="hover:bg-gray-100">
+                                    <td className="px-3 py-2 font-bold text-blue-600">{tagIndex + 1}</td>
                                     <td className="px-3 py-2">{tag.tagIndex}/{tag.totalTags}</td>
                                     <td className="px-3 py-2">{tag.itemName}</td>
                                     <td className="px-3 py-2">{tag.washType}</td>
@@ -810,6 +880,7 @@ const TagHistoryViewer: React.FC = () => {
                   <table className="w-full text-sm">
                     <thead className="bg-gray-100">
                       <tr>
+                        <th className="px-3 py-2 text-left">S.No</th>
                         <th className="px-3 py-2 text-left">Tag #</th>
                         <th className="px-3 py-2 text-left">Item</th>
                         <th className="px-3 py-2 text-left">Wash Type</th>
@@ -820,8 +891,9 @@ const TagHistoryViewer: React.FC = () => {
                       </tr>
                     </thead>
                     <tbody className="divide-y">
-                      {selectedBill.tags.sort((a, b) => a.tagIndex - b.tagIndex).map((tag) => (
+                      {selectedBill.tags.sort((a, b) => a.tagIndex - b.tagIndex).map((tag, tagIndex) => (
                         <tr key={tag._id} className="hover:bg-gray-50">
+                          <td className="px-3 py-2 font-bold text-blue-600">{tagIndex + 1}</td>
                           <td className="px-3 py-2 font-medium">{tag.tagIndex}/{tag.totalTags}</td>
                           <td className="px-3 py-2">{tag.itemName}</td>
                           <td className="px-3 py-2">{tag.washType}</td>
