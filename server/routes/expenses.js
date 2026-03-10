@@ -48,34 +48,45 @@ router.get('/', async (req, res) => {
 // Get expense summary/analytics
 router.get('/summary', async (req, res) => {
   try {
-    const { period = 'month' } = req.query;
+    const { period = 'month', startDate: queryStartDate, endDate: queryEndDate } = req.query;
     
-    // Calculate date range based on period
+    // Calculate date range based on period or use provided dates
     const now = new Date();
-    let startDate;
+    let startDate, endDate;
     
-    switch (period) {
-      case 'day':
-        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        break;
-      case 'week':
-        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        break;
-      case 'month':
-        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-        break;
-      case 'year':
-        startDate = new Date(now.getFullYear(), 0, 1);
-        break;
-      default:
-        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+    if (queryStartDate && queryEndDate) {
+      // Use provided date range
+      startDate = new Date(queryStartDate);
+      endDate = new Date(queryEndDate);
+      // Set end date to end of day
+      endDate.setHours(23, 59, 59, 999);
+    } else {
+      // Calculate date range based on period
+      endDate = now;
+      
+      switch (period) {
+        case 'day':
+          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          break;
+        case 'week':
+          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case 'month':
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+          break;
+        case 'year':
+          startDate = new Date(now.getFullYear(), 0, 1);
+          break;
+        default:
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      }
     }
 
     // Get total expenses for the period
     const totalExpenses = await Expense.aggregate([
       {
         $match: {
-          date: { $gte: startDate, $lte: now }
+          date: { $gte: startDate, $lte: endDate }
         }
       },
       {
@@ -90,7 +101,7 @@ router.get('/summary', async (req, res) => {
     const expensesByCategory = await Expense.aggregate([
       {
         $match: {
-          date: { $gte: startDate, $lte: now }
+          date: { $gte: startDate, $lte: endDate }
         }
       },
       {
@@ -107,10 +118,10 @@ router.get('/summary', async (req, res) => {
 
     // Get recent expenses
     const recentExpenses = await Expense.find({
-      date: { $gte: startDate, $lte: now }
+      date: { $gte: startDate, $lte: endDate }
     })
     .sort({ date: -1, createdAt: -1 })
-    .limit(5);
+    .limit(10);
 
     res.json({
       success: true,
@@ -121,7 +132,7 @@ router.get('/summary', async (req, res) => {
         period,
         dateRange: {
           start: startDate,
-          end: now
+          end: endDate
         }
       }
     });

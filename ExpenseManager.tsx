@@ -26,6 +26,12 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({ onClose }) => {
   const [totalPages, setTotalPages] = useState(1);
   const [selectedCategory, setSelectedCategory] = useState('ALL');
   const [expenseSummary, setExpenseSummary] = useState<any>(null);
+  
+  // Date filtering states
+  const [viewMode, setViewMode] = useState<'day' | 'month' | 'year'>('month');
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
   const [formData, setFormData] = useState({
     title: '',
@@ -48,7 +54,7 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({ onClose }) => {
   useEffect(() => {
     loadExpenses();
     loadExpenseSummary();
-  }, [currentPage, selectedCategory]);
+  }, [currentPage, selectedCategory, viewMode, selectedDate, selectedMonth, selectedYear]);
 
   const showCustomAlert = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
     showAlert({ message, type });
@@ -60,6 +66,24 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({ onClose }) => {
       const params: any = { page: currentPage, limit: 10 };
       if (selectedCategory !== 'ALL') {
         params.category = selectedCategory;
+      }
+      
+      // Add date filtering based on view mode
+      if (viewMode === 'day') {
+        params.startDate = selectedDate;
+        params.endDate = selectedDate;
+      } else if (viewMode === 'month') {
+        const year = selectedYear;
+        const month = selectedMonth;
+        const startDate = new Date(year, month - 1, 1);
+        const endDate = new Date(year, month, 0);
+        params.startDate = startDate.toISOString().split('T')[0];
+        params.endDate = endDate.toISOString().split('T')[0];
+      } else if (viewMode === 'year') {
+        const startDate = new Date(selectedYear, 0, 1);
+        const endDate = new Date(selectedYear, 11, 31);
+        params.startDate = startDate.toISOString().split('T')[0];
+        params.endDate = endDate.toISOString().split('T')[0];
       }
       
       const response = await apiService.getExpenses(params);
@@ -77,7 +101,27 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({ onClose }) => {
 
   const loadExpenseSummary = async () => {
     try {
-      const response = await apiService.getExpenseSummary('month');
+      // Calculate summary based on current filters
+      let period = 'month';
+      let startDate, endDate;
+      
+      if (viewMode === 'day') {
+        period = 'day';
+        startDate = selectedDate;
+        endDate = selectedDate;
+      } else if (viewMode === 'month') {
+        period = 'month';
+        const year = selectedYear;
+        const month = selectedMonth;
+        startDate = new Date(year, month - 1, 1).toISOString().split('T')[0];
+        endDate = new Date(year, month, 0).toISOString().split('T')[0];
+      } else if (viewMode === 'year') {
+        period = 'year';
+        startDate = new Date(selectedYear, 0, 1).toISOString().split('T')[0];
+        endDate = new Date(selectedYear, 11, 31).toISOString().split('T')[0];
+      }
+      
+      const response = await apiService.getExpenseSummary(period, startDate, endDate);
       if (response.success && response.data) {
         setExpenseSummary(response.data);
       }
@@ -208,7 +252,9 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({ onClose }) => {
                 <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#e74c3c' }}>
                   ₹{expenseSummary.totalExpenses?.toLocaleString() || 0}
                 </div>
-                <div style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>Total Expenses (Month)</div>
+                <div style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
+                  Total Expenses ({viewMode === 'day' ? 'Day' : viewMode === 'month' ? 'Month' : 'Year'})
+                </div>
               </div>
               
               <div style={{
@@ -228,41 +274,184 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({ onClose }) => {
                 <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#27ae60' }}>
                   {expenseSummary.recentExpenses?.length || 0}
                 </div>
-                <div style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>Recent Expenses</div>
+                <div style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>Total Records</div>
               </div>
             </div>
           </div>
         )}
 
         {/* Controls */}
-        <div style={{ padding: '20px', borderBottom: '1px solid #dee2e6', display: 'flex', gap: '15px', alignItems: 'center' }}>
-          <button
-            onClick={() => setShowAddForm(true)}
-            style={{
-              background: 'linear-gradient(135deg, #27ae60, #2ecc71)', color: 'white',
-              border: 'none', borderRadius: '10px', padding: '12px 20px',
-              cursor: 'pointer', fontWeight: 'bold', fontSize: '14px'
-            }}
-          >
-            ➕ Add Expense
-          </button>
+        <div style={{ padding: '20px', borderBottom: '1px solid #dee2e6' }}>
+          <div style={{ display: 'flex', gap: '15px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <button
+              onClick={() => setShowAddForm(true)}
+              style={{
+                background: 'linear-gradient(135deg, #27ae60, #2ecc71)', color: 'white',
+                border: 'none', borderRadius: '10px', padding: '12px 20px',
+                cursor: 'pointer', fontWeight: 'bold', fontSize: '14px'
+              }}
+            >
+              ➕ Add Expense
+            </button>
 
-          <select
-            value={selectedCategory}
-            onChange={(e) => {
-              setSelectedCategory(e.target.value);
-              setCurrentPage(1);
-            }}
-            style={{
-              padding: '10px', borderRadius: '8px', border: '2px solid #dee2e6',
-              fontSize: '14px', cursor: 'pointer'
-            }}
-          >
-            <option value="ALL">All Categories</option>
-            {categories.map(cat => (
-              <option key={cat.value} value={cat.value}>{cat.label}</option>
-            ))}
-          </select>
+            <select
+              value={selectedCategory}
+              onChange={(e) => {
+                setSelectedCategory(e.target.value);
+                setCurrentPage(1);
+              }}
+              style={{
+                padding: '10px', borderRadius: '8px', border: '2px solid #dee2e6',
+                fontSize: '14px', cursor: 'pointer'
+              }}
+            >
+              <option value="ALL">All Categories</option>
+              {categories.map(cat => (
+                <option key={cat.value} value={cat.value}>{cat.label}</option>
+              ))}
+            </select>
+
+            <div style={{ marginLeft: 'auto', display: 'flex', gap: '10px', alignItems: 'center' }}>
+              <span style={{ fontSize: '14px', fontWeight: '600', color: '#666' }}>📅 View:</span>
+              <button
+                onClick={() => setViewMode('day')}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  border: viewMode === 'day' ? '2px solid #3498db' : '2px solid #dee2e6',
+                  background: viewMode === 'day' ? '#3498db' : 'white',
+                  color: viewMode === 'day' ? 'white' : '#666',
+                  cursor: 'pointer',
+                  fontWeight: viewMode === 'day' ? 'bold' : 'normal',
+                  fontSize: '14px'
+                }}
+              >
+                Daily
+              </button>
+              <button
+                onClick={() => setViewMode('month')}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  border: viewMode === 'month' ? '2px solid #3498db' : '2px solid #dee2e6',
+                  background: viewMode === 'month' ? '#3498db' : 'white',
+                  color: viewMode === 'month' ? 'white' : '#666',
+                  cursor: 'pointer',
+                  fontWeight: viewMode === 'month' ? 'bold' : 'normal',
+                  fontSize: '14px'
+                }}
+              >
+                Monthly
+              </button>
+              <button
+                onClick={() => setViewMode('year')}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  border: viewMode === 'year' ? '2px solid #3498db' : '2px solid #dee2e6',
+                  background: viewMode === 'year' ? '#3498db' : 'white',
+                  color: viewMode === 'year' ? 'white' : '#666',
+                  cursor: 'pointer',
+                  fontWeight: viewMode === 'year' ? 'bold' : 'normal',
+                  fontSize: '14px'
+                }}
+              >
+                Yearly
+              </button>
+            </div>
+          </div>
+
+          {/* Date Selection Controls */}
+          <div style={{ marginTop: '15px', display: 'flex', gap: '10px', alignItems: 'center' }}>
+            {viewMode === 'day' && (
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => {
+                  setSelectedDate(e.target.value);
+                  setCurrentPage(1);
+                }}
+                style={{
+                  padding: '10px',
+                  borderRadius: '8px',
+                  border: '2px solid #3498db',
+                  fontSize: '14px',
+                  fontWeight: '600'
+                }}
+              />
+            )}
+
+            {viewMode === 'month' && (
+              <>
+                <select
+                  value={selectedYear}
+                  onChange={(e) => {
+                    setSelectedYear(parseInt(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  style={{
+                    padding: '10px',
+                    borderRadius: '8px',
+                    border: '2px solid #3498db',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - i).map(year => (
+                    <option key={year} value={year}>{year}</option>
+                  ))}
+                </select>
+                <select
+                  value={selectedMonth}
+                  onChange={(e) => {
+                    setSelectedMonth(parseInt(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  style={{
+                    padding: '10px',
+                    borderRadius: '8px',
+                    border: '2px solid #3498db',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map((month, index) => (
+                    <option key={index + 1} value={index + 1}>{month}</option>
+                  ))}
+                </select>
+              </>
+            )}
+
+            {viewMode === 'year' && (
+              <select
+                value={selectedYear}
+                onChange={(e) => {
+                  setSelectedYear(parseInt(e.target.value));
+                  setCurrentPage(1);
+                }}
+                style={{
+                  padding: '10px',
+                  borderRadius: '8px',
+                  border: '2px solid #3498db',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  cursor: 'pointer'
+                }}
+              >
+                {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - i).map(year => (
+                  <option key={year} value={year}>{year}</option>
+                ))}
+              </select>
+            )}
+
+            <span style={{ fontSize: '14px', color: '#666', marginLeft: '10px' }}>
+              {viewMode === 'day' && `Showing expenses for ${new Date(selectedDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}`}
+              {viewMode === 'month' && `Showing expenses for ${['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][selectedMonth - 1]} ${selectedYear}`}
+              {viewMode === 'year' && `Showing expenses for ${selectedYear}`}
+            </span>
+          </div>
         </div>
 
         {/* Add/Edit Form */}

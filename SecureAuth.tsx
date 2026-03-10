@@ -101,7 +101,13 @@ const SecureAuth: React.FC<SecureAuthProps> = ({ onLogin }) => {
       {/* Login Box */}
       <div style={loginBoxStyle}>
         {/* Logo */}
-        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+        <div style={{ 
+          textAlign: 'center', 
+          marginBottom: '32px',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center'
+        }}>
           <img 
             src="/logo.png" 
             alt="GenZ Laundry" 
@@ -109,7 +115,8 @@ const SecureAuth: React.FC<SecureAuthProps> = ({ onLogin }) => {
               width: '100px',
               height: '100px',
               objectFit: 'contain',
-              marginBottom: '16px',
+              display: 'block',
+              margin: '0 auto 16px auto',
               filter: 'drop-shadow(0 4px 12px rgba(0, 0, 0, 0.3))'
             }}
           />
@@ -178,25 +185,19 @@ const SecureAuth: React.FC<SecureAuthProps> = ({ onLogin }) => {
 
           {/* Password Field */}
           <div>
-            <div style={{
+            <label style={{
               display: 'flex',
-              justifyContent: 'space-between',
               alignItems: 'center',
-              marginBottom: '8px'
+              gap: '8px',
+              fontSize: '14px',
+              fontWeight: '600',
+              color: 'white',
+              marginBottom: '8px',
+              textShadow: '0 1px 3px rgba(0, 0, 0, 0.3)'
             }}>
-              <label style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                fontSize: '14px',
-                fontWeight: '600',
-                color: 'white',
-                textShadow: '0 1px 3px rgba(0, 0, 0, 0.3)'
-              }}>
-                <span style={{ fontSize: '16px' }}>🔒</span>
-                Password
-              </label>
-            </div>
+              <span style={{ fontSize: '16px' }}>🔒</span>
+              Password
+            </label>
             <div style={{ position: 'relative' }}>
               <input
                 type={showPassword ? 'text' : 'password'}
@@ -227,50 +228,13 @@ const SecureAuth: React.FC<SecureAuthProps> = ({ onLogin }) => {
                   border: 'none',
                   cursor: 'pointer',
                   fontSize: '18px',
-                  padding: '4px'
+                  padding: '4px',
+                  color: '#64748b'
                 }}
               >
                 {showPassword ? '👁️' : '👁️'}
               </button>
             </div>
-          </div>
-
-          {/* Remember Me & Forgot Password */}
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            fontSize: '13px'
-          }}>
-            <label style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              color: 'white',
-              cursor: 'pointer',
-              textShadow: '0 1px 3px rgba(0, 0, 0, 0.3)'
-            }}>
-              <input 
-                type="checkbox" 
-                style={{ 
-                  cursor: 'pointer',
-                  width: '16px',
-                  height: '16px'
-                }} 
-              />
-              Remember me
-            </label>
-            <a 
-              href="#" 
-              style={{
-                color: 'white',
-                textDecoration: 'none',
-                fontWeight: '600',
-                textShadow: '0 1px 3px rgba(0, 0, 0, 0.3)'
-              }}
-            >
-              Forgot Password?
-            </a>
           </div>
 
           {/* Login Button */}
@@ -317,24 +281,36 @@ const SecureAuth: React.FC<SecureAuthProps> = ({ onLogin }) => {
           </button>
         </form>
 
-        {/* Register Link */}
+        {/* Powered by Credit */}
         <div style={{
           marginTop: '24px',
           textAlign: 'center',
-          fontSize: '14px',
-          color: 'rgba(255, 255, 255, 0.9)',
+          fontSize: '13px',
+          color: 'rgba(255, 255, 255, 0.8)',
           textShadow: '0 1px 3px rgba(0, 0, 0, 0.3)'
         }}>
-          Don't have an account?{' '}
+          Powered by{' '}
           <a 
-            href="#" 
+            href="https://www.linkedin.com/in/mr-manohar-solanki/" 
+            target="_blank"
+            rel="noopener noreferrer"
             style={{
               color: 'white',
               fontWeight: '700',
-              textDecoration: 'none'
+              textDecoration: 'none',
+              borderBottom: '1px solid rgba(255, 255, 255, 0.5)',
+              transition: 'all 0.3s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderBottom = '1px solid white';
+              e.currentTarget.style.color = '#fff';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderBottom = '1px solid rgba(255, 255, 255, 0.5)';
+              e.currentTarget.style.color = 'white';
             }}
           >
-            Register
+            Manohar Solanki
           </a>
         </div>
       </div>

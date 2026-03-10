@@ -533,11 +533,11 @@ const quickItems = [
       width: 2in;
     }
     .tag { 
-      width: 48mm;
+      width: 44mm;
       height: 35mm;
       border: 1.5px solid #000; 
       margin: 0 auto; 
-      padding: 2mm; 
+      padding: 1.5mm; 
       background: white; 
       display: flex;
       flex-direction: column;
@@ -576,19 +576,19 @@ const quickItems = [
       display: flex; 
       justify-content: space-between; 
       align-items: center; 
-      font-size: 7px; 
+      font-size: 6px; 
       font-weight: bold;
-      padding-bottom: 1.5mm;
+      padding-bottom: 1mm;
       border-bottom: 1px solid #000;
     }
     .customer-name { 
       text-align: center; 
-      font-size: 13px; 
+      font-size: 12px; 
       font-weight: 900; 
       text-transform: uppercase;
-      letter-spacing: 0.3px;
+      letter-spacing: 0.2px;
       margin: 1.5mm 0;
-      line-height: 1.2;
+      line-height: 1.1;
       word-wrap: break-word;
       overflow-wrap: break-word;
       max-width: 100%;
@@ -597,23 +597,23 @@ const quickItems = [
       display: flex;
       justify-content: space-between;
       align-items: center;
-      font-size: 11px; 
+      font-size: 10px; 
       font-weight: bold; 
-      letter-spacing: 0.5px; 
+      letter-spacing: 0.3px; 
       font-family: 'Courier New', monospace;
       margin: 1mm 0;
     }
     .tag-number { 
-      font-size: 10px; 
+      font-size: 9px; 
       font-weight: 900;
       border: 1.5px solid #000;
-      padding: 2px 6px;
-      border-radius: 3px;
+      padding: 1px 4px;
+      border-radius: 2px;
       background: white;
     }
     .website { 
       text-align: center;
-      font-size: 7px; 
+      font-size: 6px; 
       font-weight: bold;
       margin-top: 1mm;
       padding-top: 1mm;

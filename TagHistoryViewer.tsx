@@ -275,11 +275,11 @@ const TagHistoryViewer: React.FC = () => {
       width: 2in;
     }
     .tag { 
-      width: 48mm;
+      width: 44mm;
       height: 35mm;
       border: 1.5px solid #000; 
       margin: 0 auto; 
-      padding: 2mm; 
+      padding: 1.5mm; 
       background: white; 
       display: flex;
       flex-direction: column;
@@ -318,19 +318,19 @@ const TagHistoryViewer: React.FC = () => {
       display: flex; 
       justify-content: space-between; 
       align-items: center; 
-      font-size: 7px; 
+      font-size: 6px; 
       font-weight: bold;
-      padding-bottom: 1.5mm;
+      padding-bottom: 1mm;
       border-bottom: 1px solid #000;
     }
     .customer-name { 
       text-align: center; 
-      font-size: 13px; 
+      font-size: 12px; 
       font-weight: 900; 
       text-transform: uppercase;
-      letter-spacing: 0.3px;
+      letter-spacing: 0.2px;
       margin: 1.5mm 0;
-      line-height: 1.2;
+      line-height: 1.1;
       word-wrap: break-word;
       overflow-wrap: break-word;
       max-width: 100%;
@@ -339,23 +339,23 @@ const TagHistoryViewer: React.FC = () => {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      font-size: 11px; 
+      font-size: 10px; 
       font-weight: bold; 
-      letter-spacing: 0.5px; 
+      letter-spacing: 0.3px; 
       font-family: 'Courier New', monospace;
       margin: 1mm 0;
     }
     .tag-number { 
-      font-size: 10px; 
+      font-size: 9px; 
       font-weight: 900;
       border: 1.5px solid #000;
-      padding: 2px 6px;
-      border-radius: 3px;
+      padding: 1px 4px;
+      border-radius: 2px;
       background: white;
     }
     .website { 
       text-align: center;
-      font-size: 7px; 
+      font-size: 6px; 
       font-weight: bold;
       margin-top: 1mm;
       padding-top: 1mm;
@@ -421,11 +421,11 @@ const TagHistoryViewer: React.FC = () => {
       width: 2in;
     }
     .tag { 
-      width: 48mm;
+      width: 44mm;
       height: 35mm;
       border: 1.5px solid #000; 
       margin: 0 auto; 
-      padding: 2mm; 
+      padding: 1.5mm; 
       background: white; 
       display: flex;
       flex-direction: column;
@@ -437,19 +437,19 @@ const TagHistoryViewer: React.FC = () => {
       display: flex; 
       justify-content: space-between; 
       align-items: center; 
-      font-size: 7px; 
+      font-size: 6px; 
       font-weight: bold;
-      padding-bottom: 1.5mm;
+      padding-bottom: 1mm;
       border-bottom: 1px solid #000;
     }
     .customer-name { 
       text-align: center; 
-      font-size: 13px; 
+      font-size: 12px; 
       font-weight: 900; 
       text-transform: uppercase;
-      letter-spacing: 0.3px;
+      letter-spacing: 0.2px;
       margin: 1.5mm 0;
-      line-height: 1.2;
+      line-height: 1.1;
       word-wrap: break-word;
       overflow-wrap: break-word;
       max-width: 100%;
@@ -458,23 +458,23 @@ const TagHistoryViewer: React.FC = () => {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      font-size: 11px; 
+      font-size: 10px; 
       font-weight: bold; 
-      letter-spacing: 0.5px; 
+      letter-spacing: 0.3px; 
       font-family: 'Courier New', monospace;
       margin: 1mm 0;
     }
     .tag-number { 
-      font-size: 10px; 
+      font-size: 9px; 
       font-weight: 900;
       border: 1.5px solid #000;
-      padding: 2px 6px;
-      border-radius: 3px;
+      padding: 1px 4px;
+      border-radius: 2px;
       background: white;
     }
     .website { 
       text-align: center;
-      font-size: 7px; 
+      font-size: 6px; 
       font-weight: bold;
       margin-top: 1mm;
       padding-top: 1mm;
@@ -533,267 +533,592 @@ const TagHistoryViewer: React.FC = () => {
   };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <h1 className="text-3xl font-bold mb-6">Tag History</h1>
+    <div style={{
+      minHeight: '100vh',
+      background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 25%, #0f3460 50%, #533483 75%, #7b2cbf 100%)',
+      padding: '24px'
+    }}>
+      <style>{`
+        @keyframes fadeInUp {
+          from {
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        @keyframes pulse {
+          0%, 100% {
+            opacity: 1;
+          }
+          50% {
+            opacity: 0.8;
+          }
+        }
+        @keyframes slideIn {
+          from {
+            opacity: 0;
+            transform: translateX(-20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+        .stat-card {
+          animation: fadeInUp 0.6s ease-out;
+          transition: all 0.3s ease;
+        }
+        .stat-card:hover {
+          transform: translateY(-5px);
+          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+        .bill-row {
+          transition: all 0.2s ease;
+        }
+        .bill-row:hover {
+          background: rgba(99, 102, 241, 0.1);
+          transform: scale(1.01);
+        }
+        .action-btn {
+          transition: all 0.2s ease;
+        }
+        .action-btn:hover {
+          transform: scale(1.1);
+        }
+      `}</style>
 
-      {/* Statistics */}
-      {stats && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div className="bg-white p-4 rounded-lg shadow">
-            <h3 className="text-lg font-semibold mb-2">Total Tags</h3>
-            <p className="text-3xl font-bold text-blue-600">{stats.totalTags}</p>
-          </div>
-          
-          <div className="bg-white p-4 rounded-lg shadow">
-            <h3 className="text-lg font-semibold mb-2">By Status</h3>
-            <div className="space-y-1">
-              {Object.entries(stats.byStatus).map(([status, count]) => (
-                <div key={status} className="flex justify-between text-sm">
-                  <span className="capitalize">{status}:</span>
-                  <span className="font-semibold">{count}</span>
-                </div>
-              ))}
+      <div className="max-w-7xl mx-auto">
+        <div style={{
+          background: 'rgba(255, 255, 255, 0.1)',
+          backdropFilter: 'blur(10px)',
+          borderRadius: '16px',
+          padding: '24px',
+          marginBottom: '24px',
+          border: '1px solid rgba(255, 255, 255, 0.2)',
+          animation: 'fadeInUp 0.5s ease-out'
+        }}>
+          <h1 style={{
+            fontSize: '36px',
+            fontWeight: 'bold',
+            color: 'white',
+            marginBottom: '8px',
+            textShadow: '0 2px 10px rgba(0, 0, 0, 0.3)'
+          }}>
+            📋 Tag History Dashboard
+          </h1>
+          <p style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '14px' }}>
+            Manage and track all your laundry tags
+          </p>
+        </div>
+
+        {/* Statistics */}
+        {stats && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+            <div className="stat-card" style={{
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              padding: '24px',
+              borderRadius: '16px',
+              boxShadow: '0 10px 30px rgba(0, 0, 0, 0.3)',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              animationDelay: '0.1s'
+            }}>
+              <h3 style={{ fontSize: '14px', fontWeight: '600', color: 'rgba(255, 255, 255, 0.9)', marginBottom: '12px' }}>
+                📊 Total Tags
+              </h3>
+              <p style={{ fontSize: '48px', fontWeight: 'bold', color: 'white', textShadow: '0 2px 10px rgba(0, 0, 0, 0.3)' }}>
+                {stats.totalTags}
+              </p>
+            </div>
+            
+            <div className="stat-card" style={{
+              background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+              padding: '24px',
+              borderRadius: '16px',
+              boxShadow: '0 10px 30px rgba(0, 0, 0, 0.3)',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              animationDelay: '0.2s'
+            }}>
+              <h3 style={{ fontSize: '14px', fontWeight: '600', color: 'rgba(255, 255, 255, 0.9)', marginBottom: '12px' }}>
+                🎯 By Status
+              </h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {Object.entries(stats.byStatus).map(([status, count]) => (
+                  <div key={status} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', color: 'white' }}>
+                    <span style={{ textTransform: 'capitalize', fontWeight: '500' }}>{status}:</span>
+                    <span style={{ fontWeight: 'bold', fontSize: '16px' }}>{count}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            <div className="stat-card" style={{
+              background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+              padding: '24px',
+              borderRadius: '16px',
+              boxShadow: '0 10px 30px rgba(0, 0, 0, 0.3)',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              animationDelay: '0.3s'
+            }}>
+              <h3 style={{ fontSize: '14px', fontWeight: '600', color: 'rgba(255, 255, 255, 0.9)', marginBottom: '12px' }}>
+                🧺 By Wash Type
+              </h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {Object.entries(stats.byWashType).map(([type, count]) => (
+                  <div key={type} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', color: 'white' }}>
+                    <span style={{ fontWeight: '500' }}>{type}:</span>
+                    <span style={{ fontWeight: 'bold', fontSize: '16px' }}>{count}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
-          
-          <div className="bg-white p-4 rounded-lg shadow">
-            <h3 className="text-lg font-semibold mb-2">By Wash Type</h3>
-            <div className="space-y-1">
-              {Object.entries(stats.byWashType).map(([type, count]) => (
-                <div key={type} className="flex justify-between text-sm">
-                  <span>{type}:</span>
-                  <span className="font-semibold">{count}</span>
-                </div>
-              ))}
+        )}
+
+        {/* Filters */}
+        <div style={{
+          background: 'rgba(255, 255, 255, 0.95)',
+          padding: '24px',
+          borderRadius: '16px',
+          marginBottom: '24px',
+          boxShadow: '0 10px 30px rgba(0, 0, 0, 0.2)',
+          animation: 'fadeInUp 0.6s ease-out'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#1a1a2e' }}>🔍 Filters</h3>
+            <button
+              onClick={() => {
+                setFilters({
+                  billNumber: '',
+                  customerName: '',
+                  customerPhone: '',
+                  status: '',
+                  startDate: '',
+                  endDate: ''
+                });
+                setCurrentPage(1);
+              }}
+              style={{
+                padding: '8px 16px',
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '14px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease',
+                boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'scale(1.05)';
+                e.currentTarget.style.boxShadow = '0 6px 20px rgba(102, 126, 234, 0.6)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'scale(1)';
+                e.currentTarget.style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.4)';
+              }}
+            >
+              🔄 Clear All Filters
+            </button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <input
+              type="text"
+              placeholder="🔢 Bill Number"
+              value={filters.billNumber}
+              onChange={(e) => handleFilterChange('billNumber', e.target.value)}
+              style={{
+                padding: '12px 16px',
+                border: '2px solid #e0e0e0',
+                borderRadius: '8px',
+                fontSize: '14px',
+                transition: 'all 0.3s ease',
+                outline: 'none'
+              }}
+              onFocus={(e) => e.currentTarget.style.borderColor = '#667eea'}
+              onBlur={(e) => e.currentTarget.style.borderColor = '#e0e0e0'}
+            />
+            <input
+              type="text"
+              placeholder="👤 Customer Name"
+              value={filters.customerName}
+              onChange={(e) => handleFilterChange('customerName', e.target.value)}
+              style={{
+                padding: '12px 16px',
+                border: '2px solid #e0e0e0',
+                borderRadius: '8px',
+                fontSize: '14px',
+                transition: 'all 0.3s ease',
+                outline: 'none'
+              }}
+              onFocus={(e) => e.currentTarget.style.borderColor = '#667eea'}
+              onBlur={(e) => e.currentTarget.style.borderColor = '#e0e0e0'}
+            />
+            <input
+              type="text"
+              placeholder="📱 Customer Phone"
+              value={filters.customerPhone}
+              onChange={(e) => handleFilterChange('customerPhone', e.target.value)}
+              style={{
+                padding: '12px 16px',
+                border: '2px solid #e0e0e0',
+                borderRadius: '8px',
+                fontSize: '14px',
+                transition: 'all 0.3s ease',
+                outline: 'none'
+              }}
+              onFocus={(e) => e.currentTarget.style.borderColor = '#667eea'}
+              onBlur={(e) => e.currentTarget.style.borderColor = '#e0e0e0'}
+            />
+            <select
+              value={filters.status}
+              onChange={(e) => handleFilterChange('status', e.target.value)}
+              style={{
+                padding: '12px 16px',
+                border: '2px solid #e0e0e0',
+                borderRadius: '8px',
+                fontSize: '14px',
+                transition: 'all 0.3s ease',
+                outline: 'none',
+                cursor: 'pointer'
+              }}
+              onFocus={(e) => e.currentTarget.style.borderColor = '#667eea'}
+              onBlur={(e) => e.currentTarget.style.borderColor = '#e0e0e0'}
+            >
+              <option value="">📊 All Status</option>
+              <option value="created">Created</option>
+              <option value="printed">Printed</option>
+              <option value="in-process">In Process</option>
+              <option value="completed">Completed</option>
+              <option value="delivered">Delivered</option>
+            </select>
+            <input
+              type="date"
+              value={filters.startDate}
+              onChange={(e) => handleFilterChange('startDate', e.target.value)}
+              style={{
+                padding: '12px 16px',
+                border: '2px solid #e0e0e0',
+                borderRadius: '8px',
+                fontSize: '14px',
+                transition: 'all 0.3s ease',
+                outline: 'none'
+              }}
+              onFocus={(e) => e.currentTarget.style.borderColor = '#667eea'}
+              onBlur={(e) => e.currentTarget.style.borderColor = '#e0e0e0'}
+            />
+            <input
+              type="date"
+              value={filters.endDate}
+              onChange={(e) => handleFilterChange('endDate', e.target.value)}
+              style={{
+                padding: '12px 16px',
+                border: '2px solid #e0e0e0',
+                borderRadius: '8px',
+                fontSize: '14px',
+                transition: 'all 0.3s ease',
+                outline: 'none'
+              }}
+              onFocus={(e) => e.currentTarget.style.borderColor = '#667eea'}
+              onBlur={(e) => e.currentTarget.style.borderColor = '#e0e0e0'}
+            />
+          </div>
+        </div>
+
+        {/* Grouped Bills List */}
+        <div style={{
+          background: 'rgba(255, 255, 255, 0.95)',
+          borderRadius: '16px',
+          overflow: 'hidden',
+          boxShadow: '0 10px 30px rgba(0, 0, 0, 0.2)',
+          animation: 'fadeInUp 0.7s ease-out'
+        }}>
+          <div style={{
+            padding: '16px 24px',
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
+          }}>
+            <div>
+              <span style={{ fontWeight: '700', color: 'white', fontSize: '16px' }}>
+                📦 Showing {groupedBills.length} bill{groupedBills.length !== 1 ? 's' : ''} 
+              </span>
+              <span style={{ color: 'rgba(255, 255, 255, 0.9)', fontSize: '14px', marginLeft: '12px' }}>
+                ({tags.length} total tag{tags.length !== 1 ? 's' : ''})
+              </span>
             </div>
+            {(filters.billNumber || filters.customerName || filters.customerPhone || filters.status || filters.startDate || filters.endDate) && (
+              <span style={{
+                fontSize: '14px',
+                color: 'white',
+                fontWeight: '600',
+                background: 'rgba(255, 255, 255, 0.2)',
+                padding: '6px 12px',
+                borderRadius: '20px'
+              }}>
+                🔍 Filters Active
+              </span>
+            )}
           </div>
-        </div>
-      )}
-
-      {/* Filters */}
-      <div className="bg-white p-4 rounded-lg shadow mb-6">
-        <div className="flex justify-between items-center mb-3">
-          <h3 className="text-lg font-semibold">Filters</h3>
-          <button
-            onClick={() => {
-              setFilters({
-                billNumber: '',
-                customerName: '',
-                customerPhone: '',
-                status: '',
-                startDate: '',
-                endDate: ''
-              });
-              setCurrentPage(1);
-            }}
-            className="px-3 py-1 bg-gray-200 hover:bg-gray-300 rounded text-sm font-medium"
-          >
-            🔄 Clear All Filters
-          </button>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <input
-            type="text"
-            placeholder="Bill Number"
-            value={filters.billNumber}
-            onChange={(e) => handleFilterChange('billNumber', e.target.value)}
-            className="px-3 py-2 border rounded"
-          />
-          <input
-            type="text"
-            placeholder="Customer Name"
-            value={filters.customerName}
-            onChange={(e) => handleFilterChange('customerName', e.target.value)}
-            className="px-3 py-2 border rounded"
-          />
-          <input
-            type="text"
-            placeholder="Customer Phone"
-            value={filters.customerPhone}
-            onChange={(e) => handleFilterChange('customerPhone', e.target.value)}
-            className="px-3 py-2 border rounded"
-          />
-          <select
-            value={filters.status}
-            onChange={(e) => handleFilterChange('status', e.target.value)}
-            className="px-3 py-2 border rounded"
-          >
-            <option value="">All Status</option>
-            <option value="created">Created</option>
-            <option value="printed">Printed</option>
-            <option value="in-process">In Process</option>
-            <option value="completed">Completed</option>
-            <option value="delivered">Delivered</option>
-          </select>
-          <input
-            type="date"
-            value={filters.startDate}
-            onChange={(e) => handleFilterChange('startDate', e.target.value)}
-            className="px-3 py-2 border rounded"
-          />
-          <input
-            type="date"
-            value={filters.endDate}
-            onChange={(e) => handleFilterChange('endDate', e.target.value)}
-            className="px-3 py-2 border rounded"
-          />
-        </div>
-      </div>
-
-      {/* Grouped Bills List */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="px-4 py-3 bg-gray-50 border-b flex justify-between items-center">
-          <div>
-            <span className="font-semibold text-gray-700">
-              Showing {groupedBills.length} bill{groupedBills.length !== 1 ? 's' : ''} 
-            </span>
-            <span className="text-gray-500 text-sm ml-2">
-              ({tags.length} total tag{tags.length !== 1 ? 's' : ''})
-            </span>
-          </div>
-          {(filters.billNumber || filters.customerName || filters.customerPhone || filters.status || filters.startDate || filters.endDate) && (
-            <span className="text-sm text-blue-600 font-medium">
-              🔍 Filters Active
-            </span>
-          )}
-        </div>
-        {loading ? (
-          <div className="p-8 text-center">Loading...</div>
-        ) : groupedBills.length === 0 ? (
-          <div className="p-8 text-center text-gray-500">No bills found</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-sm font-semibold">S.No</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold">Bill #</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold">Customer</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold">Total Tags</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold">Status</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold">Created</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {groupedBills.map((bill, billIndex) => (
-                  <React.Fragment key={bill.billNumber}>
-                    <tr className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm font-bold text-blue-600">{billIndex + 1}</td>
-                      <td className="px-4 py-3 text-sm font-medium">{bill.billNumber}</td>
-                      <td className="px-4 py-3 text-sm">
-                        <div className="font-medium">{bill.customerName}</div>
-                        <div className="text-gray-500 text-xs">{bill.customerPhone}</div>
-                      </td>
-                      <td className="px-4 py-3 text-sm">
-                        <span className="font-semibold">{bill.totalTags}</span> tags
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(bill.status)}`}>
-                          {bill.status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-600">
-                        {formatDate(bill.createdAt)}
-                      </td>
-                      <td className="px-4 py-3 text-sm">
-                        <div className="flex gap-2 flex-wrap">
-                          <button
-                            onClick={() => toggleBillExpansion(bill.billNumber)}
-                            className="text-blue-600 hover:text-blue-800 font-medium text-xs px-2 py-1"
-                          >
-                            {expandedBills.has(bill.billNumber) ? '▼ Hide' : '▶ View'}
-                          </button>
-                          <button
-                            onClick={() => reprintBillTags(bill)}
-                            className="text-purple-600 hover:text-purple-800 font-medium text-xs px-2 py-1"
-                          >
-                            🖨️ Reprint
-                          </button>
-                          <button
-                            onClick={() => setSelectedBill(bill)}
-                            className="text-green-600 hover:text-green-800 font-medium text-xs px-2 py-1"
-                          >
-                            ⚙️ Manage
-                          </button>
-                          <button
-                            onClick={() => handleDeleteAllBillTags(bill.billNumber, bill.customerName)}
-                            className="text-red-600 hover:text-red-800 font-medium text-xs px-2 py-1"
-                          >
-                            🗑️ Delete
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                    {expandedBills.has(bill.billNumber) && (
-                      <tr>
-                        <td colSpan={7} className="px-4 py-3 bg-gray-50">
-                          <div className="ml-8">
-                            <h4 className="font-semibold mb-2 text-sm">Individual Tags:</h4>
-                            <table className="w-full text-sm">
-                              <thead className="bg-gray-100">
-                                <tr>
-                                  <th className="px-3 py-2 text-left">S.No</th>
-                                  <th className="px-3 py-2 text-left">Tag #</th>
-                                  <th className="px-3 py-2 text-left">Item</th>
-                                  <th className="px-3 py-2 text-left">Wash Type</th>
-                                  <th className="px-3 py-2 text-left">Status</th>
-                                  <th className="px-3 py-2 text-left">QR Code</th>
-                                  <th className="px-3 py-2 text-left">Actions</th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y">
-                                {bill.tags.sort((a, b) => a.tagIndex - b.tagIndex).map((tag, tagIndex) => (
-                                  <tr key={tag._id} className="hover:bg-gray-100">
-                                    <td className="px-3 py-2 font-bold text-blue-600">{tagIndex + 1}</td>
-                                    <td className="px-3 py-2">{tag.tagIndex}/{tag.totalTags}</td>
-                                    <td className="px-3 py-2">{tag.itemName}</td>
-                                    <td className="px-3 py-2">{tag.washType}</td>
-                                    <td className="px-3 py-2">
-                                      <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(tag.status)}`}>
-                                        {tag.status}
-                                      </span>
-                                    </td>
-                                    <td className="px-3 py-2 text-xs font-mono">{tag.qrCode || tag.barcode}</td>
-                                    <td className="px-3 py-2">
-                                      <div className="flex gap-1">
-                                        <button
-                                          onClick={() => reprintSingleTag(tag)}
-                                          className="text-purple-600 hover:text-purple-800 text-xs font-medium"
-                                          title="Reprint this tag"
-                                        >
-                                          🖨️
-                                        </button>
-                                        <button
-                                          onClick={() => handleEditTag(tag)}
-                                          className="text-blue-600 hover:text-blue-800 text-xs font-medium"
-                                          title="Edit item name"
-                                        >
-                                          ✏️
-                                        </button>
-                                        <button
-                                          onClick={() => handleDeleteTag(tag._id, `${tag.tagIndex}/${tag.totalTags} - ${tag.itemName}`)}
-                                          className="text-red-600 hover:text-red-800 text-xs font-medium"
-                                          title="Delete this tag"
-                                        >
-                                          🗑️
-                                        </button>
-                                      </div>
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
+          {loading ? (
+            <div style={{ padding: '60px', textAlign: 'center', color: '#667eea', fontSize: '18px', fontWeight: '600' }}>
+              <div style={{ animation: 'pulse 1.5s ease-in-out infinite' }}>⏳ Loading...</div>
+            </div>
+          ) : groupedBills.length === 0 ? (
+            <div style={{ padding: '60px', textAlign: 'center', color: '#999', fontSize: '16px' }}>
+              📭 No bills found
+            </div>
+          ) : (
+            <div style={{ overflowX: 'auto', maxHeight: '600px', overflowY: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead style={{ background: '#f8f9fa', position: 'sticky', top: 0, zIndex: 10 }}>
+                  <tr>
+                    <th style={{ padding: '16px', textAlign: 'left', fontSize: '14px', fontWeight: '700', color: '#1a1a2e' }}>S.No</th>
+                    <th style={{ padding: '16px', textAlign: 'left', fontSize: '14px', fontWeight: '700', color: '#1a1a2e' }}>Bill #</th>
+                    <th style={{ padding: '16px', textAlign: 'left', fontSize: '14px', fontWeight: '700', color: '#1a1a2e' }}>Customer</th>
+                    <th style={{ padding: '16px', textAlign: 'left', fontSize: '14px', fontWeight: '700', color: '#1a1a2e' }}>Total Tags</th>
+                    <th style={{ padding: '16px', textAlign: 'left', fontSize: '14px', fontWeight: '700', color: '#1a1a2e' }}>Status</th>
+                    <th style={{ padding: '16px', textAlign: 'left', fontSize: '14px', fontWeight: '700', color: '#1a1a2e' }}>Created</th>
+                    <th style={{ padding: '16px', textAlign: 'left', fontSize: '14px', fontWeight: '700', color: '#1a1a2e' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {groupedBills.map((bill, billIndex) => (
+                    <React.Fragment key={bill.billNumber}>
+                      <tr className="bill-row" style={{ borderBottom: '1px solid #e0e0e0' }}>
+                        <td style={{ padding: '16px', fontSize: '14px' }}>
+                          <div style={{
+                            width: '32px',
+                            height: '32px',
+                            borderRadius: '50%',
+                            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                            color: 'white',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontWeight: 'bold',
+                            fontSize: '14px'
+                          }}>
+                            {billIndex + 1}
+                          </div>
+                        </td>
+                        <td style={{ padding: '16px', fontSize: '14px', fontWeight: '600', color: '#1a1a2e' }}>{bill.billNumber}</td>
+                        <td style={{ padding: '16px', fontSize: '14px' }}>
+                          <div style={{ fontWeight: '600', color: '#1a1a2e', marginBottom: '4px' }}>{bill.customerName}</div>
+                          <div style={{ color: '#666', fontSize: '12px' }}>📱 {bill.customerPhone}</div>
+                        </td>
+                        <td style={{ padding: '16px', fontSize: '14px' }}>
+                          <span style={{
+                            fontWeight: '700',
+                            color: '#667eea',
+                            background: 'rgba(102, 126, 234, 0.1)',
+                            padding: '4px 12px',
+                            borderRadius: '12px'
+                          }}>
+                            {bill.totalTags} tags
+                          </span>
+                        </td>
+                        <td style={{ padding: '16px' }}>
+                          <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(bill.status)}`}>
+                            {bill.status}
+                          </span>
+                        </td>
+                        <td style={{ padding: '16px', fontSize: '13px', color: '#666' }}>
+                          {formatDate(bill.createdAt)}
+                        </td>
+                        <td style={{ padding: '16px' }}>
+                          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                            <button
+                              onClick={() => toggleBillExpansion(bill.billNumber)}
+                              className="action-btn"
+                              style={{
+                                padding: '6px 12px',
+                                background: expandedBills.has(bill.billNumber) ? '#667eea' : '#e0e0e0',
+                                color: expandedBills.has(bill.billNumber) ? 'white' : '#333',
+                                border: 'none',
+                                borderRadius: '6px',
+                                fontSize: '12px',
+                                fontWeight: '600',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              {expandedBills.has(bill.billNumber) ? '▼ Hide' : '▶ View'}
+                            </button>
+                            <button
+                              onClick={() => reprintBillTags(bill)}
+                              className="action-btn"
+                              style={{
+                                padding: '6px 12px',
+                                background: '#9333ea',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '6px',
+                                fontSize: '12px',
+                                fontWeight: '600',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              🖨️ Reprint
+                            </button>
+                            <button
+                              onClick={() => setSelectedBill(bill)}
+                              className="action-btn"
+                              style={{
+                                padding: '6px 12px',
+                                background: '#10b981',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '6px',
+                                fontSize: '12px',
+                                fontWeight: '600',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              ⚙️ Manage
+                            </button>
+                            <button
+                              onClick={() => handleDeleteAllBillTags(bill.billNumber, bill.customerName)}
+                              className="action-btn"
+                              style={{
+                                padding: '6px 12px',
+                                background: '#ef4444',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '6px',
+                                fontSize: '12px',
+                                fontWeight: '600',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              🗑️ Delete
+                            </button>
                           </div>
                         </td>
                       </tr>
-                    )}
+                      {expandedBills.has(bill.billNumber) && (
+                        <tr>
+                          <td colSpan={7} style={{ padding: '24px', background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)' }}>
+                            <div style={{ marginLeft: '32px', animation: 'slideIn 0.3s ease-out' }}>
+                              <h4 style={{ fontWeight: '700', marginBottom: '16px', fontSize: '16px', color: '#1a1a2e' }}>
+                                🏷️ Individual Tags:
+                              </h4>
+                              <div style={{ overflowX: 'auto' }}>
+                                <table style={{ width: '100%', fontSize: '14px', background: 'white', borderRadius: '8px', overflow: 'hidden' }}>
+                                  <thead style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
+                                    <tr>
+                                      <th style={{ padding: '12px', textAlign: 'left' }}>S.No</th>
+                                      <th style={{ padding: '12px', textAlign: 'left' }}>Tag #</th>
+                                      <th style={{ padding: '12px', textAlign: 'left' }}>Item</th>
+                                      <th style={{ padding: '12px', textAlign: 'left' }}>Wash Type</th>
+                                      <th style={{ padding: '12px', textAlign: 'left' }}>Status</th>
+                                      <th style={{ padding: '12px', textAlign: 'left' }}>QR Code</th>
+                                      <th style={{ padding: '12px', textAlign: 'left' }}>Actions</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {bill.tags.sort((a, b) => a.tagIndex - b.tagIndex).map((tag, tagIndex) => (
+                                      <tr key={tag._id} style={{ borderBottom: '1px solid #e0e0e0', transition: 'background 0.2s ease' }}
+                                        onMouseEnter={(e) => e.currentTarget.style.background = '#f8f9fa'}
+                                        onMouseLeave={(e) => e.currentTarget.style.background = 'white'}>
+                                        <td style={{ padding: '12px' }}>
+                                          <div style={{
+                                            width: '28px',
+                                            height: '28px',
+                                            borderRadius: '50%',
+                                            background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+                                            color: 'white',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            fontWeight: 'bold',
+                                            fontSize: '12px'
+                                          }}>
+                                            {tagIndex + 1}
+                                          </div>
+                                        </td>
+                                        <td style={{ padding: '12px', fontWeight: '600' }}>{tag.tagIndex}/{tag.totalTags}</td>
+                                        <td style={{ padding: '12px' }}>{tag.itemName}</td>
+                                        <td style={{ padding: '12px' }}>{tag.washType}</td>
+                                        <td style={{ padding: '12px' }}>
+                                          <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(tag.status)}`}>
+                                            {tag.status}
+                                          </span>
+                                        </td>
+                                        <td style={{ padding: '12px', fontFamily: 'monospace', fontSize: '12px', color: '#666' }}>
+                                          {tag.qrCode || tag.barcode}
+                                        </td>
+                                        <td style={{ padding: '12px' }}>
+                                          <div style={{ display: 'flex', gap: '8px' }}>
+                                            <button
+                                              onClick={() => reprintSingleTag(tag)}
+                                              className="action-btn"
+                                              style={{
+                                                padding: '4px 8px',
+                                                background: '#9333ea',
+                                                color: 'white',
+                                                border: 'none',
+                                                borderRadius: '4px',
+                                                fontSize: '12px',
+                                                cursor: 'pointer'
+                                              }}
+                                              title="Reprint this tag"
+                                            >
+                                              🖨️
+                                            </button>
+                                            <button
+                                              onClick={() => handleEditTag(tag)}
+                                              className="action-btn"
+                                              style={{
+                                                padding: '4px 8px',
+                                                background: '#3b82f6',
+                                                color: 'white',
+                                                border: 'none',
+                                                borderRadius: '4px',
+                                                fontSize: '12px',
+                                                cursor: 'pointer'
+                                              }}
+                                              title="Edit item name"
+                                            >
+                                              ✏️
+                                            </button>
+                                            <button
+                                              onClick={() => handleDeleteTag(tag._id, `${tag.tagIndex}/${tag.totalTags} - ${tag.itemName}`)}
+                                              className="action-btn"
+                                              style={{
+                                                padding: '4px 8px',
+                                                background: '#ef4444',
+                                                color: 'white',
+                                                border: 'none',
+                                                borderRadius: '4px',
+                                                fontSize: '12px',
+                                                cursor: 'pointer'
+                                              }}
+                                              title="Delete this tag"
+                                            >
+                                              🗑️
+                                            </button>
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
                   </React.Fragment>
                 ))}
               </tbody>
             </table>
           </div>
         )}
+      </div>
       </div>
 
       {/* Bill Management Modal */}

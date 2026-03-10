@@ -241,8 +241,13 @@ class ApiService {
     return this.request(`/expenses?${queryParams.toString()}`);
   }
 
-  async getExpenseSummary(period: 'day' | 'week' | 'month' | 'year' = 'month') {
-    return this.request(`/expenses/summary?period=${period}`);
+  async getExpenseSummary(period: 'day' | 'week' | 'month' | 'year' = 'month', startDate?: string, endDate?: string) {
+    const queryParams = new URLSearchParams();
+    queryParams.append('period', period);
+    if (startDate) queryParams.append('startDate', startDate);
+    if (endDate) queryParams.append('endDate', endDate);
+    
+    return this.request(`/expenses/summary?${queryParams.toString()}`);
   }
 
   async createExpense(expenseData: {
