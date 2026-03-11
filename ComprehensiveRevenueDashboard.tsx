@@ -1,843 +1,582 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 
 interface ComprehensiveRevenueDashboardProps {
   onClose: () => void;
   bills: any[];
 }
 
+// Animated number counter hook
+const useAnimatedNumber = (target: number, duration = 800) => {
+  const [value, setValue] = useState(0);
+  const ref = useRef<number>(0);
+  useEffect(() => {
+    const start = ref.current;
+    const diff = target - start;
+    if (diff === 0) return;
+    const startTime = performance.now();
+    const animate = (now: number) => {
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      const current = Math.round(start + diff * eased);
+      setValue(current);
+      if (progress < 1) requestAnimationFrame(animate);
+      else ref.current = target;
+    };
+    requestAnimationFrame(animate);
+  }, [target, duration]);
+  return value;
+};
+
+// Mini sparkline component
+const Sparkline: React.FC<{ data: number[]; color?: string; width?: number; height?: number }> = ({
+  data, color = 'var(--accent)', width = 80, height = 28
+}) => {
+  if (!data.length) return null;
+  const max = Math.max(...data, 1);
+  const min = Math.min(...data, 0);
+  const range = max - min || 1;
+  const points = data.map((v, i) => {
+    const x = (i / Math.max(data.length - 1, 1)) * width;
+    const y = height - ((v - min) / range) * (height - 4) - 2;
+    return `${x},${y}`;
+  }).join(' ');
+  const fillPoints = `0,${height} ${points} ${width},${height}`;
+  return (
+    <svg width={width} height={height} style={{ display: 'block', opacity: 0.8 }}>
+      <polyline points={fillPoints} fill={color} fillOpacity="0.12" stroke="none" />
+      <polyline points={points} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+};
+
 const ComprehensiveRevenueDashboard: React.FC<ComprehensiveRevenueDashboardProps> = ({ onClose, bills }) => {
-  const [timeFilter, setTimeFilter] = useState<'today' | 'week' | 'month' | 'year' | 'all'>('month');
   const [viewMode, setViewMode] = useState<'daily' | 'monthly' | 'yearly'>('daily');
-  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
-  const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth());
-  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [hoveredStat, setHoveredStat] = useState<number | null>(null);
-  const [hoveredDataPoint, setHoveredDataPoint] = useState<{ date: string; revenue: number } | null>(null);
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [hoveredBar, setHoveredBar] = useState<number | null>(null);
+  const [drillDownIndex, setDrillDownIndex] = useState<number | null>(null);
+  const [expandedCustomer, setExpandedCustomer] = useState<string | null>(null);
+  const [hoveredDonut, setHoveredDonut] = useState<number | null>(null);
+  const [mounted, setMounted] = useState(false);
+  const [drillDownSort, setDrillDownSort] = useState<'date' | 'amount' | 'status'>('date');
+  const [drillDownSortDir, setDrillDownSortDir] = useState<'asc' | 'desc'>('desc');
 
-  // Get available years from bills
-  const availableYears = Array.from(new Set(bills.map(bill => new Date(bill.createdAt).getFullYear()))).sort((a, b) => b - a);
-  if (availableYears.length === 0) availableYears.push(new Date().getFullYear());
+  useEffect(() => { setTimeout(() => setMounted(true), 50); }, []);
 
-  // Filter bills based on view mode and selected date
-  const getFilteredBills = () => {
-    return bills.filter(bill => {
-      const billDate = new Date(bill.createdAt);
-      
-      if (viewMode === 'yearly') {
-        return billDate.getFullYear() === selectedYear;
-      } else if (viewMode === 'monthly') {
-        return billDate.getFullYear() === selectedYear && billDate.getMonth() === selectedMonth;
-      } else if (viewMode === 'daily') {
-        return bill.createdAt.startsWith(selectedDate);
-      }
-      return true;
-    });
+  const availableYears = useMemo(() => {
+    const years = Array.from(new Set(bills.map(b => new Date(b.createdAt).getFullYear()))).sort((a, b) => b - a);
+    return years.length ? years : [new Date().getFullYear()];
+  }, [bills]);
+
+  // Quick date presets
+  const applyPreset = (preset: string) => {
+    const now = new Date();
+    setViewMode('daily');
+    switch (preset) {
+      case 'today': setSelectedDate(now.toISOString().split('T')[0]); break;
+      case 'yesterday': { const d = new Date(now); d.setDate(d.getDate() - 1); setSelectedDate(d.toISOString().split('T')[0]); break; }
+      case 'thisWeek': setViewMode('daily'); setSelectedMonth(now.getMonth()); setSelectedYear(now.getFullYear()); setSelectedDate(now.toISOString().split('T')[0]); break;
+      case 'thisMonth': setViewMode('monthly'); setSelectedMonth(now.getMonth()); setSelectedYear(now.getFullYear()); break;
+      case 'last30': setViewMode('monthly'); setSelectedMonth(now.getMonth()); setSelectedYear(now.getFullYear()); break;
+      case 'thisYear': setViewMode('yearly'); setSelectedYear(now.getFullYear()); break;
+    }
   };
 
-  const filteredBills = getFilteredBills();
+  // Filtered bills
+  const filteredBills = useMemo(() => {
+    return bills.filter(bill => {
+      const d = new Date(bill.createdAt);
+      if (viewMode === 'yearly') return d.getFullYear() === selectedYear;
+      if (viewMode === 'monthly') return d.getFullYear() === selectedYear && d.getMonth() === selectedMonth;
+      return bill.createdAt?.startsWith(selectedDate);
+    });
+  }, [bills, viewMode, selectedYear, selectedMonth, selectedDate]);
 
-  // Calculate metrics from filtered bills
-  const totalRevenue = filteredBills.reduce((sum, bill) => sum + bill.grandTotal, 0);
+  // Previous period bills for comparison
+  const prevPeriodBills = useMemo(() => {
+    return bills.filter(bill => {
+      const d = new Date(bill.createdAt);
+      if (viewMode === 'yearly') return d.getFullYear() === selectedYear - 1;
+      if (viewMode === 'monthly') {
+        const pm = selectedMonth === 0 ? 11 : selectedMonth - 1;
+        const py = selectedMonth === 0 ? selectedYear - 1 : selectedYear;
+        return d.getFullYear() === py && d.getMonth() === pm;
+      }
+      const prevDate = new Date(selectedDate);
+      prevDate.setDate(prevDate.getDate() - 1);
+      return bill.createdAt?.startsWith(prevDate.toISOString().split('T')[0]);
+    });
+  }, [bills, viewMode, selectedYear, selectedMonth, selectedDate]);
+
+  // Metrics
+  const totalRevenue = filteredBills.reduce((s: number, b: any) => s + (b.grandTotal || 0), 0);
+  const prevRevenue = prevPeriodBills.reduce((s: number, b: any) => s + (b.grandTotal || 0), 0);
   const totalBills = filteredBills.length;
-  const avgBillValue = totalBills > 0 ? totalRevenue / totalBills : 0;
-  const completedBills = filteredBills.filter(b => b.status === 'completed' || b.status === 'delivered').length;
+  const prevBills = prevPeriodBills.length;
+  const avgBill = totalBills > 0 ? totalRevenue / totalBills : 0;
+  const prevAvgBill = prevBills > 0 ? prevRevenue / prevBills : 0;
+  const completedBills = filteredBills.filter((b: any) => b.status === 'completed' || b.status === 'delivered').length;
   const paidRate = totalBills > 0 ? (completedBills / totalBills) * 100 : 0;
-  const totalItems = filteredBills.reduce((sum, bill) => sum + (bill.items?.length || 0), 0);
+  const prevCompleted = prevPeriodBills.filter((b: any) => b.status === 'completed' || b.status === 'delivered').length;
+  const prevPaidRate = prevBills > 0 ? (prevCompleted / prevBills) * 100 : 0;
+  const totalItems = filteredBills.reduce((s: number, b: any) => s + (b.items?.length || 0), 0);
+  const prevItems = prevPeriodBills.reduce((s: number, b: any) => s + (b.items?.length || 0), 0);
 
-  // Get top customer
-  const customerRevenue = filteredBills.reduce((acc, bill) => {
-    acc[bill.customerName] = (acc[bill.customerName] || 0) + bill.grandTotal;
-    return acc;
-  }, {} as Record<string, number>);
-  const topCustomer = Object.entries(customerRevenue).sort(([, a], [, b]) => b - a)[0];
+  // Customer data
+  const customerRevenue: Record<string, { revenue: number; bills: number; billList: any[] }> = {};
+  filteredBills.forEach((bill: any) => {
+    if (!customerRevenue[bill.customerName]) customerRevenue[bill.customerName] = { revenue: 0, bills: 0, billList: [] };
+    customerRevenue[bill.customerName].revenue += bill.grandTotal;
+    customerRevenue[bill.customerName].bills += 1;
+    customerRevenue[bill.customerName].billList.push(bill);
+  });
+  const topCustomers = Object.entries(customerRevenue).sort(([, a], [, b]) => b.revenue - a.revenue).slice(0, 8);
+  const uniqueCustomers = Object.keys(customerRevenue).length;
 
-  // Revenue over time data (based on view mode)
-  const getRevenueData = () => {
-    const data: { date: string; revenue: number }[] = [];
-    
+  // Item categories
+  const itemCounts: Record<string, { count: number; revenue: number }> = {};
+  filteredBills.forEach((b: any) => b.items?.forEach((item: any) => {
+    const name = item.name || 'Other';
+    if (!itemCounts[name]) itemCounts[name] = { count: 0, revenue: 0 };
+    itemCounts[name].count += item.quantity || 1;
+    itemCounts[name].revenue += item.amount || 0;
+  }));
+  const itemCategories = Object.entries(itemCounts).sort(([, a], [, b]) => b.revenue - a.revenue).slice(0, 8);
+  const totalItemRevenue = itemCategories.reduce((s, [, d]) => s + d.revenue, 0);
+
+  // Sparkline data (last 7 days/months)
+  const sparklineData = useMemo(() => {
+    const data: number[] = [];
+    for (let i = 6; i >= 0; i--) {
+      if (viewMode === 'daily' || viewMode === 'monthly') {
+        const d = new Date(selectedDate || new Date());
+        d.setDate(d.getDate() - i);
+        const ds = d.toISOString().split('T')[0];
+        data.push(bills.filter(b => b.createdAt?.startsWith(ds)).reduce((s: number, b: any) => s + (b.grandTotal || 0), 0));
+      } else {
+        const m = selectedMonth - i;
+        const adjustedM = ((m % 12) + 12) % 12;
+        const adjustedY = selectedYear + Math.floor(m / 12);
+        data.push(bills.filter(b => { const bd = new Date(b.createdAt); return bd.getMonth() === adjustedM && bd.getFullYear() === adjustedY; }).reduce((s: number, b: any) => s + (b.grandTotal || 0), 0));
+      }
+    }
+    return data;
+  }, [bills, viewMode, selectedDate, selectedMonth, selectedYear]);
+
+  // Revenue chart data
+  const revenueData = useMemo(() => {
+    const data: { label: string; revenue: number; prevRevenue: number; bills: any[] }[] = [];
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     if (viewMode === 'daily') {
-      // Daily view - show all days in selected month
-      const year = selectedYear;
-      const month = selectedMonth;
-      const daysInMonth = new Date(year, month + 1, 0).getDate();
-      
+      const daysInMonth = new Date(selectedYear, selectedMonth + 1, 0).getDate();
       for (let day = 1; day <= daysInMonth; day++) {
-        const date = new Date(year, month, day);
-        const dateStr = date.toISOString().split('T')[0];
-        const dayRevenue = bills
-          .filter(bill => bill.createdAt.startsWith(dateStr))
-          .reduce((sum, bill) => sum + bill.grandTotal, 0);
-        data.push({ 
-          date: `${day}`, 
-          revenue: dayRevenue 
+        const ds = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const pm = selectedMonth === 0 ? 11 : selectedMonth - 1;
+        const py = selectedMonth === 0 ? selectedYear - 1 : selectedYear;
+        const pds = `${py}-${String(pm + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const dayBills = bills.filter((b: any) => b.createdAt?.startsWith(ds));
+        data.push({
+          label: `${day}`, revenue: dayBills.reduce((s: number, b: any) => s + b.grandTotal, 0),
+          prevRevenue: bills.filter((b: any) => b.createdAt?.startsWith(pds)).reduce((s: number, b: any) => s + b.grandTotal, 0),
+          bills: dayBills
         });
       }
     } else if (viewMode === 'monthly') {
-      // Monthly view - show all 12 months for selected year
-      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      
-      for (let month = 0; month < 12; month++) {
-        const monthRevenue = bills
-          .filter(bill => {
-            const billDate = new Date(bill.createdAt);
-            return billDate.getMonth() === month && billDate.getFullYear() === selectedYear;
-          })
-          .reduce((sum, bill) => sum + bill.grandTotal, 0);
-        data.push({ 
-          date: months[month], 
-          revenue: monthRevenue 
-        });
+      for (let m = 0; m < 12; m++) {
+        const mBills = bills.filter((b: any) => { const d = new Date(b.createdAt); return d.getMonth() === m && d.getFullYear() === selectedYear; });
+        const pBills = bills.filter((b: any) => { const d = new Date(b.createdAt); return d.getMonth() === m && d.getFullYear() === selectedYear - 1; });
+        data.push({ label: months[m], revenue: mBills.reduce((s: number, b: any) => s + b.grandTotal, 0), prevRevenue: pBills.reduce((s: number, b: any) => s + b.grandTotal, 0), bills: mBills });
       }
-    } else if (viewMode === 'yearly') {
-      // Yearly view - show available years
-      availableYears.forEach(year => {
-        const yearRevenue = bills
-          .filter(bill => {
-            const billDate = new Date(bill.createdAt);
-            return billDate.getFullYear() === year;
-          })
-          .reduce((sum, bill) => sum + bill.grandTotal, 0);
-        data.push({ date: year.toString(), revenue: yearRevenue });
+    } else {
+      availableYears.forEach(y => {
+        const yBills = bills.filter((b: any) => new Date(b.createdAt).getFullYear() === y);
+        data.push({ label: y.toString(), revenue: yBills.reduce((s: number, b: any) => s + b.grandTotal, 0), prevRevenue: 0, bills: yBills });
       });
     }
-    
     return data;
-  };
+  }, [bills, viewMode, selectedYear, selectedMonth, availableYears]);
 
-  const revenueData = getRevenueData();
-  const maxRevenue = Math.max(...revenueData.map(d => d.revenue), 1);
+  const maxRevenue = Math.max(...revenueData.map(d => Math.max(d.revenue, d.prevRevenue)), 1);
 
-  // Item categories (mock data - you can enhance this)
-  const itemCategories = [
-    { name: 'dress pieces', value: 35, color: '#8b5cf6' },
-    { name: 'Shirt', value: 20, color: '#3b82f6' },
-    { name: 'Jeans', value: 15, color: '#10b981' },
-    { name: 'Shirt(labal)', value: 12, color: '#f59e0b' },
-    { name: 'T-Shirt', value: 10, color: '#ef4444' },
-    { name: 'coat pant', value: 5, color: '#ec4899' },
-    { name: 'clothes', value: 2, color: '#14b8a6' },
-    { name: 'Jacket', value: 1, color: '#6366f1' }
+  // Hourly heatmap (daily view)
+  const hourlyData = useMemo(() => {
+    if (viewMode !== 'daily') return [];
+    const hours = Array(24).fill(0);
+    filteredBills.forEach((b: any) => { const h = new Date(b.createdAt).getHours(); hours[h] += b.grandTotal; });
+    return hours;
+  }, [filteredBills, viewMode]);
+  const maxHourly = Math.max(...hourlyData, 1);
+
+  // Status breakdown
+  const statusBreakdown = [
+    { label: 'Completed', count: filteredBills.filter((b: any) => b.status === 'completed' || b.status === 'delivered').length, color: 'var(--success)' },
+    { label: 'Pending', count: filteredBills.filter((b: any) => b.status === 'pending').length, color: 'var(--warning)' },
+    { label: 'Processing', count: filteredBills.filter((b: any) => b.status === 'in-process').length, color: 'var(--accent)' }
   ];
 
-  const totalCategoryValue = itemCategories.reduce((sum, cat) => sum + cat.value, 0);
+  const getPeriodLabel = () => {
+    if (viewMode === 'yearly') return `${selectedYear}`;
+    if (viewMode === 'monthly') return new Date(selectedYear, selectedMonth).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+    return new Date(selectedDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
+  };
+
+  const trendPct = (cur: number, prev: number) => prev > 0 ? ((cur - prev) / prev * 100) : cur > 0 ? 100 : 0;
+  const TrendBadge: React.FC<{ current: number; previous: number; suffix?: string }> = ({ current, previous, suffix = '' }) => {
+    const pct = trendPct(current, previous);
+    if (pct === 0 && current === 0) return <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>—</span>;
+    const up = pct >= 0;
+    return (
+      <span style={{ fontSize: '10px', fontWeight: 600, color: up ? 'var(--success)' : 'var(--danger)', display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
+        <i className={`fas fa-arrow-${up ? 'up' : 'down'}`} style={{ fontSize: '8px' }} />
+        {Math.abs(pct).toFixed(0)}%{suffix}
+      </span>
+    );
+  };
+
+  const animatedRevenue = useAnimatedNumber(totalRevenue);
+  const animatedAvg = useAnimatedNumber(Math.round(avgBill));
+  const animatedPaidRate = useAnimatedNumber(Math.round(paidRate));
+
+  // Drill-down bills
+  const drillDownBills = useMemo(() => {
+    if (drillDownIndex === null || !revenueData[drillDownIndex]) return [];
+    let sorted = [...revenueData[drillDownIndex].bills];
+    sorted.sort((a, b) => {
+      if (drillDownSort === 'date') return drillDownSortDir === 'desc' ? new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime() : new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      if (drillDownSort === 'amount') return drillDownSortDir === 'desc' ? b.grandTotal - a.grandTotal : a.grandTotal - b.grandTotal;
+      return drillDownSortDir === 'desc' ? b.status.localeCompare(a.status) : a.status.localeCompare(b.status);
+    });
+    return sorted;
+  }, [drillDownIndex, revenueData, drillDownSort, drillDownSortDir]);
+
+  const exportCSV = () => {
+    const headers = ['Bill Number', 'Customer', 'Date', 'Items', 'Total', 'Status'];
+    const rows = filteredBills.map((b: any) => [b.billNumber, b.customerName, new Date(b.createdAt).toLocaleDateString('en-IN'), b.items?.length || 0, b.grandTotal, b.status]);
+    const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = `revenue_${getPeriodLabel().replace(/\s/g, '_')}.csv`; a.click(); URL.revokeObjectURL(url);
+  };
+
+  const catColors = ['#2dd4bf', '#38bdf8', '#a78bfa', '#fb923c', '#f472b6', '#34d399', '#fbbf24', '#818cf8'];
+
+  const card: React.CSSProperties = { background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '16px', transition: 'all 0.2s ease' };
+  const sTitle: React.CSSProperties = { color: 'var(--text-primary)', margin: '0 0 12px 0', fontSize: '13px', fontWeight: 600 };
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      background: 'linear-gradient(135deg, #0a0e27 0%, #1a1a2e 50%, #16213e 100%)',
-      zIndex: 999999,
-      overflow: 'auto',
-      fontFamily: 'system-ui, -apple-system, sans-serif'
-    }}>
-      <style>{`
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(20px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes slideIn {
-          from { opacity: 0; transform: translateX(-20px); }
-          to { opacity: 1; transform: translateX(0); }
-        }
-        @keyframes pulse {
-          0%, 100% { transform: scale(1); }
-          50% { transform: scale(1.05); }
-        }
-        @keyframes shimmer {
-          0% { background-position: -1000px 0; }
-          100% { background-position: 1000px 0; }
-        }
-        @keyframes countUp {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .stat-card {
-          transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-          cursor: pointer;
-          position: relative;
-          overflow: hidden;
-        }
-        .stat-card::before {
-          content: '';
-          position: absolute;
-          top: 0;
-          left: -100%;
-          width: 100%;
-          height: 100%;
-          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
-          transition: left 0.5s;
-        }
-        .stat-card:hover::before {
-          left: 100%;
-        }
-        .stat-card:hover {
-          transform: translateY(-8px) scale(1.02);
-          box-shadow: 0 20px 40px rgba(0,0,0,0.4);
-        }
-        .chart-bar {
-          transition: all 0.3s ease;
-          cursor: pointer;
-        }
-        .chart-bar:hover {
-          opacity: 0.8;
-          transform: scaleY(1.05);
-        }
-        .filter-btn {
-          transition: all 0.3s ease;
-          position: relative;
-          overflow: hidden;
-        }
-        .filter-btn::after {
-          content: '';
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          width: 0;
-          height: 0;
-          border-radius: 50%;
-          background: rgba(255,255,255,0.2);
-          transform: translate(-50%, -50%);
-          transition: width 0.3s, height 0.3s;
-        }
-        .filter-btn:hover::after {
-          width: 200px;
-          height: 200px;
-        }
-        .date-selector {
-          transition: all 0.3s ease;
-        }
-        .date-selector:hover {
-          transform: scale(1.05);
-          box-shadow: 0 5px 15px rgba(139, 92, 246, 0.3);
-        }
-        .date-selector:focus {
-          outline: none;
-          box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.5);
-        }
-        .category-item {
-          transition: all 0.3s ease;
-          cursor: pointer;
-        }
-        .category-item:hover {
-          transform: translateX(10px);
-          background: rgba(255,255,255,0.05);
-        }
-        .revenue-number {
-          animation: countUp 0.6s ease-out;
-        }
-      `}</style>
+    <div style={{ fontFamily: 'var(--font-sans)', opacity: mounted ? 1 : 0, transform: mounted ? 'translateY(0)' : 'translateY(12px)', transition: 'all 0.4s ease' }}>
 
       {/* Header */}
-      <div style={{
-        background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)',
-        padding: '20px 30px',
-        borderBottom: '1px solid rgba(255,255,255,0.1)',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center'
-      }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
         <div>
-          <h1 style={{ 
-            color: 'white', 
-            margin: 0, 
-            fontSize: '32px', 
-            fontWeight: '700',
-            background: 'linear-gradient(135deg, #fff, #8b5cf6)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            animation: 'fadeIn 0.6s ease-out'
-          }}>
-            💰 Revenue Dashboard
+          <h1 style={{ color: 'var(--text-primary)', margin: 0, fontSize: '20px', fontWeight: 700 }}>
+            <i className="fas fa-chart-line" style={{ marginRight: '8px', color: 'var(--accent)' }} />Revenue Dashboard
           </h1>
-          <p style={{ 
-            color: 'rgba(255,255,255,0.7)', 
-            margin: '8px 0 0 0', 
-            fontSize: '15px',
-            fontWeight: '500',
-            animation: 'fadeIn 0.8s ease-out'
-          }}>
-            {viewMode === 'yearly' && `📅 Showing data for ${selectedYear}`}
-            {viewMode === 'monthly' && `📅 ${new Date(selectedYear, selectedMonth).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`}
-            {viewMode === 'daily' && `📅 ${new Date(selectedDate).toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })}`}
+          <p style={{ color: 'var(--text-muted)', margin: '4px 0 0', fontSize: '12px' }}>
+            <i className="fas fa-calendar-alt" style={{ marginRight: '4px' }} />{getPeriodLabel()} · {totalBills} bills · ₹{totalRevenue.toLocaleString()}
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '15px', alignItems: 'center', flexWrap: 'wrap' }}>
-          {/* View Mode Toggle */}
-          <div style={{ 
-            display: 'flex', 
-            gap: '4px', 
-            background: 'rgba(139, 92, 246, 0.15)', 
-            borderRadius: '10px',
-            padding: '4px',
-            border: '1px solid rgba(139, 92, 246, 0.3)',
-            boxShadow: '0 4px 15px rgba(139, 92, 246, 0.2)'
-          }}>
-            {[
-              { label: 'Daily', icon: '📅' },
-              { label: 'Monthly', icon: '📆' },
-              { label: 'Yearly', icon: '🗓️' }
-            ].map((item, i) => {
-              const modeValue = ['daily', 'monthly', 'yearly'][i] as any;
-              const isActive = viewMode === modeValue;
-              return (
-                <button
-                  key={item.label}
-                  onClick={() => setViewMode(modeValue)}
-                  style={{
-                    background: isActive ? 'linear-gradient(135deg, #8b5cf6, #6366f1)' : 'transparent',
-                    border: 'none',
-                    borderRadius: '8px',
-                    padding: '10px 18px',
-                    color: 'white',
-                    fontSize: '13px',
-                    cursor: 'pointer',
-                    fontWeight: '600',
-                    transition: 'all 0.3s ease',
-                    boxShadow: isActive ? '0 4px 12px rgba(139, 92, 246, 0.4)' : 'none',
-                    transform: isActive ? 'scale(1.05)' : 'scale(1)'
-                  }}
-                >
-                  {item.icon} {item.label}
-                </button>
-              );
-            })}
+        <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '2px', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', padding: '3px', border: '1px solid var(--border-subtle)' }}>
+            {(['daily', 'monthly', 'yearly'] as const).map(m => (
+              <button key={m} onClick={() => setViewMode(m)} className={viewMode === m ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm'} style={{ fontSize: '11px', textTransform: 'capitalize', borderRadius: '6px' }}>{m}</button>
+            ))}
           </div>
-
-          {/* Date Selectors based on view mode */}
-          {viewMode === 'yearly' && (
-            <select
-              value={selectedYear}
-              onChange={(e) => setSelectedYear(Number(e.target.value))}
-              className="date-selector"
-              style={{
-                background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(99, 102, 241, 0.2))',
-                border: '2px solid rgba(139, 92, 246, 0.4)',
-                borderRadius: '10px',
-                padding: '10px 16px',
-                color: 'white',
-                fontSize: '14px',
-                cursor: 'pointer',
-                fontWeight: '600',
-                boxShadow: '0 4px 12px rgba(139, 92, 246, 0.2)'
-              }}
-            >
-              {availableYears.map(year => (
-                <option key={year} value={year} style={{ background: '#1a1a2e', color: 'white' }}>
-                  📅 {year}
-                </option>
-              ))}
-            </select>
-          )}
-
-          {viewMode === 'monthly' && (
-            <>
-              <select
-                value={selectedYear}
-                onChange={(e) => setSelectedYear(Number(e.target.value))}
-                className="date-selector"
-                style={{
-                  background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(99, 102, 241, 0.2))',
-                  border: '2px solid rgba(139, 92, 246, 0.4)',
-                  borderRadius: '10px',
-                  padding: '10px 16px',
-                  color: 'white',
-                  fontSize: '14px',
-                  cursor: 'pointer',
-                  fontWeight: '600',
-                  boxShadow: '0 4px 12px rgba(139, 92, 246, 0.2)'
-                }}
-              >
-                {availableYears.map(year => (
-                  <option key={year} value={year} style={{ background: '#1a1a2e', color: 'white' }}>
-                    {year}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={selectedMonth}
-                onChange={(e) => setSelectedMonth(Number(e.target.value))}
-                className="date-selector"
-                style={{
-                  background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(99, 102, 241, 0.2))',
-                  border: '2px solid rgba(139, 92, 246, 0.4)',
-                  borderRadius: '10px',
-                  padding: '10px 16px',
-                  color: 'white',
-                  fontSize: '14px',
-                  cursor: 'pointer',
-                  fontWeight: '600',
-                  boxShadow: '0 4px 12px rgba(139, 92, 246, 0.2)'
-                }}
-              >
-                {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map((month, i) => (
-                  <option key={i} value={i} style={{ background: '#1a1a2e', color: 'white' }}>
-                    {month}
-                  </option>
-                ))}
-              </select>
-            </>
-          )}
-
-          {viewMode === 'daily' && (
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="date-selector"
-              style={{
-                background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(99, 102, 241, 0.2))',
-                border: '2px solid rgba(139, 92, 246, 0.4)',
-                borderRadius: '10px',
-                padding: '10px 16px',
-                color: 'white',
-                fontSize: '14px',
-                cursor: 'pointer',
-                fontWeight: '600',
-                colorScheme: 'dark',
-                boxShadow: '0 4px 12px rgba(139, 92, 246, 0.2)'
-              }}
-            />
-          )}
-
-          <button
-            onClick={onClose}
-            style={{
-              background: 'linear-gradient(135deg, #ef4444, #dc2626)',
-              border: 'none',
-              borderRadius: '10px',
-              padding: '10px 20px',
-              color: 'white',
-              fontSize: '14px',
-              cursor: 'pointer',
-              fontWeight: '600',
-              boxShadow: '0 4px 12px rgba(239, 68, 68, 0.3)',
-              transition: 'all 0.3s ease'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = 'scale(1.05)';
-              e.currentTarget.style.boxShadow = '0 6px 20px rgba(239, 68, 68, 0.5)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'scale(1)';
-              e.currentTarget.style.boxShadow = '0 4px 12px rgba(239, 68, 68, 0.3)';
-            }}
-          >
-            ✕ Close
-          </button>
+          {viewMode === 'yearly' && <select value={selectedYear} onChange={e => setSelectedYear(+e.target.value)} style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: '6px', padding: '5px 8px', color: 'var(--text-primary)', fontSize: '11px', width: 'auto' }}>{availableYears.map(y => <option key={y} value={y}>{y}</option>)}</select>}
+          {viewMode === 'monthly' && <>
+            <select value={selectedYear} onChange={e => setSelectedYear(+e.target.value)} style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: '6px', padding: '5px 8px', color: 'var(--text-primary)', fontSize: '11px', width: 'auto' }}>{availableYears.map(y => <option key={y} value={y}>{y}</option>)}</select>
+            <select value={selectedMonth} onChange={e => setSelectedMonth(+e.target.value)} style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: '6px', padding: '5px 8px', color: 'var(--text-primary)', fontSize: '11px', width: 'auto' }}>{['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].map((m,i) => <option key={i} value={i}>{m}</option>)}</select>
+          </>}
+          {viewMode === 'daily' && <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: '6px', padding: '5px 8px', color: 'var(--text-primary)', fontSize: '11px', colorScheme: 'dark', width: 'auto' }} />}
+          <button onClick={exportCSV} className="btn btn-ghost btn-sm" style={{ fontSize: '11px' }}><i className="fas fa-download" style={{ marginRight: '4px' }} />Export</button>
+          <button onClick={onClose} className="btn btn-ghost btn-sm" style={{ fontSize: '11px' }}><i className="fas fa-times" style={{ marginRight: '4px' }} />Close</button>
         </div>
       </div>
 
-      <div style={{ padding: '25px' }}>
-        {/* Top Stats Cards */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-          gap: '20px',
-          marginBottom: '25px'
-        }}>
-          {[
-            {
-              title: 'TOTAL REVENUE',
-              value: `₹${totalRevenue.toLocaleString()}`,
-              change: '+ 12.5% vs last month',
-              icon: '💰',
-              color: '#8b5cf6',
-              chartData: [20, 35, 25, 40, 30, 45, 35, 50]
-            },
-            {
-              title: 'TOTAL BILLS',
-              value: totalBills,
-              change: `${totalBills} bills in period`,
-              icon: '📋',
-              color: '#3b82f6',
-              chartData: [30, 25, 35, 40, 35, 45, 40, 50]
-            },
-            {
-              title: 'AVG BILL VALUE',
-              value: `₹${Math.round(avgBillValue)}`,
-              change: 'Average per bill',
-              icon: '📊',
-              color: '#f59e0b',
-              chartData: [35, 35, 36, 35, 36, 37, 36, 37]
-            },
-            {
-              title: 'PAID RATE',
-              value: `${paidRate.toFixed(1)}%`,
-              change: `${completedBills} completed`,
-              icon: '✅',
-              color: '#10b981',
-              chartData: [80, 82, 85, 87, 90, 92, 95, 100]
-            },
-            {
-              title: 'ITEMS PROCESSED',
-              value: totalItems,
-              change: 'Total items',
-              icon: '👕',
-              color: '#ec4899',
-              chartData: [100, 120, 110, 130, 125, 140, 135, 150]
-            },
-            {
-              title: 'TOP CUSTOMER',
-              value: `₹${topCustomer ? topCustomer[1].toLocaleString() : 0}`,
-              change: topCustomer ? topCustomer[0] : 'N/A',
-              icon: '👑',
-              color: '#f97316',
-              chartData: [50, 55, 60, 65, 70, 75, 80, 85]
-            }
-          ].map((stat, i) => (
-            <div 
-              key={i} 
-              className="stat-card"
-              onMouseEnter={() => setHoveredStat(i)}
-              onMouseLeave={() => setHoveredStat(null)}
-              style={{
-                background: hoveredStat === i 
-                  ? `linear-gradient(135deg, ${stat.color}30, ${stat.color}15)` 
-                  : 'linear-gradient(135deg, rgba(30, 27, 75, 0.8), rgba(49, 46, 129, 0.8))',
-                border: hoveredStat === i ? `2px solid ${stat.color}` : '1px solid rgba(255,255,255,0.1)',
-                borderRadius: '16px',
-                padding: '24px',
-                position: 'relative',
-                overflow: 'hidden',
-                animation: `fadeIn 0.6s ease ${i * 0.1}s both`,
-                boxShadow: hoveredStat === i ? `0 10px 30px ${stat.color}40` : '0 4px 15px rgba(0,0,0,0.2)'
-              }}>
-              {/* Animated background gradient */}
-              <div style={{
-                position: 'absolute',
-                top: '-50%',
-                right: '-50%',
-                width: '200%',
-                height: '200%',
-                background: `radial-gradient(circle, ${stat.color}20 0%, transparent 70%)`,
-                opacity: hoveredStat === i ? 1 : 0,
-                transition: 'opacity 0.5s ease',
-                pointerEvents: 'none'
-              }}></div>
-              
-              <div style={{ position: 'relative', zIndex: 1 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '15px' }}>
-                  <div>
-                    <div style={{ 
-                      color: 'rgba(255,255,255,0.6)', 
-                      fontSize: '11px', 
-                      fontWeight: '700', 
-                      letterSpacing: '1px', 
-                      marginBottom: '10px',
-                      textTransform: 'uppercase'
-                    }}>
-                      {stat.title}
-                    </div>
-                    <div className="revenue-number" style={{ 
-                      fontSize: '32px', 
-                      fontWeight: '800', 
-                      color: 'white', 
-                      marginBottom: '6px',
-                      textShadow: hoveredStat === i ? `0 0 20px ${stat.color}` : 'none'
-                    }}>
-                      {stat.value}
-                    </div>
-                    <div style={{ 
-                      fontSize: '12px', 
-                      color: '#10b981',
-                      fontWeight: '600',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px'
-                    }}>
-                      <span>↗</span> {stat.change}
-                    </div>
-                  </div>
-                  <div style={{
-                    fontSize: '40px',
-                    opacity: hoveredStat === i ? 0.8 : 0.3,
-                    transition: 'all 0.3s ease',
-                    transform: hoveredStat === i ? 'scale(1.2) rotate(10deg)' : 'scale(1)',
-                    filter: hoveredStat === i ? `drop-shadow(0 0 10px ${stat.color})` : 'none'
-                  }}>
-                    {stat.icon}
-                  </div>
+      {/* Quick Presets */}
+      <div style={{ display: 'flex', gap: '6px', marginBottom: '16px', flexWrap: 'wrap' }}>
+        {[{ label: '📅 Today', key: 'today' }, { label: '⏪ Yesterday', key: 'yesterday' }, { label: '📆 This Month', key: 'thisMonth' }, { label: '📊 This Year', key: 'thisYear' }].map(p => (
+          <button key={p.key} onClick={() => applyPreset(p.key)} style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: '20px', padding: '5px 14px', color: 'var(--text-secondary)', fontSize: '11px', cursor: 'pointer', transition: 'all 0.15s', fontFamily: 'var(--font-sans)' }}
+            onMouseEnter={e => { (e.target as HTMLElement).style.borderColor = 'var(--accent)'; (e.target as HTMLElement).style.color = 'var(--accent-text)'; }}
+            onMouseLeave={e => { (e.target as HTMLElement).style.borderColor = 'var(--border-subtle)'; (e.target as HTMLElement).style.color = 'var(--text-secondary)'; }}>
+            {p.label}
+          </button>
+        ))}
+      </div>
+
+      {/* KPI Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(155px, 1fr))', gap: '10px', marginBottom: '16px' }}>
+        {[
+          { title: 'Total Revenue', value: `₹${animatedRevenue.toLocaleString()}`, icon: 'fa-rupee-sign', prev: prevRevenue, cur: totalRevenue, spark: sparklineData, color: 'var(--accent)' },
+          { title: 'Avg Bill Value', value: `₹${animatedAvg.toLocaleString()}`, icon: 'fa-receipt', prev: prevAvgBill, cur: avgBill, spark: sparklineData.map((v, i) => v / Math.max(i + 1, 1)), color: '#38bdf8' },
+          { title: 'Paid Rate', value: `${animatedPaidRate}%`, icon: 'fa-check-circle', prev: prevPaidRate, cur: paidRate, spark: [], color: 'var(--success)' },
+          { title: 'Items Processed', value: totalItems.toString(), icon: 'fa-tshirt', prev: prevItems, cur: totalItems, spark: [], color: '#fb923c' },
+          { title: 'Customers', value: uniqueCustomers.toString(), icon: 'fa-users', prev: 0, cur: uniqueCustomers, spark: [], color: '#a78bfa' },
+          { title: 'Top Customer', value: topCustomers[0] ? `₹${topCustomers[0][1].revenue.toLocaleString()}` : '—', icon: 'fa-crown', prev: 0, cur: 0, spark: [], color: '#fbbf24', sub: topCustomers[0]?.[0] || 'N/A' }
+        ].map((s, i) => (
+          <div key={i} style={{ ...card, cursor: 'default', opacity: mounted ? 1 : 0, transform: mounted ? 'translateY(0)' : 'translateY(16px)', transition: `all 0.4s ease ${i * 0.06}s` }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = s.color; (e.currentTarget as HTMLElement).style.boxShadow = `0 0 16px ${s.color}22`; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-subtle)'; (e.currentTarget as HTMLElement).style.boxShadow = 'none'; }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <div style={{ width: '26px', height: '26px', borderRadius: '6px', background: `${s.color}22`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: s.color, fontSize: '11px' }}>
+                  <i className={`fas ${s.icon}`} />
                 </div>
-                {/* Mini chart */}
-                <div style={{ display: 'flex', alignItems: 'flex-end', gap: '4px', height: '50px', marginTop: '15px' }}>
-                  {stat.chartData.map((height, idx) => (
-                    <div 
-                      key={idx} 
-                      className="chart-bar"
-                      style={{
-                        flex: 1,
-                        height: `${height}%`,
-                        background: hoveredStat === i 
-                          ? `linear-gradient(to top, ${stat.color}, ${stat.color}80)` 
-                          : `linear-gradient(to top, ${stat.color}60, ${stat.color}30)`,
-                        borderRadius: '4px 4px 0 0',
-                        transition: 'all 0.3s ease',
-                        boxShadow: hoveredStat === i ? `0 0 10px ${stat.color}` : 'none'
-                      }}
-                    ></div>
-                  ))}
-                </div>
+                <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 500 }}>{s.title}</span>
               </div>
+              {s.prev !== undefined && s.cur !== undefined && s.prev !== 0 && <TrendBadge current={s.cur} previous={s.prev} />}
             </div>
-          ))}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+              <div>
+                <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.2 }}>{s.value}</div>
+                <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>{s.sub || (s.title === 'Paid Rate' ? `${completedBills} completed` : `${totalBills} bills`)}</div>
+              </div>
+              {s.spark.length > 0 && <Sparkline data={s.spark} color={s.color} width={60} height={24} />}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Charts Row */}
+      <div style={{ display: 'grid', gridTemplateColumns: '2.2fr 1fr', gap: '10px', marginBottom: '16px' }}>
+        {/* Bar Chart */}
+        <div style={card}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <h3 style={sTitle}><i className="fas fa-chart-bar" style={{ marginRight: '6px', color: 'var(--accent)' }} />Revenue Over Time</h3>
+            {hoveredBar !== null && revenueData[hoveredBar] && (
+              <div style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', gap: '12px' }}>
+                <span><strong style={{ color: 'var(--accent)' }}>₹{revenueData[hoveredBar].revenue.toLocaleString()}</strong></span>
+                <span>{revenueData[hoveredBar].bills.length} bills</span>
+                {revenueData[hoveredBar].bills.length > 0 && <span>Avg ₹{Math.round(revenueData[hoveredBar].revenue / revenueData[hoveredBar].bills.length).toLocaleString()}</span>}
+              </div>
+            )}
+          </div>
+          <div style={{ position: 'relative' }}>
+            {/* Y-axis labels */}
+            <div style={{ position: 'absolute', left: 0, top: 0, bottom: 20, width: '40px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+              {[maxRevenue, maxRevenue * 0.5, 0].map((v, i) => (
+                <span key={i} style={{ fontSize: '9px', color: 'var(--text-muted)', textAlign: 'right', width: '100%' }}>₹{Math.round(v / 1000)}k</span>
+              ))}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: '2px', height: '200px', marginLeft: '44px' }} onMouseLeave={() => setHoveredBar(null)}>
+              {revenueData.map((d, i) => {
+                const barH = maxRevenue > 0 ? (d.revenue / maxRevenue) * 180 : 0;
+                const prevH = maxRevenue > 0 ? (d.prevRevenue / maxRevenue) * 180 : 0;
+                const isHovered = hoveredBar === i;
+                const isDrilled = drillDownIndex === i;
+                return (
+                  <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', justifyContent: 'flex-end', cursor: 'pointer', position: 'relative' }}
+                    onMouseEnter={() => setHoveredBar(i)}
+                    onClick={() => { setDrillDownIndex(drillDownIndex === i ? null : i); setDrillDownSort('date'); setDrillDownSortDir('desc'); }}>
+                    {/* Previous period ghost bar */}
+                    {d.prevRevenue > 0 && <div style={{ position: 'absolute', bottom: 20, width: '100%', maxWidth: '20px', height: `${Math.max(prevH, 1)}px`, background: 'var(--text-muted)', opacity: 0.15, borderRadius: '2px 2px 0 0' }} />}
+                    <div style={{
+                      width: '100%', maxWidth: '22px',
+                      height: `${mounted ? Math.max(barH, 2) : 0}px`,
+                      background: isDrilled ? 'var(--accent-hover)' : isHovered ? 'var(--accent)' : 'var(--accent-muted)',
+                      borderRadius: '3px 3px 0 0',
+                      transition: `height 0.5s ease ${i * 0.015}s, background 0.15s ease`,
+                      position: 'relative', zIndex: 2
+                    }} />
+                    {(revenueData.length <= 12 || i % 5 === 0) && <div style={{ fontSize: '9px', color: isDrilled ? 'var(--accent)' : 'var(--text-muted)', marginTop: '4px', fontWeight: isDrilled ? 600 : 400 }}>{d.label}</div>}
+                  </div>
+                );
+              })}
+            </div>
+            {viewMode !== 'yearly' && <div style={{ display: 'flex', gap: '12px', marginTop: '8px', marginLeft: '44px' }}>
+              <span style={{ fontSize: '9px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}><span style={{ width: '8px', height: '3px', background: 'var(--accent)', borderRadius: '1px', display: 'inline-block' }} />Current</span>
+              <span style={{ fontSize: '9px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}><span style={{ width: '8px', height: '3px', background: 'var(--text-muted)', opacity: 0.3, borderRadius: '1px', display: 'inline-block' }} />Previous</span>
+              <span style={{ fontSize: '9px', color: 'var(--text-muted)' }}>Click bar to drill down</span>
+            </div>}
+          </div>
         </div>
 
-        {/* Charts Row */}
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '20px', marginBottom: '20px' }}>
-          {/* Revenue Over Time Chart */}
-          <div style={{
-            background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)',
-            border: '1px solid rgba(255,255,255,0.1)',
-            borderRadius: '12px',
-            padding: '25px'
-          }}>
-            <h3 style={{ color: 'white', margin: '0 0 20px 0', fontSize: '16px', fontWeight: '600' }}>
-              📈 Revenue Over Time
-              {hoveredDataPoint && (
-                <span style={{ 
-                  marginLeft: '15px', 
-                  fontSize: '13px', 
-                  color: '#8b5cf6',
-                  background: 'rgba(139, 92, 246, 0.2)',
-                  padding: '4px 12px',
-                  borderRadius: '6px'
-                }}>
-                  {new Date(hoveredDataPoint.date).toLocaleDateString()}: ₹{hoveredDataPoint.revenue.toLocaleString()}
-                </span>
-              )}
-            </h3>
-            <div style={{ position: 'relative', height: '250px' }}>
-              {/* Y-axis labels */}
-              <div style={{ position: 'absolute', left: 0, top: 0, bottom: 30, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>
-                <div>₹{(maxRevenue).toLocaleString()}</div>
-                <div>₹{(maxRevenue * 0.75).toLocaleString()}</div>
-                <div>₹{(maxRevenue * 0.5).toLocaleString()}</div>
-                <div>₹{(maxRevenue * 0.25).toLocaleString()}</div>
-                <div>₹0</div>
-              </div>
-              {/* Chart area */}
-              <svg 
-                style={{ position: 'absolute', left: '50px', right: 0, top: 0, bottom: '30px', width: 'calc(100% - 50px)', height: 'calc(100% - 30px)' }}
-                onMouseLeave={() => setHoveredDataPoint(null)}
-              >
-                <defs>
-                  <linearGradient id="areaGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                    <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.3" />
-                    <stop offset="100%" stopColor="#8b5cf6" stopOpacity="0" />
-                  </linearGradient>
-                </defs>
-                {/* Area */}
-                <path
-                  d={`M 0 ${250 - 30} ${revenueData.map((d, i) => {
-                    const x = (i / (revenueData.length - 1)) * 100;
-                    const y = 250 - 30 - ((d.revenue / maxRevenue) * (250 - 30));
-                    return `L ${x}% ${y}`;
-                  }).join(' ')} L 100% ${250 - 30} Z`}
-                  fill="url(#areaGradient)"
-                />
-                {/* Line */}
-                <path
-                  d={`M ${revenueData.map((d, i) => {
-                    const x = (i / (revenueData.length - 1)) * 100;
-                    const y = ((1 - (d.revenue / maxRevenue)) * 100);
-                    return `${i === 0 ? 'M' : 'L'} ${x}% ${y}%`;
-                  }).join(' ')}`}
-                  stroke="#8b5cf6"
-                  strokeWidth="2"
-                  fill="none"
-                />
-                {/* Interactive points */}
-                {revenueData.map((d, i) => {
-                  const x = (i / (revenueData.length - 1)) * 100;
-                  const y = ((1 - (d.revenue / maxRevenue)) * 100);
+        {/* Donut Chart */}
+        <div style={card}>
+          <h3 style={sTitle}><i className="fas fa-chart-pie" style={{ marginRight: '6px', color: 'var(--accent)' }} />Revenue by Item</h3>
+          {itemCategories.length > 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+              <svg width="140" height="140" viewBox="0 0 140 140" style={{ transform: mounted ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 0.8s ease' }}>
+                {(() => {
+                  let cumAngle = 0;
+                  return itemCategories.map(([, data], i) => {
+                    const pct = totalItemRevenue > 0 ? data.revenue / totalItemRevenue : 0;
+                    const angle = pct * 360;
+                    const startAngle = cumAngle;
+                    cumAngle += angle;
+                    const r = 55, cx = 70, cy = 70;
+                    const startRad = (startAngle - 90) * Math.PI / 180;
+                    const endRad = (startAngle + angle - 90) * Math.PI / 180;
+                    const largeArc = angle > 180 ? 1 : 0;
+                    const x1 = cx + r * Math.cos(startRad), y1 = cy + r * Math.sin(startRad);
+                    const x2 = cx + r * Math.cos(endRad), y2 = cy + r * Math.sin(endRad);
+                    const ir = 35;
+                    const ix1 = cx + ir * Math.cos(endRad), iy1 = cy + ir * Math.sin(endRad);
+                    const ix2 = cx + ir * Math.cos(startRad), iy2 = cy + ir * Math.sin(startRad);
+                    const path = `M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} L ${ix1} ${iy1} A ${ir} ${ir} 0 ${largeArc} 0 ${ix2} ${iy2} Z`;
+                    return <path key={i} d={path} fill={catColors[i % catColors.length]} stroke="var(--bg-elevated)" strokeWidth="1.5"
+                      opacity={hoveredDonut === null || hoveredDonut === i ? 1 : 0.4}
+                      style={{ transition: 'opacity 0.2s', cursor: 'pointer' }}
+                      onMouseEnter={() => setHoveredDonut(i)} onMouseLeave={() => setHoveredDonut(null)} />;
+                  });
+                })()}
+                <text x="70" y="66" textAnchor="middle" fill="var(--text-primary)" fontSize="14" fontWeight="700">₹{(totalItemRevenue / 1000).toFixed(1)}k</text>
+                <text x="70" y="80" textAnchor="middle" fill="var(--text-muted)" fontSize="9">Total</text>
+              </svg>
+              <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                {itemCategories.map(([name, data], i) => {
+                  const pct = totalItemRevenue > 0 ? Math.round((data.revenue / totalItemRevenue) * 100) : 0;
                   return (
-                    <circle
-                      key={i}
-                      cx={`${x}%`}
-                      cy={`${y}%`}
-                      r="4"
-                      fill="#8b5cf6"
-                      stroke="white"
-                      strokeWidth="2"
-                      style={{ cursor: 'pointer', opacity: hoveredDataPoint?.date === d.date ? 1 : 0.7 }}
-                      onMouseEnter={() => setHoveredDataPoint(d)}
-                    />
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '2px 0', opacity: hoveredDonut === null || hoveredDonut === i ? 1 : 0.5, transition: 'opacity 0.2s', cursor: 'pointer' }}
+                      onMouseEnter={() => setHoveredDonut(i)} onMouseLeave={() => setHoveredDonut(null)}>
+                      <span style={{ width: '8px', height: '8px', borderRadius: '2px', background: catColors[i % catColors.length], flexShrink: 0 }} />
+                      <span style={{ fontSize: '11px', color: 'var(--text-secondary)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
+                      <span style={{ fontSize: '10px', color: 'var(--text-muted)', flexShrink: 0 }}>{pct}%</span>
+                    </div>
                   );
                 })}
-              </svg>
-              {/* X-axis labels */}
-              <div style={{ position: 'absolute', left: '50px', right: 0, bottom: 0, display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>
-                {revenueData.filter((_, i) => i % 5 === 0).map((d, i) => (
-                  <div key={i}>{new Date(d.date).getDate()} {new Date(d.date).toLocaleString('default', { month: 'short' })}</div>
-                ))}
               </div>
+            </div>
+          ) : <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '40px 0', fontSize: '12px' }}><i className="fas fa-inbox" style={{ fontSize: '18px', opacity: 0.4, display: 'block', marginBottom: '6px' }} />No data</div>}
+        </div>
+      </div>
+
+      {/* Drill-Down Panel */}
+      {drillDownIndex !== null && revenueData[drillDownIndex] && (
+        <div style={{ ...card, marginBottom: '16px', animation: 'slideIn 0.3s ease-out' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <h3 style={sTitle}>
+              <i className="fas fa-search-plus" style={{ marginRight: '6px', color: 'var(--accent)' }} />
+              Bills for {revenueData[drillDownIndex].label} — ₹{revenueData[drillDownIndex].revenue.toLocaleString()} ({revenueData[drillDownIndex].bills.length} bills)
+            </h3>
+            <div style={{ display: 'flex', gap: '4px' }}>
+              {(['date', 'amount', 'status'] as const).map(s => (
+                <button key={s} onClick={() => { if (drillDownSort === s) setDrillDownSortDir(d => d === 'asc' ? 'desc' : 'asc'); else { setDrillDownSort(s); setDrillDownSortDir('desc'); } }}
+                  style={{ background: drillDownSort === s ? 'var(--accent-muted)' : 'transparent', border: '1px solid var(--border-subtle)', borderRadius: '4px', padding: '3px 8px', color: drillDownSort === s ? 'var(--accent)' : 'var(--text-muted)', fontSize: '10px', cursor: 'pointer', fontFamily: 'var(--font-sans)', textTransform: 'capitalize' }}>
+                  {s} {drillDownSort === s && (drillDownSortDir === 'desc' ? '↓' : '↑')}
+                </button>
+              ))}
+              <button onClick={() => setDrillDownIndex(null)} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '14px', padding: '0 4px' }}>✕</button>
             </div>
           </div>
-
-          {/* Item Categories Donut Chart */}
-          <div style={{
-            background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)',
-            border: '1px solid rgba(255,255,255,0.1)',
-            borderRadius: '12px',
-            padding: '25px'
-          }}>
-            <h3 style={{ color: 'white', margin: '0 0 20px 0', fontSize: '16px', fontWeight: '600' }}>
-              🎨 Item Categories
-            </h3>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              {/* Donut Chart */}
-              <svg width="200" height="200" viewBox="0 0 200 200">
-                {itemCategories.reduce((acc, cat, i) => {
-                  const prevTotal = itemCategories.slice(0, i).reduce((sum, c) => sum + c.value, 0);
-                  const startAngle = (prevTotal / totalCategoryValue) * 360;
-                  const endAngle = ((prevTotal + cat.value) / totalCategoryValue) * 360;
-                  const largeArc = endAngle - startAngle > 180 ? 1 : 0;
-                  
-                  const startRad = (startAngle - 90) * Math.PI / 180;
-                  const endRad = (endAngle - 90) * Math.PI / 180;
-                  
-                  const x1 = 100 + 80 * Math.cos(startRad);
-                  const y1 = 100 + 80 * Math.sin(startRad);
-                  const x2 = 100 + 80 * Math.cos(endRad);
-                  const y2 = 100 + 80 * Math.sin(endRad);
-                  
-                  const x3 = 100 + 50 * Math.cos(endRad);
-                  const y3 = 100 + 50 * Math.sin(endRad);
-                  const x4 = 100 + 50 * Math.cos(startRad);
-                  const y4 = 100 + 50 * Math.sin(startRad);
-                  
-                  acc.push(
-                    <path
-                      key={i}
-                      d={`M ${x1} ${y1} A 80 80 0 ${largeArc} 1 ${x2} ${y2} L ${x3} ${y3} A 50 50 0 ${largeArc} 0 ${x4} ${y4} Z`}
-                      fill={cat.color}
-                    />
-                  );
-                  return acc;
-                }, [] as JSX.Element[])}
-              </svg>
-              {/* Legend */}
-              <div style={{ marginTop: '20px', width: '100%' }}>
-                {itemCategories.map((cat, i) => (
-                  <div 
-                    key={i} 
-                    className="category-item"
-                    onClick={() => {
-                      setSelectedCategory(selectedCategory === cat.name ? null : cat.name);
-                      alert(`${cat.name}: ${cat.value}% of items`);
-                    }}
-                    style={{ 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      justifyContent: 'space-between', 
-                      marginBottom: '8px',
-                      padding: '8px',
-                      borderRadius: '6px',
-                      background: selectedCategory === cat.name ? 'rgba(255,255,255,0.1)' : 'transparent'
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <div style={{ width: '12px', height: '12px', borderRadius: '2px', background: cat.color }}></div>
-                      <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.7)' }}>{cat.name}</span>
-                    </div>
-                    <span style={{ fontSize: '12px', color: 'white', fontWeight: '600' }}>{cat.value}%</span>
+          <div style={{ maxHeight: '240px', overflowY: 'auto' }}>
+            {drillDownBills.length > 0 ? drillDownBills.map((b: any, i: number) => (
+              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: i < drillDownBills.length - 1 ? '1px solid var(--border-subtle)' : 'none' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', width: '50px' }}>#{b.billNumber}</span>
+                  <div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-primary)', fontWeight: 500 }}>{b.customerName}</div>
+                    <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{new Date(b.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })} · {b.items?.length || 0} items</div>
                   </div>
-                ))}
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>₹{b.grandTotal?.toLocaleString()}</div>
+                  <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '8px', background: b.status === 'completed' || b.status === 'delivered' ? 'var(--success-muted)' : b.status === 'pending' ? 'var(--warning-muted)' : 'var(--accent-muted)', color: b.status === 'completed' || b.status === 'delivered' ? 'var(--success)' : b.status === 'pending' ? 'var(--warning)' : 'var(--accent)' }}>{b.status}</span>
+                </div>
               </div>
+            )) : <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '20px', fontSize: '12px' }}>No bills</div>}
+          </div>
+        </div>
+      )}
+
+      {/* Bottom Row */}
+      <div style={{ display: 'grid', gridTemplateColumns: viewMode === 'daily' ? '1fr 1fr 1fr 1fr' : '1fr 1fr 1fr', gap: '10px' }}>
+        {/* Hourly Heatmap - daily view only */}
+        {viewMode === 'daily' && (
+          <div style={card}>
+            <h3 style={sTitle}><i className="fas fa-clock" style={{ marginRight: '6px', color: 'var(--accent)' }} />Peak Hours</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '3px' }}>
+              {hourlyData.map((v, h) => {
+                const intensity = maxHourly > 0 ? v / maxHourly : 0;
+                return (
+                  <div key={h} title={`${h}:00 — ₹${v.toLocaleString()}`} style={{
+                    aspectRatio: '1', borderRadius: '3px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '8px', color: intensity > 0.5 ? 'white' : 'var(--text-muted)',
+                    background: intensity > 0 ? `rgba(6, 182, 212, ${0.15 + intensity * 0.85})` : 'var(--bg-hover)', cursor: 'default', transition: 'all 0.2s'
+                  }}>{h}</div>
+                );
+              })}
             </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px' }}>
+              <span style={{ fontSize: '9px', color: 'var(--text-muted)' }}>Low</span>
+              <div style={{ display: 'flex', gap: '2px' }}>{[0.2, 0.4, 0.6, 0.8, 1].map((v, i) => <span key={i} style={{ width: '12px', height: '4px', borderRadius: '1px', background: `rgba(6, 182, 212, ${v})` }} />)}</div>
+              <span style={{ fontSize: '9px', color: 'var(--text-muted)' }}>High</span>
+            </div>
+          </div>
+        )}
+
+        {/* Order Status */}
+        <div style={card}>
+          <h3 style={sTitle}><i className="fas fa-tasks" style={{ marginRight: '6px', color: 'var(--accent)' }} />Order Status</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {statusBreakdown.map((s, i) => (
+              <div key={i}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
+                  <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{s.label}</span>
+                  <span style={{ fontSize: '11px', color: 'var(--text-primary)', fontWeight: 600 }}>{s.count}</span>
+                </div>
+                <div style={{ height: '5px', background: 'var(--bg-hover)', borderRadius: '3px', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: mounted ? `${totalBills > 0 ? (s.count / totalBills) * 100 : 0}%` : '0%', background: s.color, borderRadius: '3px', transition: 'width 0.6s ease' }} />
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* Bottom Row - Order Status & Payment Status */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-          {/* Order Status */}
-          <div style={{
-            background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)',
-            border: '1px solid rgba(255,255,255,0.1)',
-            borderRadius: '12px',
-            padding: '25px'
-          }}>
-            <h3 style={{ color: 'white', margin: '0 0 20px 0', fontSize: '16px', fontWeight: '600' }}>
-              📦 Order Status
-            </h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-              {[
-                { label: 'Completed', count: filteredBills.filter(b => b.status === 'completed').length, color: '#10b981' },
-                { label: 'Pending', count: filteredBills.filter(b => b.status === 'pending').length, color: '#f59e0b' },
-                { label: 'Processing', count: filteredBills.filter(b => b.status === 'in-process').length, color: '#3b82f6' }
-              ].map((status, i) => (
-                <div key={i} style={{ cursor: 'pointer' }} onClick={() => alert(`${status.label}: ${status.count} bills`)}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                    <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.7)' }}>{status.label}</span>
-                    <span style={{ fontSize: '13px', color: 'white', fontWeight: '600' }}>{status.count}</span>
-                  </div>
-                  <div style={{ height: '8px', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', overflow: 'hidden' }}>
-                    <div 
-                      className="chart-bar"
-                      style={{
-                        height: '100%',
-                        width: `${(status.count / totalBills) * 100}%`,
-                        background: status.color,
-                        borderRadius: '4px',
-                        transition: 'width 0.5s ease'
-                      }}
-                    ></div>
-                  </div>
-                </div>
-              ))}
-            </div>
+        {/* Payment */}
+        <div style={card}>
+          <h3 style={sTitle}><i className="fas fa-credit-card" style={{ marginRight: '6px', color: 'var(--accent)' }} />Payment Split</h3>
+          <div style={{ display: 'flex', gap: '16px', height: '100px', alignItems: 'flex-end', justifyContent: 'center' }}>
+            {[{ label: 'Paid', count: completedBills, color: 'var(--success)' }, { label: 'Unpaid', count: totalBills - completedBills, color: 'var(--danger)' }].map((p, i) => (
+              <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
+                <div style={{
+                  width: '100%', maxWidth: '40px', height: mounted ? `${totalBills > 0 ? Math.max((p.count / totalBills) * 80, 8) : 8}px` : '0px',
+                  background: p.color, borderRadius: '4px 4px 0 0', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '13px', fontWeight: 700, color: 'white', minHeight: '24px', transition: 'height 0.6s ease'
+                }}>{p.count}</div>
+                <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px' }}>{p.label}</span>
+              </div>
+            ))}
           </div>
+        </div>
 
-          {/* Payment Status */}
-          <div style={{
-            background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)',
-            border: '1px solid rgba(255,255,255,0.1)',
-            borderRadius: '12px',
-            padding: '25px'
-          }}>
-            <h3 style={{ color: 'white', margin: '0 0 20px 0', fontSize: '16px', fontWeight: '600' }}>
-              💳 Payment Status
-            </h3>
-            <div style={{ height: '200px', display: 'flex', alignItems: 'flex-end', gap: '40px', justifyContent: 'center' }}>
-              {[
-                { label: 'Paid', count: completedBills, color: '#10b981' },
-                { label: 'Unpaid', count: totalBills - completedBills, color: '#ef4444' }
-              ].map((payment, i) => (
-                <div 
-                  key={i} 
-                  style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer' }}
-                  onClick={() => alert(`${payment.label}: ${payment.count} bills (${((payment.count / totalBills) * 100).toFixed(1)}%)`)}
-                >
-                  <div 
-                    className="chart-bar"
-                    style={{
-                      width: '100%',
-                      height: `${(payment.count / totalBills) * 180}px`,
-                      background: payment.color,
-                      borderRadius: '8px 8px 0 0',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '24px',
-                      fontWeight: 'bold',
-                      color: 'white',
-                      minHeight: '40px',
-                      transition: 'all 0.5s ease'
-                    }}
-                  >
-                    {payment.count}
+        {/* Top Customers */}
+        <div style={card}>
+          <h3 style={sTitle}><i className="fas fa-users" style={{ marginRight: '6px', color: 'var(--accent)' }} />Top Customers</h3>
+          {topCustomers.length > 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 0, maxHeight: '200px', overflowY: 'auto' }}>
+              {topCustomers.map(([name, data], i) => (
+                <div key={i}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: '1px solid var(--border-subtle)', cursor: 'pointer' }}
+                    onClick={() => setExpandedCustomer(expandedCustomer === name ? null : name)}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{ fontSize: '9px', color: i < 3 ? 'var(--accent)' : 'var(--text-muted)', fontWeight: i < 3 ? 700 : 400, width: '12px' }}>#{i + 1}</span>
+                      <span style={{ fontSize: '11px', color: 'var(--text-secondary)', maxWidth: '80px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</span>
+                    </div>
+                    <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <div>
+                        <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-primary)' }}>₹{data.revenue.toLocaleString()}</div>
+                        <div style={{ fontSize: '9px', color: 'var(--text-muted)' }}>{data.bills} bills</div>
+                      </div>
+                      <i className={`fas fa-chevron-${expandedCustomer === name ? 'up' : 'down'}`} style={{ fontSize: '8px', color: 'var(--text-muted)' }} />
+                    </div>
                   </div>
-                  <div style={{ marginTop: '10px', fontSize: '13px', color: 'rgba(255,255,255,0.7)' }}>
-                    {payment.label}
-                  </div>
+                  {expandedCustomer === name && (
+                    <div style={{ padding: '6px 0 6px 18px', background: 'var(--bg-hover)', borderRadius: '4px', margin: '4px 0' }}>
+                      {data.billList.slice(0, 5).map((b: any, j: number) => (
+                        <div key={j} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 6px', fontSize: '10px', color: 'var(--text-muted)' }}>
+                          <span>#{b.billNumber} · {new Date(b.createdAt).toLocaleDateString('en-IN')}</span>
+                          <span style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>₹{b.grandTotal?.toLocaleString()}</span>
+                        </div>
+                      ))}
+                      {data.billList.length > 5 && <div style={{ fontSize: '9px', color: 'var(--text-muted)', padding: '2px 6px' }}>+{data.billList.length - 5} more</div>}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
-          </div>
+          ) : <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '20px', fontSize: '12px' }}>No data</div>}
         </div>
       </div>
     </div>

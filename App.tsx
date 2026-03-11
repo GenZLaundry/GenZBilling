@@ -71,42 +71,21 @@ const App: React.FC = () => {
     setCurrentView('billing');
   };
 
-  // Show loading screen while checking authentication
   if (isLoading) {
     return (
       <div style={{
         minHeight: '100vh',
-        background: 'linear-gradient(135deg, #1e3c72 0%, #2a5298 25%, #3b82f6 50%, #6366f1 75%, #8b5cf6 100%)',
+        background: 'var(--bg-base)',
         display: 'flex',
+        flexDirection: 'column',
         justifyContent: 'center',
-        alignItems: 'center'
+        alignItems: 'center',
+        gap: '16px'
       }}>
-        <div style={{
-          background: 'white',
-          padding: '40px',
-          borderRadius: '20px',
-          textAlign: 'center',
-          boxShadow: '0 25px 50px rgba(0,0,0,0.2)'
-        }}>
-          <div style={{
-            width: '40px',
-            height: '40px',
-            border: '4px solid #f3f3f3',
-            borderTop: '4px solid #667eea',
-            borderRadius: '50%',
-            animation: 'spin 1s linear infinite',
-            margin: '0 auto 20px'
-          }}></div>
-          <div style={{ fontSize: '18px', color: '#2c3e50' }}>
-            Loading GenZ Laundry POS...
-          </div>
+        <div className="spinner" style={{ width: '36px', height: '36px' }}></div>
+        <div style={{ fontSize: '14px', color: 'var(--text-muted)' }}>
+          Loading…
         </div>
-        <style>{`
-          @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-          }
-        `}</style>
       </div>
     );
   }
@@ -116,9 +95,9 @@ const App: React.FC = () => {
       <div className="App">
         {/* PIN Entry Modal */}
         {showPinEntry && (
-          <AdminPinEntry 
-            onSuccess={handlePinSuccess} 
-            onCancel={handlePinCancel} 
+          <AdminPinEntry
+            onSuccess={handlePinSuccess}
+            onCancel={handlePinCancel}
           />
         )}
 

@@ -10,14 +10,13 @@ const AdminPinEntry: React.FC<AdminPinEntryProps> = ({ onSuccess, onCancel }) =>
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const ADMIN_PIN = '1234'; // Default PIN - should be configurable
+  const ADMIN_PIN = localStorage.getItem('adminPin') || '1234';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
 
-    // Simulate a small delay for better UX
     setTimeout(() => {
       if (pin === ADMIN_PIN) {
         onSuccess();
@@ -30,7 +29,7 @@ const AdminPinEntry: React.FC<AdminPinEntryProps> = ({ onSuccess, onCancel }) =>
   };
 
   const handlePinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.replace(/\D/g, ''); // Only allow digits
+    const value = e.target.value.replace(/\D/g, '');
     if (value.length <= 6) {
       setPin(value);
       setError('');
@@ -38,47 +37,22 @@ const AdminPinEntry: React.FC<AdminPinEntryProps> = ({ onSuccess, onCancel }) =>
   };
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
-      display: 'flex',
-      justifyContent: 'center',
-      alignItems: 'center',
-      zIndex: 9999,
-      backdropFilter: 'blur(4px)'
-    }}>
-      <div style={{
-        background: 'white',
-        borderRadius: '16px',
-        padding: '32px',
-        width: '90%',
-        maxWidth: '400px',
-        boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
-        animation: 'slideIn 0.3s ease-out'
-      }}>
-        <h2 style={{
-          margin: '0 0 8px 0',
-          fontSize: '24px',
-          color: '#1e293b',
-          textAlign: 'center'
-        }}>
-          Admin Access
-        </h2>
-        <p style={{
-          margin: '0 0 24px 0',
-          fontSize: '14px',
-          color: '#64748b',
-          textAlign: 'center'
-        }}>
-          Enter your PIN to access the admin dashboard
-        </p>
+    <div className="modal-overlay">
+      <div className="modal-card" style={{ maxWidth: '380px' }}>
+        <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+          <div className="alert-icon alert-icon-info" style={{ margin: '0 auto 12px', width: '48px', height: '48px', fontSize: '20px' }}>
+            <i className="fas fa-shield-halved"></i>
+          </div>
+          <h2 style={{ fontSize: '20px', fontWeight: '700', margin: '0 0 4px', color: 'var(--text-primary)' }}>
+            Admin Access
+          </h2>
+          <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0 }}>
+            Enter your PIN to continue
+          </p>
+        </div>
 
         <form onSubmit={handleSubmit}>
-          <div style={{ marginBottom: '20px' }}>
+          <div style={{ marginBottom: '16px' }}>
             <input
               type="password"
               value={pin}
@@ -87,110 +61,41 @@ const AdminPinEntry: React.FC<AdminPinEntryProps> = ({ onSuccess, onCancel }) =>
               autoFocus
               disabled={isLoading}
               style={{
-                width: '100%',
-                padding: '14px',
-                fontSize: '18px',
-                border: error ? '2px solid #ef4444' : '2px solid #e2e8f0',
-                borderRadius: '8px',
-                outline: 'none',
                 textAlign: 'center',
-                letterSpacing: '4px',
+                letterSpacing: '6px',
+                fontSize: '20px',
                 fontWeight: '600',
-                transition: 'border-color 0.2s',
-                boxSizing: 'border-box'
+                padding: '14px',
+                borderColor: error ? 'var(--danger)' : undefined
               }}
-              onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
-              onBlur={(e) => e.target.style.borderColor = error ? '#ef4444' : '#e2e8f0'}
             />
             {error && (
-              <div style={{
-                marginTop: '8px',
-                color: '#ef4444',
-                fontSize: '14px',
-                textAlign: 'center'
-              }}>
+              <div style={{ marginTop: '8px', color: 'var(--danger)', fontSize: '13px', textAlign: 'center' }}>
                 {error}
               </div>
             )}
           </div>
 
-          <div style={{
-            display: 'flex',
-            gap: '12px'
-          }}>
+          <div style={{ display: 'flex', gap: '10px' }}>
             <button
               type="button"
               onClick={onCancel}
               disabled={isLoading}
-              style={{
-                flex: 1,
-                padding: '12px',
-                fontSize: '16px',
-                fontWeight: '600',
-                border: '2px solid #e2e8f0',
-                borderRadius: '8px',
-                background: 'white',
-                color: '#64748b',
-                cursor: isLoading ? 'not-allowed' : 'pointer',
-                transition: 'all 0.2s',
-                opacity: isLoading ? 0.5 : 1
-              }}
-              onMouseEnter={(e) => {
-                if (!isLoading) {
-                  e.currentTarget.style.background = '#f8fafc';
-                  e.currentTarget.style.borderColor = '#cbd5e1';
-                }
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'white';
-                e.currentTarget.style.borderColor = '#e2e8f0';
-              }}
+              className="btn btn-ghost"
+              style={{ flex: 1 }}
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isLoading || pin.length === 0}
-              style={{
-                flex: 1,
-                padding: '12px',
-                fontSize: '16px',
-                fontWeight: '600',
-                border: 'none',
-                borderRadius: '8px',
-                background: (isLoading || pin.length === 0) ? '#cbd5e1' : '#3b82f6',
-                color: 'white',
-                cursor: (isLoading || pin.length === 0) ? 'not-allowed' : 'pointer',
-                transition: 'all 0.2s'
-              }}
-              onMouseEnter={(e) => {
-                if (!isLoading && pin.length > 0) {
-                  e.currentTarget.style.background = '#2563eb';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!isLoading && pin.length > 0) {
-                  e.currentTarget.style.background = '#3b82f6';
-                }
-              }}
+              className="btn btn-primary"
+              style={{ flex: 1 }}
             >
-              {isLoading ? 'Verifying...' : 'Enter'}
+              {isLoading ? 'Verifying…' : 'Unlock'}
             </button>
           </div>
         </form>
-
-        <style>{`
-          @keyframes slideIn {
-            from {
-              opacity: 0;
-              transform: translateY(-20px);
-            }
-            to {
-              opacity: 1;
-              transform: translateY(0);
-            }
-          }
-        `}</style>
       </div>
     </div>
   );

@@ -62,44 +62,38 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
   const [showQuickDiscount, setShowQuickDiscount] = useState(false);
   const [lastBillTotal, setLastBillTotal] = useState(0);
   const [lastGeneratedBill, setLastGeneratedBill] = useState<ShareableBillData | null>(null);
-  
+
   const itemInputRef = useRef<HTMLInputElement>(null);
   const priceInputRef = useRef<HTMLInputElement>(null);
 
-const quickItems = [
-  { name: 'T-Shirt', price: 20, washTypes: ['WASH', 'IRON'], icon: '👕' },
-  { name: 'Shirt', price: 20, washTypes: ['WASH', 'IRON'], icon: '👔' },
-  { name: 'Kurti', price: 20, washTypes: ['WASH', 'IRON'], icon: '👗' },
-  { name: 'Underwear', price: 20, washTypes: ['WASH'], icon: '🩲' },
-  { name: 'Banyan', price: 20, washTypes: ['WASH'], icon: '🎽' },
-
-  { name: 'Sweater', price: 50, washTypes: ['WASH', 'DRY CLEAN'], icon: '🧶' },
-  { name: 'Hoodie', price: 50, washTypes: ['WASH'], icon: '🧥' },
-  { name: 'Sweatshirt', price: 50, washTypes: ['WASH'], icon: '🧥' },
-
-  { name: 'Jeans', price: 20, washTypes: ['WASH', 'IRON'], icon: '👖' },
-  { name: 'Pant / Trouser', price: 20, washTypes: ['WASH', 'IRON'], icon: '👖' },
-  { name: 'Track Pant', price: 20, washTypes: ['WASH'], icon: '🏃‍♂️' },
-  { name: 'Joggers', price: 20, washTypes: ['WASH'], icon: '🏃' },
-  { name: 'Leggings', price: 20, washTypes: ['WASH'], icon: '🩳' },
-  { name: 'Jeggings', price: 20, washTypes: ['WASH'], icon: '🩳' },
-  { name: 'Shorts', price: 20, washTypes: ['WASH'], icon: '🩳' },
-  { name: 'Skirt', price: 20, washTypes: ['WASH', 'IRON'], icon: '👗' },
-
-  { name: 'Socks', price: 15, washTypes: ['WASH'], icon: '🧦' },
-  { name: 'Pyjama', price: 20, washTypes: ['WASH'], icon: '🩳' },
-  { name: 'Salwar', price: 50, washTypes: ['WASH', 'IRON'], icon: '👖' },
-  { name: 'Dupatta', price: 20, washTypes: ['WASH', 'IRON'], icon: '🧣' },
-
-  { name: 'Jacket (Light)', price: 50, washTypes: ['WASH'], icon: '🧥' },
-  { name: 'Jacket (Heavy)', price: 80, washTypes: ['DRY CLEAN'], icon: '🧥' },
-  { name: 'Coat Pant', price: 400, washTypes: ['DRY CLEAN'], icon: '🤵' },
-
-  { name: 'Shawl', price: 100, washTypes: ['DRY CLEAN'], icon: '🧣' },
-
-  { name: 'Blanket (Double Bed)', price: 300, washTypes: ['WASH'], icon: '🛏️' },
-  { name: 'Blanket (Single)', price: 200, washTypes: ['WASH'], icon: '🛌' }
-];
+  const quickItems = [
+    { name: 'T-Shirt', price: 20, washTypes: ['WASH', 'IRON'], icon: 'fa-shirt' },
+    { name: 'Shirt', price: 20, washTypes: ['WASH', 'IRON'], icon: 'fa-shirt' },
+    { name: 'Kurti', price: 20, washTypes: ['WASH', 'IRON'], icon: 'fa-vest' },
+    { name: 'Underwear', price: 20, washTypes: ['WASH'], icon: 'fa-shirt' },
+    { name: 'Banyan', price: 20, washTypes: ['WASH'], icon: 'fa-shirt' },
+    { name: 'Sweater', price: 50, washTypes: ['WASH', 'DRY CLEAN'], icon: 'fa-shirt' },
+    { name: 'Hoodie', price: 50, washTypes: ['WASH'], icon: 'fa-vest' },
+    { name: 'Sweatshirt', price: 50, washTypes: ['WASH'], icon: 'fa-vest' },
+    { name: 'Jeans', price: 20, washTypes: ['WASH', 'IRON'], icon: 'fa-vest-patches' },
+    { name: 'Pant / Trouser', price: 20, washTypes: ['WASH', 'IRON'], icon: 'fa-vest-patches' },
+    { name: 'Track Pant', price: 20, washTypes: ['WASH'], icon: 'fa-person-running' },
+    { name: 'Joggers', price: 20, washTypes: ['WASH'], icon: 'fa-person-running' },
+    { name: 'Leggings', price: 20, washTypes: ['WASH'], icon: 'fa-vest-patches' },
+    { name: 'Jeggings', price: 20, washTypes: ['WASH'], icon: 'fa-vest-patches' },
+    { name: 'Shorts', price: 20, washTypes: ['WASH'], icon: 'fa-vest-patches' },
+    { name: 'Skirt', price: 20, washTypes: ['WASH', 'IRON'], icon: 'fa-vest' },
+    { name: 'Socks', price: 15, washTypes: ['WASH'], icon: 'fa-socks' },
+    { name: 'Pyjama', price: 20, washTypes: ['WASH'], icon: 'fa-vest-patches' },
+    { name: 'Salwar', price: 50, washTypes: ['WASH', 'IRON'], icon: 'fa-vest' },
+    { name: 'Dupatta', price: 20, washTypes: ['WASH', 'IRON'], icon: 'fa-vest' },
+    { name: 'Jacket (Light)', price: 50, washTypes: ['WASH'], icon: 'fa-vest' },
+    { name: 'Jacket (Heavy)', price: 80, washTypes: ['DRY CLEAN'], icon: 'fa-vest' },
+    { name: 'Coat Pant', price: 400, washTypes: ['DRY CLEAN'], icon: 'fa-user-tie' },
+    { name: 'Shawl', price: 100, washTypes: ['DRY CLEAN'], icon: 'fa-vest' },
+    { name: 'Blanket (Double Bed)', price: 300, washTypes: ['WASH'], icon: 'fa-bed' },
+    { name: 'Blanket (Single)', price: 200, washTypes: ['WASH'], icon: 'fa-bed' }
+  ];
 
   const quickDiscounts = [
     { label: '5%', value: 5, type: 'percentage' },
@@ -112,7 +106,7 @@ const quickItems = [
 
   const deliveryTimeSlots = [
     '9:00 AM - 12:00 PM',
-    '12:00 PM - 3:00 PM', 
+    '12:00 PM - 3:00 PM',
     '3:00 PM - 6:00 PM',
     '6:00 PM - 9:00 PM'
   ];
@@ -129,7 +123,7 @@ const quickItems = [
 
   const loadCustomerHistory = async (phone: string) => {
     if (!phone || phone.length < 10) return;
-    
+
     try {
       const response = await apiService.getBillsByCustomer(phone);
       if (response.success && response.data) {
@@ -139,7 +133,7 @@ const quickItems = [
       console.log('Could not load customer history:', error);
       // Fallback to localStorage
       const localHistory = JSON.parse(localStorage.getItem('laundry_bill_history') || '[]');
-      const customerBills = localHistory.filter((bill: any) => 
+      const customerBills = localHistory.filter((bill: any) =>
         bill.customerPhone === phone
       ).slice(0, 5);
       setCustomerHistory(customerBills);
@@ -190,7 +184,7 @@ const quickItems = [
     } catch (error) {
       console.log('⚠️ Database unavailable, using local shop config');
     }
-    
+
     // Fallback to localStorage
     const saved = localStorage.getItem('laundry_shop_config');
     if (saved) {
@@ -250,9 +244,9 @@ const quickItems = [
     if (quantity < 0) {
       return; // Don't allow negative quantities
     }
-    
-    setOrderItems(orderItems.map(item => 
-      item.id === id 
+
+    setOrderItems(orderItems.map(item =>
+      item.id === id
         ? { ...item, quantity, total: item.price * quantity }
         : item
     ));
@@ -263,7 +257,7 @@ const quickItems = [
     const pendingBillsTotal = selectedPendingBills.reduce((sum, bill) => sum + bill.grandTotal, 0);
     return currentOrderTotal + pendingBillsTotal + previousBalance;
   };
-  
+
   const calculateTotal = () => calculateSubtotal() - discount + deliveryCharge;
 
   const removePendingBillsFromStorage = (billIds: string[]) => {
@@ -281,7 +275,7 @@ const quickItems = [
   };
 
   const removePendingBill = (billId: string) => {
-    setSelectedPendingBills(prev => prev.filter(bill => 
+    setSelectedPendingBills(prev => prev.filter(bill =>
       bill.id !== billId && bill._id !== billId
     ));
   };
@@ -291,9 +285,9 @@ const quickItems = [
       showAlert({ message: 'Please enter customer name and add items, select pending bills, or add previous due', type: 'warning' });
       return;
     }
-    
+
     setIsProcessing(true);
-    
+
     try {
       // Combine current order items with pending bill items
       const allItems = [
@@ -318,7 +312,7 @@ const quickItems = [
 
       const currentOrderSubtotal = orderItems.reduce((sum, item) => sum + item.total, 0);
       const pendingBillsSubtotal = selectedPendingBills.reduce((sum, bill) => sum + bill.grandTotal, 0);
-      
+
       // Prepare previous bills data for thermal printing
       const previousBillsData = selectedPendingBills.map(bill => ({
         billNumber: bill.billNumber,
@@ -330,7 +324,7 @@ const quickItems = [
         })),
         total: bill.grandTotal
       }));
-      
+
       const billData: BillData = {
         businessName: shopConfig.shopName,
         address: shopConfig.address,
@@ -363,10 +357,10 @@ const quickItems = [
         console.log('💾 Saving bill to database...');
         console.log('📡 API URL:', 'http://localhost:8000/api/bills');
         console.log('📦 Bill data being sent:', JSON.stringify(billData, null, 2));
-        
+
         const response = await apiService.createBill(billData);
         console.log('📨 API Response:', response);
-        
+
         if (response.success) {
           console.log('✅ Bill saved to database:', response.data);
           databaseSaveSuccess = true;
@@ -386,7 +380,7 @@ const quickItems = [
         console.log('💾 Saving bill to localStorage...');
         const existingHistory = JSON.parse(localStorage.getItem('laundry_bill_history') || '[]');
         console.log('📚 Existing history count:', existingHistory.length);
-        
+
         const billForHistory = {
           ...billData,
           id: `local_${Date.now()}`,
@@ -394,7 +388,7 @@ const quickItems = [
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         };
-        
+
         existingHistory.unshift(billForHistory); // Add to beginning
         // Keep only last 100 bills in localStorage
         if (existingHistory.length > 100) {
@@ -429,11 +423,11 @@ const quickItems = [
         }
         removePendingBillsFromStorage(selectedPendingBills.map(bill => bill.id || bill._id));
       }
-      
+
       // Print the combined bill using CLEAN thermal layout
       console.log('🖨️ Printing clean thermal bill...');
       await printCleanThermalBill(billData, (message) => showAlert({ message, type: 'error' }));
-      
+
       // Store bill data for sharing
       setLastGeneratedBill({
         billNumber: billData.billNumber,
@@ -449,7 +443,7 @@ const quickItems = [
         businessPhone: billData.phone,
         billDate: billDate
       });
-      
+
       setShowSuccess(true);
       // Removed auto-close - user must manually close the success modal
     } catch (error) {
@@ -495,7 +489,7 @@ const quickItems = [
         tagCounter++;
       }
     });
-    
+
     // Save tag history to database
     try {
       const response = await apiService.post('/tag-history', { tags });
@@ -506,7 +500,7 @@ const quickItems = [
       console.error('❌ Failed to save tag history:', error);
       // Don't block printing if history save fails
     }
-    
+
     const printWindow = window.open('', '_blank', 'width=800,height=600');
     if (!printWindow) {
       showAlert({ message: 'Please allow popups for tag printing', type: 'warning' });
@@ -658,7 +652,7 @@ const quickItems = [
 
     printWindow.document.write(tagHTML);
     printWindow.document.close();
-    
+
     // Update tag status to "printed" after printing
     setTimeout(async () => {
       try {
@@ -708,199 +702,35 @@ const quickItems = [
   return (
     <div style={{
       minHeight: '100vh',
-      background: '#1f2937',
-      fontFamily: "'Segoe UI', 'Roboto', sans-serif",
-      color: '#f9fafb'
+      background: 'var(--bg-base)',
+      fontFamily: 'var(--font-sans)',
+      color: 'var(--text-primary)'
     }}>
 
-      <style>{`
-        .professional-card { 
-          background: '#374151'; 
-          border: 1px solid '#4b5563'; 
-          box-shadow: 0 1px 3px rgba(0,0,0,0.3);
-          transition: box-shadow 0.2s ease;
-        }
-        
-        .professional-card:hover { 
-          box-shadow: 0 2px 6px rgba(0,0,0,0.4);
-        }
-        
-        .professional-input { 
-          background: '#4b5563'; 
-          border: 1px solid '#6b7280'; 
-          color: '#f9fafb'; 
-          transition: border-color 0.2s ease;
-        }
-        
-        .professional-input:focus { 
-          border-color: '#3b82f6'; 
-          box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
-          outline: none;
-        }
-        
-        .professional-input::placeholder {
-          color: '#9ca3af';
-        }
-        
-        .professional-btn { 
-          transition: all 0.2s ease; 
-          border: none; 
-          font-weight: 500;
-          cursor: pointer;
-        }
-        
-        .professional-btn:hover { 
-          transform: translateY(-1px); 
-          box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-        }
-        
-        .professional-btn:active { 
-          transform: translateY(0); 
-        }
-        
-        .quick-item-professional { 
-          background: '#4b5563'; 
-          border: 1px solid '#6b7280'; 
-          transition: all 0.3s ease;
-          color: '#f9fafb';
-          position: relative;
-          overflow: hidden;
-        }
-        
-        .quick-item-professional::before {
-          content: '';
-          position: absolute;
-          top: 0;
-          left: -100%;
-          width: 100%;
-          height: 100%;
-          background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.2), transparent);
-          transition: left 0.5s ease;
-        }
-        
-        .quick-item-professional:hover::before {
-          left: 100%;
-        }
-        
-        .quick-item-professional:hover { 
-          border-color: '#3b82f6'; 
-          box-shadow: 0 4px 16px rgba(59, 130, 246, 0.4);
-          transform: translateY(-4px) scale(1.02);
-          background: linear-gradient(135deg, #374151, #4b5563);
-        }
-        
-        .item-list-professional {
-          background: '#4b5563';
-          border: 1px solid '#6b7280';
-          transition: all 0.2s ease;
-        }
-        
-        .item-list-professional:hover {
-          background: '#374151';
-        }
-        
-        .scrollable-area {
-          overflow-y: auto;
-          scrollbar-width: thin;
-          scrollbar-color: '#6b7280' '#374151';
-        }
-        
-        .scrollable-area::-webkit-scrollbar {
-          width: 6px;
-        }
-        
-        .scrollable-area::-webkit-scrollbar-track {
-          background: '#374151';
-        }
-        
-        .scrollable-area::-webkit-scrollbar-thumb {
-          background: '#6b7280';
-          border-radius: 3px;
-        }
-        
-        .scrollable-area::-webkit-scrollbar-thumb:hover {
-          background: '#9ca3af';
-        }
-      `}</style>
 
-      {/* Success Modal */}
+
       {showSuccess && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(0,0,0,0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center',
-          zIndex: 1000, backdropFilter: 'blur(10px)'
-        }}>
-          <div className="glass" style={{
-            padding: '30px', borderRadius: '20px', textAlign: 'center',
-            boxShadow: '0 20px 40px rgba(0,0,0,0.3)', color: 'white',
-            position: 'relative', maxWidth: '600px'
-          }}>
-            {/* Close Button */}
-            <button
-              onClick={() => {
-                setShowSuccess(false);
-                setOrderItems([]);
-                setCustomer({ name: '', phone: '' });
-                setDiscount(0);
-                setDeliveryCharge(0);
-                setPreviousBalance(0);
-                setSelectedPendingBills([]);
-                setBillNumber(`GZ${Date.now().toString().slice(-6)}`);
-                if (itemInputRef.current) {
-                  itemInputRef.current.focus();
-                }
-              }}
-              style={{
-                position: 'absolute',
-                top: '15px',
-                right: '15px',
-                background: 'rgba(255, 255, 255, 0.2)',
-                border: 'none',
-                borderRadius: '50%',
-                width: '35px',
-                height: '35px',
-                cursor: 'pointer',
-                fontSize: '20px',
-                color: 'white',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                transition: 'all 0.2s'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.3)';
-                e.currentTarget.style.transform = 'scale(1.1)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
-                e.currentTarget.style.transform = 'scale(1)';
-              }}
-              title="Close"
-            >
-              ✕
-            </button>
-
-            <div style={{ fontSize: '80px', marginBottom: '20px', animation: 'pulse 2s infinite' }}>✅</div>
-            <h2 style={{ margin: 0, fontSize: '28px', fontWeight: 'bold', marginBottom: '10px' }}>
-              Success!
+        <div className="modal-overlay">
+          <div className="modal-card" style={{ textAlign: 'center', maxWidth: '500px' }}>
+            <div className="alert-icon alert-icon-success" style={{ margin: '0 auto 16px', width: '48px', height: '48px', fontSize: '20px' }}>
+              <i className="fas fa-check"></i>
+            </div>
+            <h2 style={{ margin: '0 0 8px', fontSize: '22px', fontWeight: '700', color: 'var(--text-primary)' }}>
+              Bill Created
             </h2>
-            <p style={{ margin: '15px 0 0 0', fontSize: '16px', opacity: 0.9 }}>
-              Bill #{billNumber} printed successfully<br/>
-              {orderItems.reduce((sum, item) => sum + item.quantity, 0)} new tags generated
+            <p style={{ margin: '0 0 20px', fontSize: '14px', color: 'var(--text-secondary)' }}>
+              Bill #{billNumber} printed &middot; {orderItems.reduce((sum, item) => sum + item.quantity, 0)} tags generated
               {selectedPendingBills.length > 0 && (
-                <>
-                  <br/>+ {selectedPendingBills.length} previous bill{selectedPendingBills.length > 1 ? 's' : ''} included
-                </>
+                <> &middot; {selectedPendingBills.length} previous bill{selectedPendingBills.length > 1 ? 's' : ''} included</>
               )}
             </p>
             {lastGeneratedBill && (
-              <div style={{ marginTop: '20px' }}>
+              <div style={{ marginBottom: '16px' }}>
                 <BillShareButton billData={lastGeneratedBill} variant="full" />
               </div>
             )}
-            
-            {/* Continue Button */}
             <button
+              className="btn btn-primary btn-block"
               onClick={() => {
                 setShowSuccess(false);
                 setOrderItems([]);
@@ -910,144 +740,56 @@ const quickItems = [
                 setPreviousBalance(0);
                 setSelectedPendingBills([]);
                 setBillNumber(`GZ${Date.now().toString().slice(-6)}`);
-                if (itemInputRef.current) {
-                  itemInputRef.current.focus();
-                }
-              }}
-              style={{
-                marginTop: '20px',
-                background: 'rgba(255, 255, 255, 0.2)',
-                color: 'white',
-                border: '2px solid rgba(255, 255, 255, 0.3)',
-                padding: '12px 30px',
-                borderRadius: '10px',
-                cursor: 'pointer',
-                fontSize: '16px',
-                fontWeight: 'bold',
-                transition: 'all 0.2s'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.3)';
-                e.currentTarget.style.transform = 'scale(1.05)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
-                e.currentTarget.style.transform = 'scale(1)';
+                if (itemInputRef.current) itemInputRef.current.focus();
               }}
             >
-              Continue to Next Bill
+              Next Bill
             </button>
           </div>
         </div>
       )}
 
-      {/* Professional Header */}
-      <div className="professional-card" style={{
-        padding: '16px 24px', display: 'flex', justifyContent: 'space-between',
-        alignItems: 'center', margin: '0', borderRadius: '0', borderBottom: '2px solid #4b5563',
-        background: '#374151'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <div style={{
-            width: '48px', height: '48px', borderRadius: '12px',
-            background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)', 
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)',
-            border: '2px solid rgba(255, 255, 255, 0.1)',
-            overflow: 'hidden'
-          }}>
-            <img 
-              src="/logo.png" 
-              alt="GenZ Laundry Logo"
-              style={{
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover',
-                borderRadius: '10px'
-              }}
-              onError={(e) => {
-                // Fallback to text logo if image fails to load
-                e.target.style.display = 'none';
-                e.target.parentElement.innerHTML = `
-                  <div style="display: flex; flex-direction: column; align-items: center; line-height: 0.8; color: white; font-weight: bold;">
-                    <span style="font-size: 14px;">G</span>
-                    <span style="font-size: 14px;">Z</span>
-                  </div>
-                `;
-              }}
-            />
-          </div>
+      <div className="pos-header">
+        <div className="pos-header-brand">
+          <img src="/logo.png" alt="GenZ Laundry" className="pos-header-logo" />
           <div>
-            <h1 style={{ 
-              margin: 0, fontSize: '24px', fontWeight: '600', 
-              color: '#f9fafb',
-              background: 'linear-gradient(135deg, #f9fafb, #d1d5db)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text'
-            }}>
-              {shopConfig.shopName} - POS
-            </h1>
-            <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: '#d1d5db' }}>
-              Invoice #{billNumber} • {new Date().toLocaleDateString('en-IN')}
-            </p>
+            <h1>{shopConfig.shopName}</h1>
+            <p>#{billNumber} &middot; {new Date().toLocaleDateString('en-IN')}</p>
           </div>
         </div>
-        
-        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-          <div style={{ 
-            padding: '8px 16px', borderRadius: '6px', 
-            background: '#4b5563', border: '1px solid #6b7280'
-          }}>
-            <div style={{ fontSize: '12px', color: '#d1d5db', marginBottom: '2px' }}>Operator</div>
-            <div style={{ fontSize: '14px', fontWeight: '500', color: '#f9fafb' }}>Admin User</div>
-          </div>
-          
+        <div className="pos-header-actions">
           {onLogout && (
-            <div style={{ display: 'flex', gap: '8px' }}>
+            <>
               {onSwitchToAdmin && (
-                <button onClick={onSwitchToAdmin} className="professional-btn" style={{
-                  padding: '8px 16px', borderRadius: '6px', fontSize: '14px',
-                  background: '#7c3aed', color: 'white'
-                }}>
-                  Admin Panel
+                <button onClick={onSwitchToAdmin} className="btn btn-ghost btn-sm">
+                  <i className="fas fa-cog"></i> Admin
                 </button>
               )}
-              <button onClick={onLogout} className="professional-btn" style={{
-                padding: '8px 16px', borderRadius: '6px', fontSize: '14px',
-                background: '#ef4444', color: 'white'
-              }}>
-                Logout
+              <button onClick={onLogout} className="btn btn-danger btn-sm">
+                <i className="fas fa-right-from-bracket"></i> Logout
               </button>
-            </div>
+            </>
           )}
         </div>
       </div>
 
-      {/* Main Content - Professional Layout */}
-      <div style={{ display: 'flex', height: 'calc(100vh - 80px)' }}>
-        
-        {/* Left Panel - Input Section */}
-        <div className="professional-card" style={{ 
-          width: '65%', display: 'flex', flexDirection: 'column',
-          margin: '0', borderRadius: '0', borderRight: '1px solid #4b5563',
-          background: '#374151'
-        }}>
-          
+      <div className="pos-layout">
+        <div className="pos-panel-left">
+
           {/* Customer Section */}
           <div style={{
-            padding: '24px 28px', 
+            padding: '24px 28px',
             borderBottom: '1px solid #4b5563'
           }}>
-            <div style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
               marginBottom: '20px',
               gap: '12px'
             }}>
               <div style={{
                 width: '36px', height: '36px', borderRadius: '8px',
-                background: '#3b82f6', 
+                background: '#3b82f6',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 color: 'white', fontSize: '16px'
               }}>
@@ -1057,7 +799,7 @@ const quickItems = [
                 Customer Information
               </h3>
             </div>
-            
+
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 160px 90px', gap: '16px' }}>
               {/* Customer Name Input */}
               <div style={{ position: 'relative' }}>
@@ -1088,15 +830,15 @@ const quickItems = [
                     👤
                   </div>
                   <input
-                    type="text" 
-                    placeholder="Enter customer name" 
+                    type="text"
+                    placeholder="Enter customer name"
                     value={customer.name}
                     onChange={(e) => setCustomer({ ...customer, name: e.target.value })}
                     className="professional-input"
-                    style={{ 
+                    style={{
                       width: '100%',
-                      padding: '12px 16px 12px 40px', 
-                      borderRadius: '8px', 
+                      padding: '12px 16px 12px 40px',
+                      borderRadius: '8px',
                       fontSize: '14px',
                       fontWeight: '500',
                       transition: 'all 0.2s ease'
@@ -1104,7 +846,7 @@ const quickItems = [
                   />
                 </div>
               </div>
-              
+
               {/* Phone Number Input with History */}
               <div style={{ position: 'relative' }}>
                 <label style={{
@@ -1134,15 +876,15 @@ const quickItems = [
                     📱
                   </div>
                   <input
-                    type="tel" 
-                    placeholder="Enter phone number" 
+                    type="tel"
+                    placeholder="Enter phone number"
                     value={customer.phone}
                     onChange={(e) => setCustomer({ ...customer, phone: e.target.value })}
                     className="professional-input"
-                    style={{ 
+                    style={{
                       width: '100%',
-                      padding: '12px 40px 12px 40px', 
-                      borderRadius: '8px', 
+                      padding: '12px 40px 12px 40px',
+                      borderRadius: '8px',
                       fontSize: '14px',
                       fontWeight: '500',
                       transition: 'all 0.2s ease'
@@ -1167,12 +909,12 @@ const quickItems = [
                       }}
                       title="View customer history"
                     >
-                      📋 {customerHistory.length}
+                      <i className="fas fa-clipboard-list"></i> {customerHistory.length}
                     </button>
                   )}
                 </div>
               </div>
-              
+
               {/* Date Input */}
               <div style={{ position: 'relative' }}>
                 <label style={{
@@ -1202,14 +944,14 @@ const quickItems = [
                     📅
                   </div>
                   <input
-                    type="date" 
+                    type="date"
                     value={billDate}
                     onChange={(e) => setBillDate(e.target.value)}
                     className="professional-input"
-                    style={{ 
+                    style={{
                       width: '100%',
-                      padding: '12px 16px 12px 40px', 
-                      borderRadius: '8px', 
+                      padding: '12px 16px 12px 40px',
+                      borderRadius: '8px',
                       fontSize: '14px',
                       fontWeight: '500',
                       transition: 'all 0.2s ease'
@@ -1217,17 +959,17 @@ const quickItems = [
                   />
                 </div>
               </div>
-              
+
               {/* Today Button */}
               <button
                 onClick={() => setBillDate(new Date().toISOString().split('T')[0])}
                 className="professional-btn"
                 style={{
-                  padding: '12px 16px', 
-                  borderRadius: '8px', 
-                  fontSize: '13px', 
+                  padding: '12px 16px',
+                  borderRadius: '8px',
+                  fontSize: '13px',
                   fontWeight: '600',
-                  background: 'linear-gradient(135deg, #3b82f6, #2563eb)', 
+                  background: 'linear-gradient(135deg, #3b82f6, #2563eb)',
                   color: 'white',
                   display: 'flex',
                   alignItems: 'center',
@@ -1242,29 +984,29 @@ const quickItems = [
           </div>
 
           {/* Item Entry */}
-          <div style={{ 
-            padding: '24px 28px', 
+          <div style={{
+            padding: '24px 28px',
             borderBottom: '1px solid #4b5563'
           }}>
-            <div style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
               marginBottom: '20px',
               gap: '12px'
             }}>
               <div style={{
                 width: '36px', height: '36px', borderRadius: '8px',
-                background: '#10b981', 
+                background: '#10b981',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 color: 'white', fontSize: '16px'
               }}>
-                ➕
+                <i className="fas fa-plus" style={{ fontSize: '14px' }}></i>
               </div>
               <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '600', color: '#f9fafb' }}>
                 Add New Item
               </h3>
             </div>
-            
+
             <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1.2fr auto', gap: '16px' }}>
               {/* Item Name Input */}
               <div style={{ position: 'relative' }}>
@@ -1295,16 +1037,16 @@ const quickItems = [
                     🏷️
                   </div>
                   <input
-                    ref={itemInputRef} 
-                    type="text" 
-                    value={currentItem} 
+                    ref={itemInputRef}
+                    type="text"
+                    value={currentItem}
                     onChange={(e) => setCurrentItem(e.target.value)}
-                    placeholder="Enter item name" 
+                    placeholder="Enter item name"
                     className="professional-input"
-                    style={{ 
+                    style={{
                       width: '100%',
-                      padding: '12px 16px 12px 40px', 
-                      borderRadius: '8px', 
+                      padding: '12px 16px 12px 40px',
+                      borderRadius: '8px',
                       fontSize: '14px',
                       fontWeight: '500',
                       transition: 'all 0.2s ease'
@@ -1313,7 +1055,7 @@ const quickItems = [
                   />
                 </div>
               </div>
-              
+
               {/* Price Input */}
               <div style={{ position: 'relative' }}>
                 <label style={{
@@ -1343,16 +1085,16 @@ const quickItems = [
                     ₹
                   </div>
                   <input
-                    ref={priceInputRef} 
-                    type="number" 
-                    value={currentPrice} 
+                    ref={priceInputRef}
+                    type="number"
+                    value={currentPrice}
                     onChange={(e) => setCurrentPrice(e.target.value)}
-                    placeholder="0.00" 
+                    placeholder="0.00"
                     className="professional-input"
-                    style={{ 
+                    style={{
                       width: '100%',
-                      padding: '12px 16px 12px 40px', 
-                      borderRadius: '8px', 
+                      padding: '12px 16px 12px 40px',
+                      borderRadius: '8px',
                       fontSize: '14px',
                       fontWeight: '500',
                       transition: 'all 0.2s ease'
@@ -1361,7 +1103,7 @@ const quickItems = [
                   />
                 </div>
               </div>
-              
+
               {/* Quantity Input */}
               <div style={{ position: 'relative' }}>
                 <label style={{
@@ -1391,15 +1133,15 @@ const quickItems = [
                     #
                   </div>
                   <input
-                    type="number" 
-                    value={currentQuantity} 
+                    type="number"
+                    value={currentQuantity}
                     onChange={(e) => setCurrentQuantity(parseInt(e.target.value) || 0)}
-                    min="0" 
+                    min="0"
                     className="professional-input"
-                    style={{ 
+                    style={{
                       width: '100%',
-                      padding: '12px 16px 12px 40px', 
-                      borderRadius: '8px', 
+                      padding: '12px 16px 12px 40px',
+                      borderRadius: '8px',
                       fontSize: '14px',
                       fontWeight: '500',
                       transition: 'all 0.2s ease'
@@ -1407,7 +1149,7 @@ const quickItems = [
                   />
                 </div>
               </div>
-              
+
               {/* Wash Type Select */}
               <div style={{ position: 'relative' }}>
                 <label style={{
@@ -1437,14 +1179,14 @@ const quickItems = [
                     🧺
                   </div>
                   <select
-                    value={currentWashType} 
+                    value={currentWashType}
                     onChange={(e) => setCurrentWashType(e.target.value as any)}
-                    className="professional-input" 
-                    style={{ 
+                    className="professional-input"
+                    style={{
                       width: '100%',
-                      padding: '12px 16px 12px 40px', 
-                      borderRadius: '8px', 
-                      fontSize: '14px', 
+                      padding: '12px 16px 12px 40px',
+                      borderRadius: '8px',
+                      fontSize: '14px',
                       cursor: 'pointer',
                       fontWeight: '500',
                       transition: 'all 0.2s ease',
@@ -1462,17 +1204,17 @@ const quickItems = [
                   </select>
                 </div>
               </div>
-              
+
               {/* Add Button */}
-              <button 
-                onClick={addItemToOrder} 
-                className="professional-btn" 
+              <button
+                onClick={addItemToOrder}
+                className="professional-btn"
                 style={{
-                  padding: '12px 20px', 
-                  borderRadius: '8px', 
-                  fontSize: '14px', 
+                  padding: '12px 20px',
+                  borderRadius: '8px',
+                  fontSize: '14px',
                   fontWeight: '600',
-                  background: 'linear-gradient(135deg, #10b981, #059669)', 
+                  background: 'linear-gradient(135deg, #10b981, #059669)',
                   color: 'white',
                   display: 'flex',
                   alignItems: 'center',
@@ -1482,19 +1224,19 @@ const quickItems = [
                   minHeight: '48px'
                 }}
               >
-                ➕ Add Item
+                <i className="fas fa-plus"></i> Add Item
               </button>
             </div>
           </div>
 
           {/* Quick Items */}
-          <div className="scrollable-area" style={{ 
+          <div className="scrollable-area" style={{
             padding: '24px 28px', flex: 1, overflow: 'auto',
             borderTop: '2px solid #4b5563'
           }}>
-            <div style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
               marginBottom: '20px',
               gap: '12px',
               paddingBottom: '16px',
@@ -1502,7 +1244,7 @@ const quickItems = [
             }}>
               <div style={{
                 width: '36px', height: '36px', borderRadius: '8px',
-                background: 'linear-gradient(135deg, #f59e0b, #d97706)', 
+                background: 'linear-gradient(135deg, #f59e0b, #d97706)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 color: 'white', fontSize: '16px',
                 boxShadow: '0 2px 8px rgba(245, 158, 11, 0.3)'
@@ -1513,7 +1255,7 @@ const quickItems = [
                 Quick Add Items
               </h3>
             </div>
-            
+
             {/* Enhanced Search Bar */}
             <div style={{ marginBottom: '20px', position: 'relative' }}>
               <label style={{
@@ -1540,7 +1282,7 @@ const quickItems = [
                   fontSize: '16px',
                   pointerEvents: 'none'
                 }}>
-                  🔍
+                  <i className="fas fa-search" style={{ pointerEvents: 'none' }}></i>
                 </div>
                 <input
                   type="text"
@@ -1578,52 +1320,22 @@ const quickItems = [
                 )}
               </div>
             </div>
-            
-            <div style={{ 
-              display: 'grid', 
-              gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', 
-              gap: '12px' 
+
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
+              gap: '12px'
             }}>
               {filteredQuickItems.length > 0 ? (
                 filteredQuickItems.map((item, index) => (
                   <button
-                    key={index} 
-                    onClick={() => addQuickItem(item)} 
-                    className="quick-item-professional"
-                    style={{
-                      padding: '18px 14px', borderRadius: '8px', cursor: 'pointer',
-                      fontSize: '12px', fontWeight: '500', textAlign: 'center',
-                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px',
-                      minHeight: '110px', justifyContent: 'center',
-                      boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
-                    }}
+                    key={index}
+                    onClick={() => addQuickItem(item)}
+                    className="quick-item-btn"
                   >
-                    <div style={{ 
-                      fontSize: '28px',
-                      filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2))'
-                    }}>
-                      {item.icon}
-                    </div>
-                    <div style={{ 
-                      fontSize: '12px', 
-                      fontWeight: '600', 
-                      lineHeight: '1.2',
-                      color: '#f9fafb',
-                      textAlign: 'center'
-                    }}>
-                      {item.name}
-                    </div>
-                    <div style={{ 
-                      fontSize: '15px', 
-                      fontWeight: '700', 
-                      color: '#10b981',
-                      background: 'rgba(16, 185, 129, 0.1)',
-                      padding: '4px 8px',
-                      borderRadius: '4px',
-                      border: '1px solid rgba(16, 185, 129, 0.3)'
-                    }}>
-                      ₹{item.price}
-                    </div>
+                    <i className={`fas ${item.icon}`}></i>
+                    <span>{item.name}</span>
+                    <span className="price-tag">₹{item.price}</span>
                   </button>
                 ))
               ) : (
@@ -1633,7 +1345,7 @@ const quickItems = [
                   padding: '40px 20px',
                   color: '#9ca3af'
                 }}>
-                  <div style={{ fontSize: '48px', marginBottom: '16px' }}>🔍</div>
+                  <i className="fas fa-search" style={{ fontSize: '24px', marginBottom: '12px', opacity: 0.5 }}></i>
                   <div style={{ fontSize: '16px', fontWeight: '500', marginBottom: '8px' }}>
                     No items found
                   </div>
@@ -1647,15 +1359,15 @@ const quickItems = [
         </div>
 
         {/* Right Panel - Bill Summary */}
-        <div className="professional-card" style={{ 
+        <div className="professional-card" style={{
           width: '35%', display: 'flex', flexDirection: 'column',
           margin: '0', borderRadius: '0', background: '#374151'
         }}>
-          
+
           {/* Bill Header */}
           <div style={{
-            padding: '16px 20px', 
-            background: '#1f2937', 
+            padding: '16px 20px',
+            background: '#1f2937',
             color: 'white',
             display: 'flex',
             justifyContent: 'space-between',
@@ -1664,7 +1376,7 @@ const quickItems = [
             <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '600' }}>
               Bill Summary
             </h3>
-            
+
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <button
                 onClick={() => setShowItemListManager(true)}
@@ -1680,7 +1392,7 @@ const quickItems = [
               >
                 Manage ({orderItems.length})
               </button>
-              
+
               <button
                 onClick={() => setShowPendingBillSelector(true)}
                 className="professional-btn"
@@ -1695,7 +1407,7 @@ const quickItems = [
               >
                 Previous ({selectedPendingBills.length})
               </button>
-              
+
               <button
                 onClick={() => setShowQuickDiscount(true)}
                 className="professional-btn"
@@ -1708,9 +1420,9 @@ const quickItems = [
                   fontWeight: '500'
                 }}
               >
-                💰 Discount
+                <i className="fas fa-percent"></i> Discount
               </button>
-              
+
               <button
                 onClick={() => setShowUPISettings(true)}
                 className="professional-btn"
@@ -1729,29 +1441,29 @@ const quickItems = [
           </div>
 
           {/* Items List - Scrollable */}
-          <div className="scrollable-area" style={{ 
+          <div className="scrollable-area" style={{
             flex: 1, overflow: 'auto', maxHeight: 'calc(100vh - 400px)'
           }}>
             {orderItems.length === 0 && selectedPendingBills.length === 0 && previousBalance === 0 ? (
-              <div style={{ 
-                padding: '40px 20px', 
-                textAlign: 'center', 
+              <div style={{
+                padding: '40px 20px',
+                textAlign: 'center',
                 color: '#9ca3af'
               }}>
-                <div style={{ fontSize: '48px', marginBottom: '16px', opacity: 0.5 }}>📝</div>
+                <i className="fas fa-receipt" style={{ fontSize: '24px', marginBottom: '12px', opacity: 0.3, color: 'var(--text-muted)' }}></i>
                 <div style={{ fontSize: '16px', fontWeight: '500', marginBottom: '8px' }}>No items added</div>
                 <div style={{ fontSize: '14px' }}>Add items to see bill summary</div>
               </div>
             ) : (
               <div style={{ padding: '16px' }}>
-                
+
                 {/* Current Order Items */}
                 {orderItems.length > 0 && (
                   <div style={{ marginBottom: '20px' }}>
-                    <div style={{ 
-                      fontSize: '14px', 
-                      fontWeight: '600', 
-                      color: '#f9fafb', 
+                    <div style={{
+                      fontSize: '14px',
+                      fontWeight: '600',
+                      color: '#f9fafb',
                       marginBottom: '12px',
                       padding: '8px 12px',
                       background: '#4b5563',
@@ -1760,7 +1472,7 @@ const quickItems = [
                     }}>
                       Current Order ({orderItems.reduce((sum, item) => sum + item.quantity, 0)} items)
                     </div>
-                    
+
                     {orderItems.map((item) => (
                       <div key={item.id} className="item-list-professional" style={{
                         borderRadius: '4px',
@@ -1771,21 +1483,21 @@ const quickItems = [
                         alignItems: 'center'
                       }}>
                         <div style={{ flex: 1 }}>
-                          <div style={{ 
-                            fontWeight: '500', 
-                            fontSize: '14px', 
+                          <div style={{
+                            fontWeight: '500',
+                            fontSize: '14px',
                             marginBottom: '4px',
                             color: '#f9fafb'
                           }}>
                             {item.name}
                           </div>
-                          <div style={{ 
-                            fontSize: '12px', 
+                          <div style={{
+                            fontSize: '12px',
                             color: '#d1d5db',
                             display: 'flex',
                             gap: '12px'
                           }}>
-                            <span style={{ 
+                            <span style={{
                               background: '#6b7280',
                               padding: '2px 6px',
                               borderRadius: '3px',
@@ -1799,10 +1511,10 @@ const quickItems = [
                           </div>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                          <div style={{ 
-                            color: '#10b981', 
-                            fontWeight: '600', 
-                            fontSize: '16px' 
+                          <div style={{
+                            color: '#10b981',
+                            fontWeight: '600',
+                            fontSize: '16px'
                           }}>
                             ₹{item.total}
                           </div>
@@ -1829,10 +1541,10 @@ const quickItems = [
                 {/* Selected Pending Bills */}
                 {selectedPendingBills.length > 0 && (
                   <div style={{ marginBottom: '20px' }}>
-                    <div style={{ 
-                      fontSize: '14px', 
-                      fontWeight: '600', 
-                      color: '#495057', 
+                    <div style={{
+                      fontSize: '14px',
+                      fontWeight: '600',
+                      color: '#495057',
                       marginBottom: '12px',
                       padding: '8px 12px',
                       background: '#fff3cd',
@@ -1841,70 +1553,71 @@ const quickItems = [
                     }}>
                       Previous Bills ({selectedPendingBills.length} bills)
                     </div>
-                    
+
                     {selectedPendingBills.map((bill) => {
                       const billId = bill.id || bill._id;
                       return (
-                      <div key={billId} className="item-list-professional" style={{
-                        borderRadius: '4px',
-                        padding: '12px',
-                        marginBottom: '8px',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        background: '#fff3cd'
-                      }}>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ 
-                            fontWeight: '500', 
-                            fontSize: '14px', 
-                            marginBottom: '4px',
-                            color: '#212529'
-                          }}>
-                            {bill.billNumber}
-                          </div>
-                          <div style={{ 
-                            fontSize: '12px', 
-                            color: '#6c757d'
-                          }}>
-                            {bill.items.length} items • {new Date(bill.createdAt).toLocaleDateString()}
-                          </div>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                          <div style={{ 
-                            color: '#fd7e14', 
-                            fontWeight: '600', 
-                            fontSize: '16px' 
-                          }}>
-                            ₹{bill.grandTotal}
-                          </div>
-                          <button
-                            onClick={() => removePendingBill(billId)}
-                            className="professional-btn"
-                            style={{
-                              background: '#dc3545',
-                              color: 'white',
-                              padding: '4px 8px',
-                              borderRadius: '4px',
+                        <div key={billId} className="item-list-professional" style={{
+                          borderRadius: '4px',
+                          padding: '12px',
+                          marginBottom: '8px',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          background: '#fff3cd'
+                        }}>
+                          <div style={{ flex: 1 }}>
+                            <div style={{
+                              fontWeight: '500',
+                              fontSize: '14px',
+                              marginBottom: '4px',
+                              color: '#212529'
+                            }}>
+                              {bill.billNumber}
+                            </div>
+                            <div style={{
                               fontSize: '12px',
-                              fontWeight: '500'
-                            }}
-                          >
-                            Remove
-                          </button>
+                              color: '#6c757d'
+                            }}>
+                              {bill.items.length} items • {new Date(bill.createdAt).toLocaleDateString()}
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <div style={{
+                              color: '#fd7e14',
+                              fontWeight: '600',
+                              fontSize: '16px'
+                            }}>
+                              ₹{bill.grandTotal}
+                            </div>
+                            <button
+                              onClick={() => removePendingBill(billId)}
+                              className="professional-btn"
+                              style={{
+                                background: '#dc3545',
+                                color: 'white',
+                                padding: '4px 8px',
+                                borderRadius: '4px',
+                                fontSize: '12px',
+                                fontWeight: '500'
+                              }}
+                            >
+                              Remove
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    )})}
+                      )
+                    })}
                   </div>
                 )}
 
                 {/* Previous Due */}
                 {previousBalance > 0 && (
                   <div style={{ marginBottom: '20px' }}>
-                    <div style={{ 
-                      fontSize: '14px', 
-                      fontWeight: '600', 
-                      color: '#495057', 
+                    <div style={{
+                      fontSize: '14px',
+                      fontWeight: '600',
+                      color: '#495057',
                       marginBottom: '12px',
                       padding: '8px 12px',
                       background: '#f8d7da',
@@ -1913,7 +1626,7 @@ const quickItems = [
                     }}>
                       Previous Due
                     </div>
-                    
+
                     <div className="item-list-professional" style={{
                       borderRadius: '4px',
                       padding: '12px',
@@ -1923,26 +1636,26 @@ const quickItems = [
                       background: '#f8d7da'
                     }}>
                       <div style={{ flex: 1 }}>
-                        <div style={{ 
-                          fontWeight: '500', 
-                          fontSize: '14px', 
+                        <div style={{
+                          fontWeight: '500',
+                          fontSize: '14px',
                           marginBottom: '4px',
                           color: '#212529'
                         }}>
                           Outstanding Amount
                         </div>
-                        <div style={{ 
-                          fontSize: '12px', 
+                        <div style={{
+                          fontSize: '12px',
                           color: '#6c757d'
                         }}>
                           Previous due to settle
                         </div>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <div style={{ 
-                          color: '#dc3545', 
-                          fontWeight: '600', 
-                          fontSize: '16px' 
+                        <div style={{
+                          color: '#dc3545',
+                          fontWeight: '600',
+                          fontSize: '16px'
                         }}>
                           ₹{previousBalance}
                         </div>
@@ -1969,39 +1682,39 @@ const quickItems = [
           </div>
 
           {/* Bill Footer - Professional Calculations & Actions */}
-          <div style={{ 
-            background: 'linear-gradient(135deg, #000000ff, #408999ff)', 
+          <div style={{
+            background: 'linear-gradient(135deg, #000000ff, #408999ff)',
             padding: '20px',
             borderTop: '1px solid rgba(91, 56, 56, 0.1)'
           }}>
-            
+
             {/* Quick Adjustments */}
-            <div style={{ 
-              display: 'grid', 
-              gridTemplateColumns: '1fr 1fr 1fr', 
-              gap: '12px', 
-              marginBottom: '20px' 
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr 1fr',
+              gap: '12px',
+              marginBottom: '20px'
             }}>
               <div>
-                <label style={{ 
-                  display: 'block', 
-                  marginBottom: '6px', 
-                  fontSize: '11px', 
-                  fontWeight: '600', 
-                  color: 'rgba(255, 255, 255, 0.8)' 
+                <label style={{
+                  display: 'block',
+                  marginBottom: '6px',
+                  fontSize: '11px',
+                  fontWeight: '600',
+                  color: 'rgba(255, 255, 255, 0.8)'
                 }}>
                   Discount
                 </label>
                 <input
-                  type="number" 
-                  value={discount} 
+                  type="number"
+                  value={discount}
                   onChange={(e) => setDiscount(Math.max(0, parseFloat(e.target.value) || 0))}
-                  placeholder="₹0" 
-                  style={{ 
-                    width: '100%', 
-                    padding: '8px', 
-                    borderRadius: '6px', 
-                    fontSize: '12px', 
+                  placeholder="₹0"
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    borderRadius: '6px',
+                    fontSize: '12px',
                     outline: 'none',
                     border: '1px solid rgba(255, 255, 255, 0.2)',
                     background: 'rgba(255, 255, 255, 0.95)',
@@ -2013,25 +1726,25 @@ const quickItems = [
                 />
               </div>
               <div>
-                <label style={{ 
-                  display: 'block', 
-                  marginBottom: '6px', 
-                  fontSize: '11px', 
-                  fontWeight: '600', 
-                  color: 'rgba(255, 255, 255, 0.8)' 
+                <label style={{
+                  display: 'block',
+                  marginBottom: '6px',
+                  fontSize: '11px',
+                  fontWeight: '600',
+                  color: 'rgba(255, 255, 255, 0.8)'
                 }}>
                   Delivery
                 </label>
                 <input
-                  type="number" 
-                  value={deliveryCharge} 
+                  type="number"
+                  value={deliveryCharge}
                   onChange={(e) => setDeliveryCharge(Math.max(0, parseFloat(e.target.value) || 0))}
-                  placeholder="₹0" 
-                  style={{ 
-                    width: '100%', 
-                    padding: '8px', 
-                    borderRadius: '6px', 
-                    fontSize: '12px', 
+                  placeholder="₹0"
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    borderRadius: '6px',
+                    fontSize: '12px',
                     outline: 'none',
                     border: '1px solid rgba(255, 255, 255, 0.2)',
                     background: 'rgba(255, 255, 255, 0.95)',
@@ -2043,26 +1756,26 @@ const quickItems = [
                 />
               </div>
               <div>
-                <label style={{ 
-                  display: 'block', 
-                  marginBottom: '6px', 
-                  fontSize: '11px', 
-                  fontWeight: '600', 
-                  color: '#f39c12' 
+                <label style={{
+                  display: 'block',
+                  marginBottom: '6px',
+                  fontSize: '11px',
+                  fontWeight: '600',
+                  color: '#f39c12'
                 }}>
                   Previous Due
                 </label>
                 <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
                   <input
-                    type="number" 
-                    value={previousBalance} 
+                    type="number"
+                    value={previousBalance}
                     onChange={(e) => setPreviousBalance(Math.max(0, parseFloat(e.target.value) || 0))}
-                    placeholder="₹0" 
-                    style={{ 
+                    placeholder="₹0"
+                    style={{
                       flex: 1,
-                      padding: '8px', 
-                      borderRadius: '6px', 
-                      fontSize: '12px', 
+                      padding: '8px',
+                      borderRadius: '6px',
+                      fontSize: '12px',
                       outline: 'none',
                       border: previousBalance > 0 ? '2px solid #f39c12' : '1px solid rgba(255, 255, 255, 0.2)',
                       background: 'rgba(255, 255, 255, 0.95)',
@@ -2099,9 +1812,9 @@ const quickItems = [
             </div>
 
             {/* Bill Totals */}
-            <div style={{ 
-              background: 'rgba(255, 255, 255, 0.05)', 
-              borderRadius: '10px', 
+            <div style={{
+              background: 'rgba(255, 255, 255, 0.05)',
+              borderRadius: '10px',
               padding: '16px',
               marginBottom: '20px',
               border: '1px solid rgba(255, 255, 255, 0.1)'
@@ -2132,18 +1845,18 @@ const quickItems = [
             {/* Action Buttons */}
             <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
               <button
-                onClick={printClothingTags} 
+                onClick={printClothingTags}
                 disabled={orderItems.length === 0 || !customer.name}
                 style={{
                   flex: 1,
-                  padding: '12px', 
-                  borderRadius: '8px', 
-                  fontSize: '12px', 
+                  padding: '12px',
+                  borderRadius: '8px',
+                  fontSize: '12px',
                   fontWeight: '600',
-                  background: orderItems.length === 0 || !customer.name 
-                    ? 'rgba(189, 195, 199, 0.3)' 
+                  background: orderItems.length === 0 || !customer.name
+                    ? 'rgba(189, 195, 199, 0.3)'
                     : 'linear-gradient(135deg, #f39c12, #e67e22)',
-                  color: 'white', 
+                  color: 'white',
                   cursor: orderItems.length === 0 || !customer.name ? 'not-allowed' : 'pointer',
                   border: 'none',
                   textAlign: 'center',
@@ -2160,24 +1873,24 @@ const quickItems = [
                   e.target.style.boxShadow = 'none';
                 }}
               >
-                🏷️ Print Tags
+                <i className="fas fa-tag"></i> Print Tags
               </button>
-              
+
               <button
-                onClick={clearOrder} 
+                onClick={clearOrder}
                 disabled={orderItems.length === 0 && selectedPendingBills.length === 0 && previousBalance === 0}
                 style={{
                   flex: 1,
-                  padding: '12px', 
-                  borderRadius: '8px', 
-                  fontSize: '12px', 
+                  padding: '12px',
+                  borderRadius: '8px',
+                  fontSize: '12px',
                   fontWeight: '600',
-                  background: (orderItems.length === 0 && selectedPendingBills.length === 0 && previousBalance === 0) 
-                    ? 'rgba(189, 195, 199, 0.3)' 
+                  background: (orderItems.length === 0 && selectedPendingBills.length === 0 && previousBalance === 0)
+                    ? 'rgba(189, 195, 199, 0.3)'
                     : 'linear-gradient(135deg, #95a5a6, #7f8c8d)',
-                  color: 'white', 
-                  cursor: (orderItems.length === 0 && selectedPendingBills.length === 0 && previousBalance === 0) 
-                    ? 'not-allowed' 
+                  color: 'white',
+                  cursor: (orderItems.length === 0 && selectedPendingBills.length === 0 && previousBalance === 0)
+                    ? 'not-allowed'
                     : 'pointer',
                   border: 'none',
                   textAlign: 'center',
@@ -2194,25 +1907,25 @@ const quickItems = [
                   e.target.style.boxShadow = 'none';
                 }}
               >
-                🗑️ Clear All
+                <i className="fas fa-trash"></i> Clear
               </button>
             </div>
 
             <button
-              onClick={processOrder} 
+              onClick={processOrder}
               disabled={!customer.name || (orderItems.length === 0 && selectedPendingBills.length === 0 && previousBalance === 0) || isProcessing}
               style={{
                 width: '100%',
-                padding: '14px', 
-                borderRadius: '10px', 
-                fontSize: '14px', 
+                padding: '14px',
+                borderRadius: '10px',
+                fontSize: '14px',
                 fontWeight: 'bold',
-                background: (!customer.name || (orderItems.length === 0 && selectedPendingBills.length === 0 && previousBalance === 0) || isProcessing) 
-                  ? 'rgba(189, 195, 199, 0.3)' 
+                background: (!customer.name || (orderItems.length === 0 && selectedPendingBills.length === 0 && previousBalance === 0) || isProcessing)
+                  ? 'rgba(189, 195, 199, 0.3)'
                   : 'linear-gradient(135deg, #27ae60, #2ecc71)',
-                color: 'white', 
-                cursor: (!customer.name || (orderItems.length === 0 && selectedPendingBills.length === 0 && previousBalance === 0) || isProcessing) 
-                  ? 'not-allowed' 
+                color: 'white',
+                cursor: (!customer.name || (orderItems.length === 0 && selectedPendingBills.length === 0 && previousBalance === 0) || isProcessing)
+                  ? 'not-allowed'
                   : 'pointer',
                 border: 'none',
                 textAlign: 'center',
@@ -2230,19 +1943,19 @@ const quickItems = [
                 e.target.style.boxShadow = '0 2px 8px rgba(39, 174, 96, 0.2)';
               }}
             >
-              🧾 PRINT BILL & GENERATE RECEIPT
+              <i className="fas fa-print"></i> PRINT BILL
             </button>
 
             {/* Bottom Section - Scanner Left, Controls Right */}
-            <div style={{ 
-              display: 'flex', 
-              gap: '10px', 
+            <div style={{
+              display: 'flex',
+              gap: '10px',
               padding: '10px',
               background: 'linear-gradient(135deg, #34495e, #2c3e50)'
             }}>
-              
+
               {/* SCANNER - Bottom Left */}
-              <div style={{ 
+              <div style={{
                 width: '140px',
                 background: 'rgba(255, 255, 255, 0.05)',
                 borderRadius: '8px',
@@ -2253,23 +1966,23 @@ const quickItems = [
                 alignItems: 'center',
                 gap: '8px'
               }}>
-                <div style={{ 
-                  fontSize: '12px', 
-                  fontWeight: 'bold', 
+                <div style={{
+                  fontSize: '12px',
+                  fontWeight: 'bold',
                   color: 'white',
                   textAlign: 'center'
                 }}>
                   SCANNER
                 </div>
-                
+
                 {calculateTotal() > 0 ? (
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
                     <FunctionalQRCode
                       amount={calculateTotal()}
                       billNumber={billNumber}
                       businessName={shopConfig.shopName}
-                      style={{ 
-                        width: '90px', 
+                      style={{
+                        width: '90px',
                         height: '90px',
                         border: '3px solid #2ecc71',
                         borderRadius: '8px',
@@ -2280,9 +1993,9 @@ const quickItems = [
                       }}
                     />
                     <div style={{ textAlign: 'center' }}>
-                      <div style={{ 
-                        fontSize: '14px', 
-                        fontWeight: 'bold', 
+                      <div style={{
+                        fontSize: '14px',
+                        fontWeight: 'bold',
                         color: '#2ecc71',
                         marginBottom: '3px',
                         textShadow: '0 1px 2px rgba(0, 0, 0, 0.5)'
@@ -2295,18 +2008,18 @@ const quickItems = [
                         lineHeight: '1.2',
                         fontWeight: '500'
                       }}>
-                        Scan with UPI app<br/>
+                        Scan with UPI app<br />
                         <span style={{ color: '#2ecc71' }}>High Contrast QR</span>
                       </div>
                     </div>
                   </div>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                    <img 
-                      src="/scanner.png" 
-                      alt="Scanner" 
-                      style={{ 
-                        width: '90px', 
+                    <img
+                      src="/scanner.png"
+                      alt="Scanner"
+                      style={{
+                        width: '90px',
                         height: '90px',
                         border: '3px solid rgba(255, 255, 255, 0.3)',
                         borderRadius: '8px',
@@ -2314,7 +2027,7 @@ const quickItems = [
                         padding: '4px',
                         filter: 'contrast(1.3) brightness(1.1)',
                         boxShadow: '0 4px 12px rgba(255, 255, 255, 0.1)'
-                      }} 
+                      }}
                     />
                     <div style={{
                       fontSize: '9px',
@@ -2323,7 +2036,7 @@ const quickItems = [
                       lineHeight: '1.2',
                       fontWeight: '500'
                     }}>
-                      Add items to generate<br/>
+                      Add items to generate<br />
                       <span style={{ color: '#3498db' }}>High Contrast QR</span>
                     </div>
                   </div>
@@ -2332,33 +2045,33 @@ const quickItems = [
 
               {/* Controls - Bottom Right */}
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                
+
                 {/* DISCOUNT, DELIVERY, PREVIOUS DUE */}
-                <div style={{ 
-                  display: 'grid', 
-                  gridTemplateColumns: '1fr 1fr 1fr', 
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr 1fr',
                   gap: '6px'
                 }}>
                   <div>
-                    <label style={{ 
-                      display: 'block', 
-                      marginBottom: '4px', 
-                      fontSize: '10px', 
-                      fontWeight: '600', 
-                      color: 'rgba(255, 255, 255, 0.8)' 
+                    <label style={{
+                      display: 'block',
+                      marginBottom: '4px',
+                      fontSize: '10px',
+                      fontWeight: '600',
+                      color: 'rgba(255, 255, 255, 0.8)'
                     }}>
                       DISCOUNT
                     </label>
                     <input
-                      type="number" 
-                      value={discount} 
+                      type="number"
+                      value={discount}
                       onChange={(e) => setDiscount(Math.max(0, parseFloat(e.target.value) || 0))}
-                      placeholder="₹0" 
-                      style={{ 
-                        width: '100%', 
-                        padding: '6px', 
-                        borderRadius: '4px', 
-                        fontSize: '11px', 
+                      placeholder="₹0"
+                      style={{
+                        width: '100%',
+                        padding: '6px',
+                        borderRadius: '4px',
+                        fontSize: '11px',
                         outline: 'none',
                         border: '1px solid rgba(255, 255, 255, 0.2)',
                         background: 'rgba(255, 255, 255, 0.95)',
@@ -2370,25 +2083,25 @@ const quickItems = [
                     />
                   </div>
                   <div>
-                    <label style={{ 
-                      display: 'block', 
-                      marginBottom: '4px', 
-                      fontSize: '10px', 
-                      fontWeight: '600', 
-                      color: 'rgba(255, 255, 255, 0.8)' 
+                    <label style={{
+                      display: 'block',
+                      marginBottom: '4px',
+                      fontSize: '10px',
+                      fontWeight: '600',
+                      color: 'rgba(255, 255, 255, 0.8)'
                     }}>
                       DELIVERY
                     </label>
                     <input
-                      type="number" 
-                      value={deliveryCharge} 
+                      type="number"
+                      value={deliveryCharge}
                       onChange={(e) => setDeliveryCharge(Math.max(0, parseFloat(e.target.value) || 0))}
-                      placeholder="₹0" 
-                      style={{ 
-                        width: '100%', 
-                        padding: '6px', 
-                        borderRadius: '4px', 
-                        fontSize: '11px', 
+                      placeholder="₹0"
+                      style={{
+                        width: '100%',
+                        padding: '6px',
+                        borderRadius: '4px',
+                        fontSize: '11px',
                         outline: 'none',
                         border: '1px solid rgba(255, 255, 255, 0.2)',
                         background: 'rgba(255, 255, 255, 0.95)',
@@ -2400,26 +2113,26 @@ const quickItems = [
                     />
                   </div>
                   <div>
-                    <label style={{ 
-                      display: 'block', 
-                      marginBottom: '4px', 
-                      fontSize: '10px', 
-                      fontWeight: '600', 
-                      color: '#f39c12' 
+                    <label style={{
+                      display: 'block',
+                      marginBottom: '4px',
+                      fontSize: '10px',
+                      fontWeight: '600',
+                      color: '#f39c12'
                     }}>
                       PREVIOUS DUE
                     </label>
                     <div style={{ display: 'flex', gap: '2px', alignItems: 'center' }}>
                       <input
-                        type="number" 
-                        value={previousBalance} 
+                        type="number"
+                        value={previousBalance}
                         onChange={(e) => setPreviousBalance(Math.max(0, parseFloat(e.target.value) || 0))}
-                        placeholder="₹0" 
-                        style={{ 
+                        placeholder="₹0"
+                        style={{
                           flex: 1,
-                          padding: '6px', 
-                          borderRadius: '4px', 
-                          fontSize: '11px', 
+                          padding: '6px',
+                          borderRadius: '4px',
+                          fontSize: '11px',
                           outline: 'none',
                           border: previousBalance > 0 ? '2px solid #f39c12' : '1px solid rgba(255, 255, 255, 0.2)',
                           background: 'rgba(255, 255, 255, 0.95)',
@@ -2456,9 +2169,9 @@ const quickItems = [
                 </div>
 
                 {/* Bill Totals */}
-                <div style={{ 
-                  background: 'rgba(255, 255, 255, 0.05)', 
-                  borderRadius: '6px', 
+                <div style={{
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  borderRadius: '6px',
                   padding: '10px',
                   marginBottom: '8px',
                   border: '1px solid rgba(255, 255, 255, 0.1)'
@@ -2531,16 +2244,16 @@ const quickItems = [
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <h3 style={{ margin: 0, color: '#f9fafb', fontSize: '18px', fontWeight: '600' }}>
-                📋 Customer History - {customer.name}
+                <i className="fas fa-clock-rotate-left"></i> Customer History - {customer.name}
               </h3>
               <button onClick={() => setShowCustomerHistory(false)} style={{
                 background: '#ef4444', color: 'white', border: 'none', borderRadius: '6px',
                 padding: '6px 12px', cursor: 'pointer', fontSize: '12px', fontWeight: '500'
               }}>
-                ✕ Close
+                <i className="fas fa-times"></i> Close
               </button>
             </div>
-            
+
             {customerHistory.length > 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {customerHistory.map((bill, index) => (
@@ -2571,7 +2284,7 @@ const quickItems = [
                           padding: '4px 8px', cursor: 'pointer', fontSize: '11px', fontWeight: '500'
                         }}
                       >
-                        ➕ Add Items
+                        <i className="fas fa-plus"></i> Add Items
                       </button>
                     </div>
                   </div>
@@ -2579,7 +2292,7 @@ const quickItems = [
               </div>
             ) : (
               <div style={{ textAlign: 'center', color: '#9ca3af', padding: '40px 20px' }}>
-                <div style={{ fontSize: '48px', marginBottom: '16px' }}>📋</div>
+                <i className="fas fa-clipboard" style={{ fontSize: '24px', marginBottom: '12px', opacity: 0.3 }}></i>
                 <div>No previous orders found</div>
               </div>
             )}
@@ -2600,20 +2313,20 @@ const quickItems = [
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <h3 style={{ margin: 0, color: '#f9fafb', fontSize: '18px', fontWeight: '600' }}>
-                💰 Quick Discount
+                <i className="fas fa-percent"></i> Quick Discount
               </h3>
               <button onClick={() => setShowQuickDiscount(false)} style={{
                 background: '#ef4444', color: 'white', border: 'none', borderRadius: '6px',
                 padding: '6px 12px', cursor: 'pointer', fontSize: '12px', fontWeight: '500'
               }}>
-                ✕ Close
+                <i className="fas fa-times"></i> Close
               </button>
             </div>
-            
+
             <div style={{ marginBottom: '16px', color: '#d1d5db', fontSize: '14px' }}>
               Subtotal: ₹{calculateSubtotal()}
             </div>
-            
+
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '16px' }}>
               {quickDiscounts.map((discountItem, index) => (
                 <button
@@ -2637,7 +2350,7 @@ const quickItems = [
                 </button>
               ))}
             </div>
-            
+
             <div style={{ display: 'flex', gap: '12px' }}>
               <input
                 type="number"

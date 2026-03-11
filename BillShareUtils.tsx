@@ -141,19 +141,36 @@ export class BillShareService {
     }
   }
 
-  // Generate QR code for bill
+  // Generate bill details QR code
   static async generateBillQRCode(billData: ShareableBillData): Promise<string> {
-    const billUrl = this.generateBillURL(billData);
+    const date = billData.billDate 
+      ? new Date(billData.billDate).toLocaleDateString('en-IN')
+      : new Date().toLocaleDateString('en-IN');
+
+    let billText = `${billData.businessName}\n`;
+    billText += `Bill: ${billData.billNumber}\n`;
+    billText += `Date: ${date}\n`;
+    billText += `Customer: ${billData.customerName}\n`;
+    if (billData.customerPhone) billText += `Phone: ${billData.customerPhone}\n`;
+    billText += `---\n`;
+    billData.items.forEach(item => {
+      billText += `${item.name} x${item.quantity} = ₹${item.amount}\n`;
+    });
+    billText += `---\n`;
+    billText += `Subtotal: ₹${billData.subtotal}\n`;
+    if (billData.discount && billData.discount > 0) billText += `Discount: -₹${billData.discount}\n`;
+    if (billData.deliveryCharge && billData.deliveryCharge > 0) billText += `Delivery: +₹${billData.deliveryCharge}\n`;
+    billText += `TOTAL: ₹${billData.grandTotal}`;
     
     try {
-      const qrDataUrl = await QRCode.toDataURL(billUrl, {
+      const qrDataUrl = await QRCode.toDataURL(billText, {
         width: 400,
         margin: 2,
         color: {
           dark: '#000000',
           light: '#FFFFFF'
         },
-        errorCorrectionLevel: 'H'
+        errorCorrectionLevel: 'M'
       });
       return qrDataUrl;
     } catch (error) {

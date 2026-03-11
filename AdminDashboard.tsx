@@ -28,6 +28,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
   const [pendingBills, setPendingBills] = useState<PendingBill[]>([]);
   const [billHistory, setBillHistory] = useState<PendingBill[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [editBillToPass, setEditBillToPass] = useState<any>(null); // New state for passing bill to BillManager
   const [showAddPreviousBill, setShowAddPreviousBill] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [showExpenseManager, setShowExpenseManager] = useState(false);
@@ -51,7 +52,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
   const [showReportsGenerator, setShowReportsGenerator] = useState(false);
   const [dateFilteredRevenue, setDateFilteredRevenue] = useState(0);
   const [dateFilteredBillCount, setDateFilteredBillCount] = useState(0);
-  
+  const [showTagHistory, setShowTagHistory] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+
   // Password change states
   const [passwordChange, setPasswordChange] = useState({
     currentPassword: '',
@@ -59,7 +62,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
     confirmPassword: ''
   });
   const [showPasswordSection, setShowPasswordSection] = useState(false);
-  
+
   // PIN change states
   const [pinChange, setPinChange] = useState({
     currentPin: '',
@@ -91,20 +94,20 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
   // Load real business notifications
   const loadNotifications = () => {
     const today = new Date().toDateString();
-    
+
     // Calculate metrics
     const totalPendingBills = pendingBills.length;
-    const todayDeliveredBills = billHistory.filter(bill => 
-      bill.status === 'delivered' && 
+    const todayDeliveredBills = billHistory.filter(bill =>
+      bill.status === 'delivered' &&
       new Date(bill.deliveredAt || bill.updatedAt || bill.createdAt).toDateString() === today
     ).length;
-    const todayCompletedBills = billHistory.filter(bill => 
-      bill.status === 'completed' && 
+    const todayCompletedBills = billHistory.filter(bill =>
+      bill.status === 'completed' &&
       new Date(bill.createdAt).toDateString() === today
     ).length;
-    
+
     const businessNotifications = [];
-    
+
     // Pending bills notification
     if (totalPendingBills > 0) {
       businessNotifications.push({
@@ -115,7 +118,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
         count: totalPendingBills
       });
     }
-    
+
     // Today's delivered bills
     if (todayDeliveredBills > 0) {
       businessNotifications.push({
@@ -126,7 +129,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
         count: todayDeliveredBills
       });
     }
-    
+
     // Today's completed bills
     if (todayCompletedBills > 0) {
       businessNotifications.push({
@@ -137,7 +140,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
         count: todayCompletedBills
       });
     }
-    
+
     // If no activity, show a default message
     if (businessNotifications.length === 0) {
       businessNotifications.push({
@@ -148,8 +151,24 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
         count: 0
       });
     }
-    
+
     setNotifications(businessNotifications);
+  };
+
+  // Helper to close all modals and prevent stacking
+  const closeAllModals = () => {
+    setShowAddPreviousBill(false);
+    setShowAnalytics(false);
+    setShowExpenseManager(false);
+    setShowBillManager(false);
+    setShowDataImport(false);
+    setShowBackupRestore(false);
+    setShowBulkOperations(false);
+    setShowCustomerManager(false);
+    setShowReportsGenerator(false);
+    setShowTagHistory(false);
+    setShowSettings(false);
+    setEditBillToPass(null);
   };
 
   // Load data on component mount
@@ -169,7 +188,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
       console.log('✅ Database connection successful:', response);
       setConnectionStatus('connected');
       showAlert({ message: 'Database connected successfully!', type: 'success' });
-      
+
       // Load dashboard analytics data
       loadDashboardAnalytics();
     } catch (error) {
@@ -228,7 +247,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
         const response = await apiService.getExpenses({ limit: 1000 });
         data = response.success ? response.data : [];
       }
-      
+
       const csvContent = convertToCSV(data, type);
       downloadCSV(csvContent, `${type}_export_${new Date().toISOString().split('T')[0]}.csv`);
       showAlert({ message: `${type} data exported successfully`, type: 'success' });
@@ -241,11 +260,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
 
   const convertToCSV = (data: any[], type: string) => {
     if (data.length === 0) return '';
-    
-    const headers = type === 'bills' 
+
+    const headers = type === 'bills'
       ? ['Bill Number', 'Customer Name', 'Phone', 'Amount', 'Status', 'Date']
       : ['Description', 'Amount', 'Category', 'Date'];
-    
+
     const rows = data.map(item => {
       if (type === 'bills') {
         return [
@@ -265,7 +284,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
         ];
       }
     });
-    
+
     return [headers, ...rows].map(row => row.join(',')).join('\n');
   };
 
@@ -303,7 +322,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
 
       const backupJson = JSON.stringify(backupData, null, 2);
       const filename = `genz_laundry_backup_${new Date().toISOString().split('T')[0]}.json`;
-      
+
       const blob = new Blob([backupJson], { type: 'application/json' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -314,7 +333,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
 
       // Save backup date
       localStorage.setItem('last_backup_date', new Date().toISOString());
-      
+
       showAlert({ message: 'Data backup created successfully!', type: 'success' });
     } catch (error) {
       showAlert({ message: 'Backup failed: ' + error.message, type: 'error' });
@@ -331,19 +350,19 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
     reader.onload = async (e) => {
       try {
         const backupData = JSON.parse(e.target?.result as string);
-        
+
         showConfirm(
           `Restore data from backup? This will replace all current data. Backup contains ${backupData.bills?.length || 0} bills.`,
           async () => {
             try {
               setLoading(true);
-              
+
               // Restore bills
               if (backupData.bills) {
                 setBillHistory(backupData.bills);
                 localStorage.setItem('laundry_bill_history', JSON.stringify(backupData.bills));
               }
-              
+
               // Restore shop config
               if (backupData.shopConfig) {
                 setShopConfig(backupData.shopConfig);
@@ -371,7 +390,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
     try {
       setLoading(true);
       const allBills = [...pendingBills, ...billHistory];
-      
+
       const filteredBills = allBills.filter(bill => {
         const billDate = new Date(bill.createdAt);
         const startDate = new Date(dateRange.start);
@@ -434,11 +453,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
     const customerData = bills.reduce((acc: any, bill) => {
       const key = bill.customerName;
       if (!acc[key]) {
-        acc[key] = { 
-          phone: bill.customerPhone || 'N/A', 
-          count: 0, 
-          total: 0, 
-          lastVisit: bill.createdAt 
+        acc[key] = {
+          phone: bill.customerPhone || 'N/A',
+          count: 0,
+          total: 0,
+          lastVisit: bill.createdAt
         };
       }
       acc[key].count++;
@@ -492,7 +511,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
       console.log('📊 Loading dashboard analytics...');
       const response = await apiService.getDashboardOverview();
       console.log('📈 Dashboard analytics response:', response);
-      
+
       if (response.success && response.data) {
         setDashboardData(response.data);
         console.log('✅ Dashboard analytics loaded successfully');
@@ -508,7 +527,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
       console.log('📊 Loading comprehensive analytics...');
       const response = await apiService.getAnalyticsData('month');
       console.log('📈 Analytics response:', response);
-      
+
       if (response.success && response.data) {
         setAnalyticsData(response.data);
         console.log('✅ Analytics data loaded successfully');
@@ -523,7 +542,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
     try {
       setLoading(true);
       console.log('🧪 Starting comprehensive MongoDB integration test...');
-      
+
       const tests = [
         { name: 'Health Check', test: () => apiService.healthCheck() },
         { name: 'Dashboard Overview', test: () => apiService.getDashboardOverview() },
@@ -553,17 +572,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
 
       const successCount = results.filter(r => r.status === 'SUCCESS').length;
       const totalCount = results.length;
-      
+
       console.log(`🎯 Test Results: ${successCount}/${totalCount} endpoints working`);
-      console.table(results.map(r => ({ 
-        Endpoint: r.name, 
-        Status: r.status, 
-        Error: r.error || 'None' 
+      console.table(results.map(r => ({
+        Endpoint: r.name,
+        Status: r.status,
+        Error: r.error || 'None'
       })));
 
-      showAlert({ 
-        message: `MongoDB Integration Test: ${successCount}/${totalCount} endpoints working`, 
-        type: successCount === totalCount ? 'success' : 'warning' 
+      showAlert({
+        message: `MongoDB Integration Test: ${successCount}/${totalCount} endpoints working`,
+        type: successCount === totalCount ? 'success' : 'warning'
       });
 
       // If dashboard overview worked, update the dashboard data
@@ -643,14 +662,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
 
     // Save new password
     localStorage.setItem('adminPassword', passwordChange.newPassword);
-    
+
     // Clear form
     setPasswordChange({
       currentPassword: '',
       newPassword: '',
       confirmPassword: ''
     });
-    
+
     setShowPasswordSection(false);
     showAlert({ message: 'Password changed successfully! Please remember your new password.', type: 'success' });
   };
@@ -686,14 +705,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
 
     // Save new PIN
     localStorage.setItem('adminPin', pinChange.newPin);
-    
+
     // Clear form
     setPinChange({
       currentPin: '',
       newPin: '',
       confirmPin: ''
     });
-    
+
     setShowPinSection(false);
     showAlert({ message: 'PIN changed successfully! Use this PIN to access admin panel.', type: 'success' });
   };
@@ -703,7 +722,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
       console.log('🔄 Loading pending bills from database...');
       const response = await apiService.getPendingBills();
       console.log('📋 Pending bills response:', response);
-      
+
       if (response.success && response.data) {
         console.log(`✅ Loaded ${response.data.length} pending bills from database`);
         setPendingBills(response.data);
@@ -735,13 +754,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
         sortBy: 'createdAt',
         sortOrder: 'desc'
       });
-      
+
       if (response.success && response.data) {
         console.log(`✅ Loaded ${response.data.length || 0} bills from database`);
         // Handle both array and paginated response
         const bills = Array.isArray(response.data) ? response.data : response.data.bills || response.data;
         setBillHistory(bills);
-        
+
         // Also save to localStorage as backup
         localStorage.setItem('laundry_bill_history', JSON.stringify(bills));
       } else {
@@ -778,7 +797,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
       console.log('🔄 Marking bill as completed:', billId);
       const response = await apiService.updateBillStatus(billId, 'completed');
       console.log('📊 Update response:', response);
-      
+
       if (response.success) {
         console.log('✅ Bill status updated successfully');
         loadPendingBills();
@@ -796,7 +815,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
         const updatedBill = { ...bill, status: 'completed' as const };
         const remainingPending = pendingBills.filter(b => (b.id || b._id) !== billId);
         const updatedHistory = [...billHistory, updatedBill];
-        
+
         savePendingBills(remainingPending);
         saveBillHistory(updatedHistory);
       } else {
@@ -811,7 +830,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
       console.log('🚚 Marking bill as delivered:', billId);
       const response = await apiService.updateBillStatus(billId, 'delivered');
       console.log('📊 Update response:', response);
-      
+
       if (response.success) {
         console.log('✅ Bill status updated to delivered');
         loadPendingBills();
@@ -826,16 +845,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
       const bill = pendingBills.find(b => (b.id || b._id) === billId) || billHistory.find(b => (b.id || b._id) === billId);
       if (bill) {
         console.log('📱 Using localStorage fallback for bill:', bill.billNumber);
-        const updatedBill = { 
-          ...bill, 
-          status: 'delivered' as const, 
-          deliveredAt: new Date().toISOString() 
+        const updatedBill = {
+          ...bill,
+          status: 'delivered' as const,
+          deliveredAt: new Date().toISOString()
         };
-        
+
         const remainingPending = pendingBills.filter(b => (b.id || b._id) !== billId);
         const updatedHistory = billHistory.filter(b => (b.id || b._id) !== billId);
         updatedHistory.push(updatedBill);
-        
+
         savePendingBills(remainingPending);
         saveBillHistory(updatedHistory);
       } else {
@@ -859,7 +878,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
       grandTotal: bill.grandTotal,
       thankYouMessage: 'Thank you for choosing us!'
     };
-    
+
     printThermalBill(billData, (message) => showAlert({ message, type: 'error' }));
   };
 
@@ -872,9 +891,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
     const matchesSearch = bill.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       bill.billNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (bill.customerPhone && bill.customerPhone.includes(searchTerm));
-    
+
     const matchesStatus = statusFilter === '' || bill.status === statusFilter;
-    
+
     // Date filtering
     let matchesDate = true;
     if (startDateFilter || endDateFilter) {
@@ -890,7 +909,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
         matchesDate = matchesDate && billDate <= endDate;
       }
     }
-    
+
     return matchesSearch && matchesStatus && matchesDate;
   });
 
@@ -900,7 +919,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
       const filtered = billHistory.filter(bill => {
         const billDate = new Date(bill.createdAt);
         let matches = true;
-        
+
         if (startDateFilter) {
           const startDate = new Date(startDateFilter);
           startDate.setHours(0, 0, 0, 0);
@@ -911,10 +930,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
           endDate.setHours(23, 59, 59, 999);
           matches = matches && billDate <= endDate;
         }
-        
+
         return matches;
       });
-      
+
       const revenue = filtered.reduce((sum, bill) => sum + (bill.grandTotal || 0), 0);
       setDateFilteredRevenue(revenue);
       setDateFilteredBillCount(filtered.length);
@@ -926,3258 +945,2243 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
 
   return (
     <>
-      {activeTab === 'revenue' ? (
-        <ComprehensiveRevenueDashboard 
-          onClose={() => setActiveTab('dashboard')} 
-          bills={[...pendingBills, ...billHistory]} 
-        />
-      ) : (
-        <div style={{
-      minHeight: '100vh',
-      background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 25%, #0f3460 50%, #533483 75%, #7b2cbf 100%)',
-      fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif",
-      position: 'relative',
-      overflow: 'hidden',
-      padding: '5px'
-    }}>
-      {/* Animated Background Elements */}
-      <div style={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: `
-          radial-gradient(circle at 20% 80%, rgba(59, 130, 246, 0.15) 0%, transparent 50%),
-          radial-gradient(circle at 80% 20%, rgba(139, 92, 246, 0.15) 0%, transparent 50%),
-          radial-gradient(circle at 40% 40%, rgba(99, 102, 241, 0.1) 0%, transparent 50%)
-        `,
-        animation: 'float 8s ease-in-out infinite'
-      }}></div>
+      <div className="admin-layout">
 
-      <style>{`
-        @keyframes float {
-          0%, 100% { transform: translateY(0px) rotate(0deg); }
-          50% { transform: translateY(-15px) rotate(0.5deg); }
-        }
-        @keyframes slideIn {
-          from { opacity: 0; transform: translateY(20px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes fadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-        @keyframes pulse {
-          0%, 100% { transform: scale(1); }
-          50% { transform: scale(1.02); }
-        }
-        @keyframes shimmer {
-          0% { background-position: -200px 0; }
-          100% { background-position: calc(200px + 100%) 0; }
-        }
-        .glass-card {
-          background: rgba(255, 255, 255, 0.12);
-          backdrop-filter: blur(25px);
-          border: 1px solid rgba(255, 255, 255, 0.18);
-          border-radius: 16px;
-          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
-        }
-        .glass-button {
-          background: rgba(255, 255, 255, 0.18);
-          backdrop-filter: blur(15px);
-          border: 1px solid rgba(255, 255, 255, 0.25);
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        .glass-button:hover {
-          background: rgba(255, 255, 255, 0.28);
-          transform: translateY(-1px);
-          box-shadow: 0 12px 28px rgba(0, 0, 0, 0.15);
-        }
-        .glass-button.active {
-          background: rgba(255, 255, 255, 0.35);
-          box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
-        }
-        .shimmer {
-          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent);
-          background-size: 200px 100%;
-          animation: shimmer 2.5s infinite;
-        }
-        .tab-content {
-          animation: slideIn 0.4s ease-out;
-        }
-      `}</style>
 
-      {/* Enhanced Header */}
-      <div className="glass-card" style={{
-        color: 'white', 
-        padding: '12px 20px', 
-        margin: '5px', 
-        display: 'flex', 
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        animation: 'fadeIn 0.8s ease-out',
-        position: 'relative',
-        zIndex: 1,
-        background: 'rgba(255, 255, 255, 0.15)',
-        backdropFilter: 'blur(30px)',
-        border: '1px solid rgba(255, 255, 255, 0.25)'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-          <div style={{
-            background: 'linear-gradient(135deg, #f59e0b, #d97706)',
-            padding: '15px',
-            borderRadius: '20px',
-            boxShadow: '0 12px 30px rgba(245, 158, 11, 0.3)',
-            animation: 'pulse 3s infinite',
-            position: 'relative',
-            overflow: 'hidden'
-          }}>
-            <div style={{
-              position: 'absolute',
-              top: 0,
-              left: '-100%',
-              width: '100%',
-              height: '100%',
-              background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent)',
-              animation: 'shimmer 2s infinite'
-            }}></div>
-            <img src="/logo.png" alt="Logo" style={{
-              height: '40px', 
-              width: '40px', 
-              borderRadius: '12px',
-              filter: 'brightness(1.1) contrast(1.1)',
-              position: 'relative',
-              zIndex: 1
-            }} />
-          </div>
-          <div>
-            <h1 style={{ 
-              margin: 0, 
-              fontSize: '32px', 
-              fontWeight: '900', 
-              letterSpacing: '-1.5px',
-              background: 'linear-gradient(135deg, #ffffff, #e0e7ff, #c7d2fe)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              textShadow: '0 2px 20px rgba(0,0,0,0.15)',
-              position: 'relative'
-            }}>
-              Admin Dashboard
-              <div style={{
-                position: 'absolute',
-                bottom: '-5px',
-                left: 0,
-                width: '100%',
-                height: '3px',
-                background: 'linear-gradient(90deg, #3b82f6, #8b5cf6, #ec4899)',
-                borderRadius: '2px',
-                animation: 'shimmer 3s infinite'
-              }}></div>
-            </h1>
-            <p style={{ 
-              margin: '8px 0 0 0', 
-              fontSize: '16px', 
-              opacity: 0.95,
-              fontWeight: '600',
-              color: 'rgba(255, 255, 255, 0.9)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px'
-            }}>
-              ✨ Manage your laundry business with modern tools
-              <span style={{
-                background: connectionStatus === 'connected' ? '#10b981' : connectionStatus === 'disconnected' ? '#ef4444' : '#f59e0b',
-                padding: '2px 8px',
-                borderRadius: '12px',
-                fontSize: '12px',
-                fontWeight: 'bold',
-                animation: connectionStatus === 'testing' ? 'pulse 1s infinite' : 'none'
-              }}>
-                {connectionStatus === 'connected' ? '🟢 ONLINE' : connectionStatus === 'disconnected' ? '🔴 OFFLINE' : '🟡 TESTING'}
-              </span>
-            </p>
-          </div>
-        </div>
-        
-        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-          {/* Digital Watch Style Clock */}
-          <div style={{ 
-            background: 'linear-gradient(145deg, #2c3e50, #34495e)',
-            border: '3px solid #1a252f',
-            borderRadius: '15px',
-            padding: '12px 16px',
-            textAlign: 'center',
-            minWidth: '160px',
-            boxShadow: '0 8px 25px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
-            position: 'relative',
-            overflow: 'hidden'
-          }}>
-            {/* Digital Watch Screen Effect */}
-            <div style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              background: 'linear-gradient(135deg, rgba(0, 255, 0, 0.05), rgba(0, 200, 0, 0.02))',
-              borderRadius: '12px'
-            }}></div>
-            
-            {/* Day Display */}
-            <div style={{ 
-              fontSize: '11px', 
-              color: '#00ff41', 
-              marginBottom: '3px', 
-              fontWeight: '600',
-              fontFamily: 'monospace',
-              textShadow: '0 0 8px rgba(0, 255, 65, 0.6)',
-              position: 'relative',
-              zIndex: 1
-            }}>
-              {currentTime.toLocaleDateString('en-IN', { weekday: 'short' }).toUpperCase()}
-            </div>
-            
-            {/* Date Display */}
-            <div style={{ 
-              fontSize: '14px', 
-              fontWeight: 'bold', 
-              marginBottom: '4px',
-              color: '#ffffff',
-              fontFamily: 'monospace',
-              textShadow: '0 0 10px rgba(255, 255, 255, 0.3)',
-              position: 'relative',
-              zIndex: 1
-            }}>
-              {currentTime.toLocaleDateString('en-IN', { 
-                day: '2-digit', 
-                month: 'short', 
-                year: 'numeric' 
-              })}
-            </div>
-            
-            {/* Time Display - Digital Watch Style */}
-            <div style={{ 
-              fontSize: '16px', 
-              fontWeight: 'bold',
-              color: '#00ff41',
-              fontFamily: 'monospace',
-              textShadow: '0 0 15px rgba(0, 255, 65, 0.8)',
-              letterSpacing: '1px',
-              position: 'relative',
-              zIndex: 1,
-              background: 'rgba(0, 0, 0, 0.3)',
-              padding: '4px 8px',
-              borderRadius: '6px',
-              border: '1px solid rgba(0, 255, 65, 0.3)'
-            }}>
-              {currentTime.toLocaleTimeString('en-IN', { 
-                hour: '2-digit', 
-                minute: '2-digit',
-                second: '2-digit',
-                hour12: true
-              })}
-            </div>
-            
-            {/* Digital Watch Brand Label */}
-            <div style={{
-              position: 'absolute',
-              bottom: '2px',
-              right: '6px',
-              fontSize: '8px',
-              color: 'rgba(255, 255, 255, 0.4)',
-              fontFamily: 'monospace',
-              fontWeight: 'bold'
-            }}>
-              GENZ
-            </div>
-          </div>
-
-          {/* Notifications */}
-          <div style={{ position: 'relative' }}>
-            <button 
-              onClick={() => setShowNotifications(!showNotifications)}
-              className="glass-button"
-              style={{
-                padding: '12px', 
-                borderRadius: '12px', 
-                fontSize: '16px',
-                color: 'white', 
-                cursor: 'pointer',
-                border: 'none',
-                fontWeight: '600',
-                position: 'relative',
-                background: 'rgba(255, 255, 255, 0.15)',
-                zIndex: 10000
-              }}
-            >
-              🔔
-              {notifications.length > 0 && (
-                <span style={{
-                  position: 'absolute',
-                  top: '4px',
-                  right: '4px',
-                  background: '#ef4444',
-                  color: 'white',
-                  borderRadius: '50%',
-                  width: '18px',
-                  height: '18px',
-                  fontSize: '10px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontWeight: 'bold'
-                }}>
-                  {notifications.length}
-                </span>
-              )}
-            </button>
-          </div>
-          
-          {onBackToBilling && (
-            <button 
-              onClick={onBackToBilling} 
-              className="glass-button"
-              style={{
-                padding: '12px 24px', 
-                borderRadius: '12px', 
-                fontSize: '14px',
-                color: 'white', 
-                cursor: 'pointer',
-                border: 'none',
-                fontWeight: '600',
-                background: 'linear-gradient(135deg, #10b981, #059669)',
-                boxShadow: '0 8px 20px rgba(16, 185, 129, 0.3)'
-              }}
-            >
-              🏠 Back to Billing
-            </button>
-          )}
-          
-          {onLogout && (
-            <button 
-              onClick={onLogout} 
-              className="glass-button"
-              style={{
-                padding: '12px 24px', 
-                borderRadius: '12px', 
-                fontSize: '14px',
-                background: 'linear-gradient(135deg, #e74c3c, #c0392b)', 
-                color: 'white', 
-                cursor: 'pointer',
-                border: 'none',
-                fontWeight: '600',
-                boxShadow: '0 8px 20px rgba(231, 76, 60, 0.3)'
-              }}
-            >
-              🚪 Logout
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Tab Navigation */}
-      <div className="glass-card" style={{
-        margin: '0 5px 8px 5px',
-        padding: '10px',
-        animation: 'slideIn 0.6s ease-out 0.2s both',
-        position: 'relative',
-        zIndex: 1
-      }}>
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))',
-          gap: '6px'
-        }}>
-          {[
-            { key: 'dashboard', label: '🏠 Dashboard', icon: '🏠', color: '#3498db', description: 'Overview & Stats' },
-            { key: 'revenue', label: '💰 Revenue', icon: '💰', color: '#27ae60', description: 'Monthly Revenue' },
-            { key: 'analytics', label: '📊 Analytics', icon: '📊', color: '#9b59b6', description: 'Business Reports' },
-            { key: 'manage', label: '🛠️ Data Manager', icon: '🛠️', color: '#27ae60', description: 'Edit & Delete' },
-            { key: 'expenses', label: '💸 Expenses', icon: '💸', color: '#e74c3c', description: 'Track Costs' },
-            { key: 'pending', label: '📋 Pending', icon: '📋', color: '#f39c12', description: 'Active Bills' },
-            { key: 'history', label: '📚 History', icon: '📚', color: '#1abc9c', description: 'Completed Bills' },
-            { key: 'tags', label: '🏷️ Tag History', icon: '🏷️', color: '#16a085', description: 'Track Tags' },
-            { key: 'settings', label: '⚙️ Settings', icon: '⚙️', color: '#34495e', description: 'Store Config' }
-          ].map((tab, index) => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key as any)}
-              className={`glass-button ${activeTab === tab.key ? 'active' : ''}`}
-              style={{
-                padding: '10px',
-                borderRadius: '10px',
-                color: 'white',
-                cursor: 'pointer',
-                fontSize: '13px',
-                fontWeight: activeTab === tab.key ? 'bold' : '600',
-                textAlign: 'center',
-                border: 'none',
-                position: 'relative',
-                overflow: 'hidden',
-                animation: `slideIn 0.5s ease-out ${0.1 * index}s both`
-              }}
-            >
-              <div style={{ 
-                fontSize: '20px', 
-                marginBottom: '4px',
-                filter: activeTab === tab.key ? 'drop-shadow(0 0 10px rgba(255,255,255,0.5))' : 'none'
-              }}>
-                {tab.icon}
-              </div>
-              <div style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '4px' }}>
-                {tab.label.replace(/^[^\s]+ /, '')}
-              </div>
-              <div style={{ fontSize: '11px', opacity: 0.8 }}>
-                {tab.description}
-              </div>
-              {activeTab === tab.key && (
-                <div style={{
-                  position: 'absolute',
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  height: '3px',
-                  background: `linear-gradient(90deg, ${tab.color}, ${tab.color}aa)`,
-                  borderRadius: '0 0 15px 15px'
-                }}></div>
-              )}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Tab Content */}
-      <div className="glass-card tab-content" style={{
-        margin: '0 5px 8px 5px',
-        padding: '15px',
-        minHeight: '200px',
-        position: 'relative',
-        zIndex: 1
-      }}>
-        {activeTab === 'dashboard' && (
-          <div style={{ animation: 'slideIn 0.5s ease-out' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
+        <div className="admin-header">
+            <div className="admin-header-brand">
+              <img src="/logo.png" alt="Logo" className="admin-header-logo" />
               <div>
-                <h2 style={{ color: 'white', margin: 0, fontSize: '28px', fontWeight: 'bold' }}>🏠 Business Dashboard</h2>
-                <p style={{ color: 'rgba(255,255,255,0.8)', margin: '8px 0 0 0', fontSize: '16px' }}>
-                  Complete overview of your laundry business performance
-                  {dashboardData && <span style={{ color: '#27ae60', fontWeight: 'bold' }}> • Connected to Database</span>}
+                <h1>Admin Dashboard</h1>
+                <p style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  Manage your laundry business
+                  <span className={`badge ${connectionStatus === 'connected' ? 'badge-success' : connectionStatus === 'disconnected' ? 'badge-danger' : 'badge-warning'}`}>
+                    <span className={`status-dot ${connectionStatus === 'connected' ? 'status-dot-online' : connectionStatus === 'disconnected' ? 'status-dot-offline' : 'status-dot-testing'}`}></span>
+                    {connectionStatus === 'connected' ? 'Online' : connectionStatus === 'disconnected' ? 'Offline' : 'Testing'}
+                  </span>
                 </p>
               </div>
-              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                <button
-                  onClick={loadDashboardAnalytics}
-                  disabled={loading}
-                  className="glass-button"
-                  style={{
-                    background: 'linear-gradient(135deg, #27ae60, #2ecc71)',
-                    border: 'none',
-                    borderRadius: '10px',
-                    padding: '12px 20px',
-                    color: 'white',
-                    cursor: loading ? 'not-allowed' : 'pointer',
-                    fontSize: '14px',
-                    fontWeight: 'bold',
-                    boxShadow: '0 6px 15px rgba(39, 174, 96, 0.3)'
-                  }}
-                >
-                  {loading ? '⏳' : '🔄'} Refresh Analytics
-                </button>
-                <button
-                  onClick={() => exportData('bills')}
-                  disabled={loading}
-                  className="glass-button"
-                  style={{
-                    background: 'linear-gradient(135deg, #3498db, #2980b9)',
-                    border: 'none',
-                    borderRadius: '10px',
-                    padding: '12px 20px',
-                    color: 'white',
-                    cursor: loading ? 'not-allowed' : 'pointer',
-                    fontSize: '14px',
-                    fontWeight: 'bold',
-                    boxShadow: '0 6px 15px rgba(52, 152, 219, 0.3)'
-                  }}
-                >
-                  {loading ? '⏳' : '📊'} Export Bills
-                </button>
-                <button
-                  onClick={testAllEndpoints}
-                  disabled={loading}
-                  className="glass-button"
-                  style={{
-                    background: 'linear-gradient(135deg, #9b59b6, #8e44ad)',
-                    border: 'none',
-                    borderRadius: '10px',
-                    padding: '12px 20px',
-                    color: 'white',
-                    cursor: loading ? 'not-allowed' : 'pointer',
-                    fontSize: '14px',
-                    fontWeight: 'bold',
-                    boxShadow: '0 6px 15px rgba(155, 89, 182, 0.3)'
-                  }}
-                >
-                  {loading ? '⏳' : '🧪'} Test All
-                </button>
-              </div>
-            </div>
-            
-            {/* Enhanced Quick Stats - Smaller Size */}
-            <div style={{ 
-              display: 'grid', 
-              gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', 
-              gap: '15px', 
-              marginBottom: '30px' 
-            }}>
-              {[
-                { 
-                  title: 'Total Revenue', 
-                  value: dashboardData?.month?.revenue 
-                    ? `₹${dashboardData.month.revenue.toLocaleString()}` 
-                    : `₹${(pendingBills.reduce((sum, bill) => sum + bill.grandTotal, 0) + billHistory.reduce((sum, bill) => sum + bill.grandTotal, 0)).toLocaleString()}`, 
-                  icon: '💰', 
-                  color: '#02bc71ff',
-                  subtitle: dashboardData ? 'This Month (DB)' : 'Local Data',
-                  trend: '+12%',
-                  trendColor: '#05db94ff'
-                },
-                { 
-                  title: 'Today Revenue', 
-                  value: dashboardData?.today?.revenue 
-                    ? `₹${dashboardData.today.revenue.toLocaleString()}` 
-                    : `₹${[...pendingBills, ...billHistory]
-                      .filter(bill => new Date(bill.createdAt).toDateString() === new Date().toDateString())
-                      .reduce((sum, bill) => sum + bill.grandTotal, 0).toLocaleString()}`, 
-                  icon: '📈', 
-                  color: '#3498db',
-                  subtitle: dashboardData ? 'From Database' : 'Local Data',
-                  trend: '+8%',
-                  trendColor: '#3498db'
-                },
-                { 
-                  title: 'Total Bills', 
-                  value: dashboardData?.month?.bills 
-                    ? dashboardData.month.bills.toString() 
-                    : (pendingBills.length + billHistory.length).toString(), 
-                  icon: '🧾', 
-                  color: '#9b59b6',
-                  subtitle: dashboardData ? 'This Month (DB)' : 'Local Data',
-                  trend: '+15%',
-                  trendColor: '#9b59b6'
-                },
-                { 
-                  title: 'Pending Bills', 
-                  value: dashboardData?.pendingBills !== undefined 
-                    ? dashboardData.pendingBills.toString() 
-                    : pendingBills.length.toString(), 
-                  icon: '⏳', 
-                  color: '#f39c12',
-                  subtitle: dashboardData ? 'From Database' : 'Local Data',
-                  trend: pendingBills.length > 5 ? 'HIGH' : 'NORMAL',
-                  trendColor: pendingBills.length > 5 ? '#e74c3c' : '#27ae60'
-                },
-                { 
-                  title: 'Today Profit', 
-                  value: dashboardData?.today?.profit !== undefined 
-                    ? `₹${dashboardData.today.profit.toLocaleString()}` 
-                    : 'N/A', 
-                  icon: '💎', 
-                  color: '#e74c3c',
-                  subtitle: dashboardData ? 'Revenue - Expenses' : 'Connect DB',
-                  trend: '+5%',
-                  trendColor: '#27ae60'
-                }
-              ].map((stat, index) => (
-                <div key={index} style={{
-                  background: 'rgba(255, 255, 255, 0.18)',
-                  backdropFilter: 'blur(20px)',
-                  border: '1px solid rgba(255, 255, 255, 0.25)',
-                  borderRadius: '16px',
-                  padding: '18px',
-                  textAlign: 'center',
-                  transition: 'all 0.3s ease',
-                  position: 'relative',
-                  overflow: 'hidden',
-                  animation: `slideIn 0.5s ease-out ${index * 0.1}s both`,
-                  minHeight: '140px'
-                }}>
-                  <div style={{
-                    position: 'absolute',
-                    top: '-30%',
-                    right: '-30%',
-                    width: '80%',
-                    height: '80%',
-                    background: `radial-gradient(circle, ${stat.color}15 0%, transparent 70%)`,
-                    pointerEvents: 'none'
-                  }}></div>
-                  <div style={{ 
-                    fontSize: '28px',
-                    background: `linear-gradient(135deg, ${stat.color}, ${stat.color}dd)`,
-                    padding: '10px',
-                    borderRadius: '12px',
-                    display: 'inline-block',
-                    marginBottom: '12px',
-                    boxShadow: `0 6px 15px ${stat.color}30`,
-                    position: 'relative',
-                    zIndex: 1
-                  }}>
-                    {stat.icon}
-                  </div>
-                  <h3 style={{ 
-                    color: 'white', 
-                    margin: '0 0 6px 0', 
-                    fontSize: '18px', 
-                    fontWeight: 'bold',
-                    position: 'relative',
-                    zIndex: 1
-                  }}>
-                    {stat.value}
-                  </h3>
-                  <p style={{ 
-                    color: 'rgba(255,255,255,0.8)', 
-                    margin: '0 0 6px 0', 
-                    fontSize: '12px',
-                    fontWeight: '500',
-                    position: 'relative',
-                    zIndex: 1
-                  }}>
-                    {stat.title}
-                  </p>
-                  <div style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    position: 'relative',
-                    zIndex: 1
-                  }}>
-                    <p style={{ 
-                      color: 'rgba(255,255,255,0.6)', 
-                      margin: 0, 
-                      fontSize: '10px'
-                    }}>
-                      {stat.subtitle}
-                    </p>
-                    <span style={{
-                      background: stat.trendColor,
-                      color: 'white',
-                      padding: '2px 6px',
-                      borderRadius: '10px',
-                      fontSize: '9px',
-                      fontWeight: 'bold'
-                    }}>
-                      {stat.trend}
-                    </span>
-                  </div>
-                </div>
-              ))}
             </div>
 
-            {/* Quick Actions */}
-            <div style={{ marginBottom: '25px' }}>
-              <h3 style={{ color: 'white', marginBottom: '15px', fontSize: '18px', fontWeight: 'bold' }}>
-                ⚡ Quick Actions
-              </h3>
-              <div style={{ 
-                display: 'grid', 
-                gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', 
-                gap: '12px' 
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <div style={{
+                background: 'var(--bg-elevated)',
+                border: '1px solid var(--border-subtle)',
+                borderRadius: 'var(--radius-md)',
+                padding: '8px 14px',
+                textAlign: 'center',
+                fontFamily: 'var(--font-mono)',
+                fontSize: '13px'
               }}>
-                {[
-                  { title: 'New Bill', icon: '🧾', color: '#3498db', action: onBackToBilling },
-                  { title: 'Analytics', icon: '📊', color: '#9b59b6', action: () => {
-                    loadAnalyticsData();
-                    setShowAnalytics(true);
-                  }},
-                  { title: 'Revenue', icon: '💰', color: '#1abc9c', action: () => setActiveTab('revenue') },
-                  { title: 'Expenses', icon: '💸', color: '#e74c3c', action: () => setShowExpenseManager(true) },
-                  { title: 'Edit Bills', icon: '✏️', color: '#27ae60', action: () => setShowBillManager(true) },
-                  { title: 'Add Previous', icon: '📋', color: '#e67e22', action: () => setShowAddPreviousBill(true) },
-                  { title: 'Test QR Code', icon: '📱', color: '#9b59b6', action: () => {
-                    // Import and use the test function
-                    import('./ThermalPrintManager').then(module => {
-                      module.testThermalQRCode(100);
-                    });
-                  }},
-                  { title: 'Test Print', icon: '🖨️', color: '#34495e', action: () => {
-                    const testBill: BillData = {
-                      businessName: shopConfig.shopName,
-                      address: shopConfig.address,
-                      phone: shopConfig.contact,
-                      billNumber: 'TEST-' + Date.now(),
-                      customerName: 'Test Customer',
-                      items: [{ name: 'Test Item', quantity: 1, rate: 100, amount: 100 }],
-                      subtotal: 100,
-                      grandTotal: 100
-                    };
-                    printThermalBill(testBill);
-                  }},
-                  { title: 'Data Backup', icon: '💾', color: '#16a085', action: backupAllData },
-                  { title: 'System Report', icon: '📋', color: '#8e44ad', action: () => {
-                    // Generate quick system report
-                    const report = {
-                      bills: pendingBills.length + billHistory.length,
-                      revenue: [...pendingBills, ...billHistory].reduce((sum, bill) => sum + bill.grandTotal, 0),
-                      customers: new Set([...pendingBills, ...billHistory].map(bill => bill.customerName)).size
-                    };
-                    showAlert({ 
-                      message: `Quick Stats: ${report.bills} bills, ₹${report.revenue} revenue, ${report.customers} customers`, 
-                      type: 'info' 
-                    });
-                  }}
-                ].map((action, index) => (
-                  <button
-                    key={index}
-                    onClick={action.action}
-                    style={{
-                      background: 'rgba(255, 255, 255, 0.15)',
-                      backdropFilter: 'blur(15px)',
-                      border: '1px solid rgba(255, 255, 255, 0.2)',
-                      borderRadius: '12px',
-                      padding: '15px',
-                      color: 'white',
-                      cursor: 'pointer',
-                      textAlign: 'center',
-                      transition: 'all 0.3s ease',
-                      fontSize: '14px',
-                      fontWeight: 'bold'
-                    }}
-                  >
-                    <div style={{ 
-                      fontSize: '24px', 
-                      marginBottom: '8px',
-                      background: action.color,
-                      width: '40px',
-                      height: '40px',
-                      borderRadius: '10px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      margin: '0 auto 8px'
-                    }}>
-                      {action.icon}
-                    </div>
-                    {action.title}
-                  </button>
-                ))}
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '2px' }}>
+                  {currentTime.toLocaleDateString('en-IN', { weekday: 'short', day: '2-digit', month: 'short' })}
+                </div>
+                <div style={{ fontWeight: '600', color: 'var(--text-primary)' }}>
+                  {currentTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })}
+                </div>
               </div>
-            </div>
 
-            {/* Recent Activity */}
-            <div>
-              <h3 style={{ color: 'white', marginBottom: '15px', fontSize: '18px', fontWeight: 'bold' }}>
-                📋 Recent Activity
-                {dashboardData?.recentActivity && (
-                  <span style={{ fontSize: '14px', color: 'rgba(255,255,255,0.7)', fontWeight: 'normal' }}>
-                    {' '}(From Database)
+              <button
+                onClick={() => setShowNotifications(!showNotifications)}
+                className="btn btn-ghost btn-icon"
+                style={{ position: 'relative' }}
+              >
+                <i className="fas fa-bell"></i>
+                {notifications.length > 0 && (
+                  <span style={{
+                    position: 'absolute', top: '2px', right: '2px',
+                    background: 'var(--danger)', color: 'white', borderRadius: '50%',
+                    width: '16px', height: '16px', fontSize: '10px',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '600'
+                  }}>
+                    {notifications.length}
                   </span>
                 )}
-              </h3>
-              <div style={{ 
-                background: 'rgba(255,255,255,0.1)', 
-                borderRadius: '15px', 
-                padding: '20px' 
-              }}>
-                {(dashboardData?.recentActivity || 
-                  [...pendingBills, ...billHistory]
-                    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-                    .slice(0, 5)
-                ).map((bill: any, index: number) => (
-                  <div key={index} style={{
-                    background: 'rgba(255,255,255,0.1)',
-                    borderRadius: '10px',
-                    padding: '15px',
-                    marginBottom: index < 4 ? '10px' : '0',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center'
-                  }}>
-                    <div>
-                      <h4 style={{ color: 'white', margin: '0 0 5px 0', fontSize: '16px' }}>
-                        Bill {bill.billNumber}
-                      </h4>
-                      <p style={{ color: 'rgba(255,255,255,0.8)', margin: 0, fontSize: '14px' }}>
-                        {bill.customerName} - ₹{bill.grandTotal}
-                      </p>
-                    </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ 
-                        background: bill.status === 'completed' || bill.status === 'delivered' ? '#27ae60' : '#f39c12',
-                        color: 'white',
-                        padding: '4px 8px',
-                        borderRadius: '6px',
-                        fontSize: '12px',
-                        fontWeight: 'bold',
-                        marginBottom: '5px'
-                      }}>
-                        {bill.status.toUpperCase()}
-                      </div>
-                      <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '12px' }}>
-                        {new Date(bill.createdAt).toLocaleDateString()}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                {(!dashboardData?.recentActivity && [...pendingBills, ...billHistory].length === 0) && (
-                  <div style={{ textAlign: 'center', color: 'rgba(255,255,255,0.7)', padding: '40px' }}>
-                    <div style={{ fontSize: '48px', marginBottom: '15px' }}>📋</div>
-                    <p>No recent activity</p>
-                  </div>
-                )}
-              </div>
+              </button>
+
+              {onBackToBilling && (
+                <button onClick={onBackToBilling} className="btn btn-success btn-sm">
+                  <i className="fas fa-cash-register"></i> Billing
+                </button>
+              )}
+
+              {onLogout && (
+                <button onClick={onLogout} className="btn btn-danger btn-sm">
+                  <i className="fas fa-right-from-bracket"></i> Logout
+                </button>
+              )}
             </div>
           </div>
-        )}
 
-        {activeTab === 'analytics' && (
-          <div style={{ animation: 'slideIn 0.5s ease-out' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-              <div>
-                <h2 style={{ color: 'white', margin: 0, fontSize: '16px', fontWeight: 'bold' }}>📊 Analytics & Reports</h2>
-                <p style={{ color: 'rgba(255,255,255,0.8)', margin: '2px 0 0 0', fontSize: '11px' }}>
-                  Business insights and performance metrics
-                </p>
-              </div>
+          <div className="admin-tabs">
+            {[
+              { key: 'dashboard', label: 'Dashboard', icon: 'fa-gauge-high' },
+              { key: 'revenue', label: 'Revenue', icon: 'fa-indian-rupee-sign' },
+              { key: 'analytics', label: 'Analytics', icon: 'fa-chart-pie' },
+              { key: 'manage', label: 'Data Manager', icon: 'fa-database' },
+              { key: 'expenses', label: 'Expenses', icon: 'fa-wallet' },
+              { key: 'pending', label: 'Pending', icon: 'fa-clock' },
+              { key: 'history', label: 'History', icon: 'fa-list-check' },
+              { key: 'tags', label: 'Tag History', icon: 'fa-tag' },
+              { key: 'settings', label: 'Settings', icon: 'fa-gear' }
+            ].map((tab) => (
               <button
-                onClick={() => {
-                  loadAnalyticsData();
-                  setShowAnalytics(true);
-                }}
-                className="glass-button"
-                style={{
-                  padding: '6px 12px',
-                  borderRadius: '6px',
-                  fontSize: '11px',
-                  fontWeight: 'bold',
-                  color: 'white',
-                  cursor: 'pointer',
-                  border: 'none',
-                  background: 'linear-gradient(135deg, #3498db, #2980b9)'
-                }}
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key as any)}
+                className={`admin-tab ${activeTab === tab.key ? 'active' : ''}`}
               >
-                📈 View Analytics
+                <i className={`fas ${tab.icon}`}></i>
+                {tab.label}
               </button>
-            </div>
-            
-            <div style={{ 
-              textAlign: 'center', 
-              color: 'white', 
-              padding: '20px',
-              background: 'rgba(255, 255, 255, 0.05)',
-              borderRadius: '12px',
-              border: '1px solid rgba(255, 255, 255, 0.1)'
-            }}>
-              <div style={{ 
-                fontSize: '30px', 
-                marginBottom: '8px', 
-                opacity: 0.8
-              }}>📊</div>
-              <h3 style={{ 
-                fontSize: '16px', 
-                fontWeight: 'bold', 
-                marginBottom: '6px',
-                background: 'linear-gradient(135deg, #ffffff, #e8f4fd)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent'
-              }}>
-                Income & Performance Analytics
-              </h3>
-              <p style={{ 
-                opacity: 0.9, 
-                marginBottom: '15px', 
-                fontSize: '13px', 
-                lineHeight: '1.4'
-              }}>
-                View detailed reports of daily, weekly, and monthly income.<br/>
-                Track business performance, customer insights, and profit analysis.
-              </p>
-              
-              <div style={{ 
-                display: 'grid', 
-                gridTemplateColumns: 'repeat(4, 1fr)', 
-                gap: '8px', 
-                marginBottom: '15px'
-              }}>
-                {[
-                  { icon: '💰', title: 'Revenue', desc: 'Daily/Monthly' },
-                  { icon: '📈', title: 'Growth', desc: 'Trends' },
-                  { icon: '👥', title: 'Customers', desc: 'Insights' },
-                  { icon: '📊', title: 'Profit', desc: 'Analysis' }
-                ].map((feature, index) => (
-                  <div key={index} style={{
-                    background: 'rgba(255, 255, 255, 0.1)',
-                    padding: '8px 4px',
-                    borderRadius: '6px',
-                    border: '1px solid rgba(255, 255, 255, 0.2)'
-                  }}>
-                    <div style={{ fontSize: '16px', marginBottom: '3px' }}>{feature.icon}</div>
-                    <div style={{ fontWeight: 'bold', marginBottom: '2px', fontSize: '10px' }}>{feature.title}</div>
-                    <div style={{ fontSize: '9px', opacity: 0.8 }}>{feature.desc}</div>
-                  </div>
-                ))}
-              </div>
-              
-              <button
-                onClick={() => {
-                  loadAnalyticsData();
-                  setShowAnalytics(true);
-                }}
-                className="glass-button"
-                style={{
-                  background: 'linear-gradient(135deg, #27ae60, #2ecc71)',
-                  border: 'none',
-                  borderRadius: '12px',
-                  padding: '12px 24px',
-                  color: 'white',
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  fontWeight: 'bold'
-                }}
-              >
-                🚀 Open Analytics Dashboard
-              </button>
-            </div>
+            ))}
           </div>
-        )}
 
-        {activeTab === 'expenses' && (
-          <div style={{ animation: 'slideIn 0.5s ease-out' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+          {/* Tab Content */}
+          <div className="card" style={{
+            margin: '0 16px 16px',
+            padding: '20px',
+            minHeight: '200px'
+          }}>
+            {activeTab === 'dashboard' && (
               <div>
-                <h2 style={{ color: 'white', margin: 0, fontSize: '16px', fontWeight: 'bold' }}>💸 Expense Management</h2>
-                <p style={{ color: 'rgba(255,255,255,0.8)', margin: '2px 0 0 0', fontSize: '11px' }}>
-                  Track and manage business expenses
-                </p>
-              </div>
-              <button
-                onClick={() => setShowExpenseManager(true)}
-                className="glass-button"
-                style={{
-                  padding: '6px 12px',
-                  borderRadius: '6px',
-                  fontSize: '11px',
-                  fontWeight: 'bold',
-                  color: 'white',
-                  cursor: 'pointer',
-                  border: 'none',
-                  background: 'linear-gradient(135deg, #e74c3c, #c0392b)'
-                }}
-              >
-                💰 Manage Expenses
-              </button>
-            </div>
-            
-            <div style={{ 
-              textAlign: 'center', 
-              color: 'white', 
-              padding: '20px',
-              background: 'rgba(255, 255, 255, 0.05)',
-              borderRadius: '12px',
-              border: '1px solid rgba(255, 255, 255, 0.1)'
-            }}>
-              <div style={{ 
-                fontSize: '30px', 
-                marginBottom: '8px', 
-                opacity: 0.8
-              }}>💸</div>
-              <h3 style={{ 
-                fontSize: '16px', 
-                fontWeight: 'bold', 
-                marginBottom: '6px',
-                background: 'linear-gradient(135deg, #ffffff, #fde8e8)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent'
-              }}>
-                Track Business Expenses
-              </h3>
-              <p style={{ 
-                opacity: 0.9, 
-                marginBottom: '15px', 
-                fontSize: '13px', 
-                lineHeight: '1.4'
-              }}>
-                Add and manage all business expenses including rent, utilities, supplies.<br/>
-                Calculate profit by tracking income vs expenses.
-              </p>
-              
-              <div style={{ 
-                display: 'grid', 
-                gridTemplateColumns: 'repeat(3, 1fr)', 
-                gap: '10px', 
-                marginBottom: '15px'
-              }}>
-                {[
-                  { icon: '🏠', title: 'Rent & Utilities', desc: 'Fixed costs', color: '#e74c3c' },
-                  { icon: '📦', title: 'Supplies', desc: 'Materials', color: '#f39c12' },
-                  { icon: '💰', title: 'Profit Analysis', desc: 'Income - Expenses', color: '#27ae60' }
-                ].map((item, index) => (
-                  <div key={index} style={{
-                    background: `linear-gradient(135deg, ${item.color}20, ${item.color}10)`,
-                    padding: '12px 8px',
-                    borderRadius: '8px',
-                    border: `1px solid ${item.color}30`,
-                    position: 'relative',
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                  <div>
+                    <h2 style={{ color: 'var(--text-primary)', margin: 0, fontSize: '20px', fontWeight: '700' }}>
+                      <i className="fas fa-chart-line" style={{ marginRight: '8px', color: 'var(--accent)' }}></i>
+                      Business Dashboard
+                    </h2>
+                    <p style={{ color: 'var(--text-secondary)', margin: '4px 0 0 0', fontSize: '13px' }}>
+                      Overview of your laundry business performance
+                      {dashboardData && <span style={{ color: 'var(--success)', fontWeight: '600' }}> · Database connected</span>}
+                    </p>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button onClick={loadDashboardAnalytics} disabled={loading} className="btn btn-ghost btn-sm">
+                      <i className={`fas ${loading ? 'fa-spinner fa-spin' : 'fa-sync-alt'}`} style={{ marginRight: '4px' }}></i>Refresh
+                    </button>
+                    <button onClick={() => exportData('bills')} disabled={loading} className="btn btn-ghost btn-sm">
+                      <i className="fas fa-download" style={{ marginRight: '4px' }}></i>Export
+                    </button>
+                  </div>
+                </div>
+
+                {/* Stats Grid */}
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                  gap: '12px',
+                  marginBottom: '28px'
+                }}>
+                  {[
+                    {
+                      title: 'Total Revenue',
+                      value: dashboardData?.month?.revenue
+                        ? `₹${dashboardData.month.revenue.toLocaleString()}`
+                        : `₹${(pendingBills.reduce((sum, bill) => sum + bill.grandTotal, 0) + billHistory.reduce((sum, bill) => sum + bill.grandTotal, 0)).toLocaleString()}`,
+                      icon: 'fa-rupee-sign',
+                      subtitle: dashboardData ? 'This month' : 'Local data'
+                    },
+                    {
+                      title: 'Today Revenue',
+                      value: dashboardData?.today?.revenue
+                        ? `₹${dashboardData.today.revenue.toLocaleString()}`
+                        : `₹${[...pendingBills, ...billHistory]
+                          .filter(bill => new Date(bill.createdAt).toDateString() === new Date().toDateString())
+                          .reduce((sum, bill) => sum + bill.grandTotal, 0).toLocaleString()}`,
+                      icon: 'fa-calendar-day',
+                      subtitle: dashboardData ? 'From database' : 'Local data'
+                    },
+                    {
+                      title: 'Total Bills',
+                      value: dashboardData?.month?.bills
+                        ? dashboardData.month.bills.toString()
+                        : (pendingBills.length + billHistory.length).toString(),
+                      icon: 'fa-file-invoice',
+                      subtitle: dashboardData ? 'This month' : 'Local data'
+                    },
+                    {
+                      title: 'Pending',
+                      value: dashboardData?.pendingBills !== undefined
+                        ? dashboardData.pendingBills.toString()
+                        : pendingBills.length.toString(),
+                      icon: 'fa-clock',
+                      subtitle: pendingBills.length > 5 ? 'Needs attention' : 'On track'
+                    },
+                    {
+                      title: 'Today Profit',
+                      value: dashboardData?.today?.profit !== undefined
+                        ? `₹${dashboardData.today.profit.toLocaleString()}`
+                        : 'N/A',
+                      icon: 'fa-chart-pie',
+                      subtitle: dashboardData ? 'Revenue − Expenses' : 'Connect DB'
+                    }
+                  ].map((stat, index) => (
+                    <div key={index} style={{
+                      background: 'var(--bg-elevated)',
+                      border: '1px solid var(--border-subtle)',
+                      borderRadius: 'var(--radius-md)',
+                      padding: '16px'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
+                        <div style={{
+                          width: '32px', height: '32px', borderRadius: '8px',
+                          background: 'var(--accent-muted)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          color: 'var(--accent)', fontSize: '14px'
+                        }}>
+                          <i className={`fas ${stat.icon}`}></i>
+                        </div>
+                        <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: '500' }}>{stat.title}</span>
+                      </div>
+                      <div style={{ fontSize: '22px', fontWeight: '700', color: 'var(--text-primary)', marginBottom: '4px' }}>
+                        {stat.value}
+                      </div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{stat.subtitle}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Quick Actions */}
+                <div style={{ marginBottom: '24px' }}>
+                  <h3 style={{ color: 'var(--text-primary)', marginBottom: '12px', fontSize: '15px', fontWeight: '600' }}>
+                    <i className="fas fa-bolt" style={{ marginRight: '6px', color: 'var(--accent)' }}></i>
+                    Quick Actions
+                  </h3>
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+                    gap: '8px'
+                  }}>
+                    {[
+                      { title: 'New Bill', icon: 'fa-plus', action: onBackToBilling },
+                      {
+                        title: 'Analytics', icon: 'fa-chart-bar', action: () => {
+                          loadAnalyticsData();
+                          setShowAnalytics(true);
+                        }
+                      },
+                      { title: 'Revenue', icon: 'fa-chart-line', action: () => setActiveTab('revenue') },
+                      { title: 'Expenses', icon: 'fa-wallet', action: () => setShowExpenseManager(true) },
+                      { title: 'Edit Bills', icon: 'fa-pen', action: () => setShowBillManager(true) },
+                      { title: 'Add Previous', icon: 'fa-history', action: () => setShowAddPreviousBill(true) },
+                      {
+                        title: 'Test QR', icon: 'fa-qrcode', action: () => {
+                          import('./ThermalPrintManager').then(module => {
+                            module.testThermalQRCode(100);
+                          });
+                        }
+                      },
+                      {
+                        title: 'Test Print', icon: 'fa-print', action: () => {
+                          const testBill: BillData = {
+                            businessName: shopConfig.shopName,
+                            address: shopConfig.address,
+                            phone: shopConfig.contact,
+                            billNumber: 'TEST-' + Date.now(),
+                            customerName: 'Test Customer',
+                            items: [{ name: 'Test Item', quantity: 1, rate: 100, amount: 100 }],
+                            subtotal: 100,
+                            grandTotal: 100
+                          };
+                          printThermalBill(testBill);
+                        }
+                      },
+                      { title: 'Backup', icon: 'fa-cloud-download-alt', action: backupAllData }
+                    ].map((action, index) => (
+                      <button
+                        key={index}
+                        onClick={action.action}
+                        className="btn btn-ghost"
+                        style={{
+                          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px',
+                          padding: '14px 8px', fontSize: '12px', fontWeight: '500'
+                        }}
+                      >
+                        <div style={{
+                          width: '34px', height: '34px', borderRadius: '8px',
+                          background: 'var(--accent-muted)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          color: 'var(--accent)', fontSize: '14px'
+                        }}>
+                          <i className={`fas ${action.icon}`}></i>
+                        </div>
+                        {action.title}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Recent Activity */}
+                <div>
+                  <h3 style={{ color: 'var(--text-primary)', marginBottom: '12px', fontSize: '15px', fontWeight: '600' }}>
+                    <i className="fas fa-history" style={{ marginRight: '6px', color: 'var(--accent)' }}></i>
+                    Recent Activity
+                    {dashboardData?.recentActivity && (
+                      <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: '400', marginLeft: '8px' }}>
+                        from database
+                      </span>
+                    )}
+                  </h3>
+                  <div style={{
+                    background: 'var(--bg-elevated)',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid var(--border-subtle)',
                     overflow: 'hidden'
                   }}>
-                    <div style={{ fontSize: '20px', marginBottom: '6px', position: 'relative', zIndex: 1 }}>{item.icon}</div>
-                    <div style={{ fontWeight: 'bold', marginBottom: '3px', fontSize: '11px', position: 'relative', zIndex: 1 }}>{item.title}</div>
-                    <div style={{ fontSize: '10px', opacity: 0.8, position: 'relative', zIndex: 1 }}>{item.desc}</div>
+                    {(dashboardData?.recentActivity ||
+                      [...pendingBills, ...billHistory]
+                        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                        .slice(0, 5)
+                    ).map((bill: any, index: number) => (
+                      <div key={index} style={{
+                        padding: '12px 16px',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        borderBottom: index < 4 ? '1px solid var(--border-subtle)' : 'none'
+                      }}>
+                        <div>
+                          <div style={{ color: 'var(--text-primary)', fontSize: '14px', fontWeight: '600' }}>
+                            {bill.billNumber}
+                          </div>
+                          <div style={{ color: 'var(--text-muted)', fontSize: '12px', marginTop: '2px' }}>
+                            {bill.customerName} · ₹{bill.grandTotal}
+                          </div>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <span style={{
+                            background: bill.status === 'completed' || bill.status === 'delivered' ? 'var(--success)' : 'var(--warning)',
+                            color: 'white',
+                            padding: '2px 8px',
+                            borderRadius: '10px',
+                            fontSize: '10px',
+                            fontWeight: '600',
+                            textTransform: 'uppercase'
+                          }}>
+                            {bill.status}
+                          </span>
+                          <div style={{ color: 'var(--text-muted)', fontSize: '11px', marginTop: '4px' }}>
+                            {new Date(bill.createdAt).toLocaleDateString('en-IN')}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    {(!dashboardData?.recentActivity && [...pendingBills, ...billHistory].length === 0) && (
+                      <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '32px' }}>
+                        <i className="fas fa-inbox" style={{ fontSize: '20px', marginBottom: '8px', opacity: 0.4 }}></i>
+                        <p style={{ margin: 0 }}>No recent activity</p>
+                      </div>
+                    )}
                   </div>
-                ))}
-              </div>
-              
-              <button
-                onClick={() => setShowExpenseManager(true)}
-                className="glass-button"
-                style={{
-                  background: 'linear-gradient(135deg, #e74c3c, #c0392b)',
-                  border: 'none',
-                  borderRadius: '12px',
-                  padding: '12px 24px',
-                  color: 'white',
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  fontWeight: 'bold'
-                }}
-              >
-                🚀 Open Expense Manager
-              </button>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'manage' && (
-          <div style={{ animation: 'slideIn 0.5s ease-out' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
-              <div>
-                <h2 style={{ color: 'white', margin: 0, fontSize: '28px', fontWeight: 'bold' }}>🛠️ Advanced Data Management</h2>
-                <p style={{ color: 'rgba(255,255,255,0.8)', margin: '8px 0 0 0', fontSize: '16px' }}>
-                  Comprehensive tools for managing your business data
-                </p>
-              </div>
-            </div>
-            
-            {/* Management Categories */}
-            <div style={{ 
-              display: 'grid', 
-              gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', 
-              gap: '25px', 
-              marginBottom: '30px'
-            }}>
-              
-              {/* Data Operations */}
-              <div style={{
-                background: 'linear-gradient(135deg, rgba(52, 152, 219, 0.2), rgba(52, 152, 219, 0.1))',
-                borderRadius: '20px',
-                padding: '30px',
-                border: '2px solid rgba(52, 152, 219, 0.3)',
-                position: 'relative',
-                overflow: 'hidden'
-              }}>
-                <div style={{
-                  position: 'absolute',
-                  top: '-30px',
-                  right: '-30px',
-                  width: '100px',
-                  height: '100px',
-                  background: 'rgba(52, 152, 219, 0.1)',
-                  borderRadius: '50%'
-                }}></div>
-                <div style={{ fontSize: '48px', marginBottom: '20px', position: 'relative', zIndex: 1 }}>🗃️</div>
-                <h3 style={{ color: '#3498db', margin: '0 0 15px 0', fontSize: '22px', fontWeight: 'bold', position: 'relative', zIndex: 1 }}>
-                  Data Operations
-                </h3>
-                <p style={{ opacity: 0.9, marginBottom: '20px', fontSize: '14px', lineHeight: '1.5', position: 'relative', zIndex: 1 }}>
-                  Backup, restore, import, and export your business data safely.
-                </p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', position: 'relative', zIndex: 1 }}>
-                  <button
-                    onClick={backupAllData}
-                    disabled={loading}
-                    className="glass-button"
-                    style={{
-                      background: 'linear-gradient(135deg, #27ae60, #2ecc71)',
-                      border: 'none',
-                      borderRadius: '10px',
-                      padding: '12px 20px',
-                      color: 'white',
-                      cursor: loading ? 'not-allowed' : 'pointer',
-                      fontSize: '14px',
-                      fontWeight: 'bold',
-                      width: '100%'
-                    }}
-                  >
-                    {loading ? '⏳ Creating...' : '💾 Backup All Data'}
-                  </button>
-                  
-                  <label style={{ width: '100%' }}>
-                    <input
-                      type="file"
-                      accept=".json"
-                      onChange={restoreFromBackup}
-                      style={{ display: 'none' }}
-                    />
-                    <div
-                      className="glass-button"
-                      style={{
-                        background: 'linear-gradient(135deg, #f39c12, #e67e22)',
-                        border: 'none',
-                        borderRadius: '10px',
-                        padding: '12px 20px',
-                        color: 'white',
-                        cursor: 'pointer',
-                        fontSize: '14px',
-                        fontWeight: 'bold',
-                        width: '100%',
-                        textAlign: 'center',
-                        display: 'block'
-                      }}
-                    >
-                      � Restore from Backup
-                    </div>
-                  </label>
-                  
-                  <button
-                    onClick={() => exportData('bills')}
-                    disabled={loading}
-                    className="glass-button"
-                    style={{
-                      background: 'linear-gradient(135deg, #9b59b6, #8e44ad)',
-                      border: 'none',
-                      borderRadius: '10px',
-                      padding: '12px 20px',
-                      color: 'white',
-                      cursor: loading ? 'not-allowed' : 'pointer',
-                      fontSize: '14px',
-                      fontWeight: 'bold',
-                      width: '100%'
-                    }}
-                  >
-                    {loading ? '⏳ Exporting...' : '📊 Export to CSV'}
-                  </button>
-                  
-                  <label style={{ width: '100%' }}>
-                    <input
-                      type="file"
-                      accept=".csv"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (!file) return;
-                        
-                        const reader = new FileReader();
-                        reader.onload = (event) => {
-                          try {
-                            const csvContent = event.target?.result as string;
-                            const lines = csvContent.split('\n');
-                            const headers = lines[0].split(',');
-                            
-                            if (headers.includes('Bill Number') && headers.includes('Customer Name')) {
-                              showAlert({ 
-                                message: `CSV file loaded with ${lines.length - 1} rows. Import functionality coming soon!`, 
-                                type: 'info' 
-                              });
-                            } else {
-                              showAlert({ 
-                                message: 'Invalid CSV format. Please use exported CSV as template.', 
-                                type: 'error' 
-                              });
-                            }
-                          } catch (error) {
-                            showAlert({ message: 'Error reading CSV file', type: 'error' });
-                          }
-                        };
-                        reader.readAsText(file);
-                      }}
-                      style={{ display: 'none' }}
-                    />
-                    <div
-                      className="glass-button"
-                      style={{
-                        background: 'linear-gradient(135deg, #34495e, #2c3e50)',
-                        border: 'none',
-                        borderRadius: '10px',
-                        padding: '12px 20px',
-                        color: 'white',
-                        cursor: 'pointer',
-                        fontSize: '14px',
-                        fontWeight: 'bold',
-                        width: '100%',
-                        textAlign: 'center',
-                        display: 'block'
-                      }}
-                    >
-                      📥 Import from CSV
-                    </div>
-                  </label>
                 </div>
-              </div>
-
-              {/* Bill Management */}
-              <div style={{
-                background: 'linear-gradient(135deg, rgba(155, 89, 182, 0.2), rgba(155, 89, 182, 0.1))',
-                borderRadius: '20px',
-                padding: '30px',
-                border: '2px solid rgba(155, 89, 182, 0.3)',
-                position: 'relative',
-                overflow: 'hidden'
-              }}>
-                <div style={{
-                  position: 'absolute',
-                  top: '-30px',
-                  right: '-30px',
-                  width: '100px',
-                  height: '100px',
-                  background: 'rgba(155, 89, 182, 0.1)',
-                  borderRadius: '50%'
-                }}></div>
-                <div style={{ fontSize: '48px', marginBottom: '20px', position: 'relative', zIndex: 1 }}>🧾</div>
-                <h3 style={{ color: '#d4c8d9ff', margin: '0 0 15px 0', fontSize: '22px', fontWeight: 'bold', position: 'relative', zIndex: 1 }}>
-                  Bill Management
-                </h3>
-                <p style={{ opacity: 0.9, marginBottom: '20px', fontSize: '14px', lineHeight: '1.5', position: 'relative', zIndex: 1 }}>
-                  Edit, delete, and manage all bills with advanced filtering and bulk operations.
-                </p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', position: 'relative', zIndex: 1 }}>
-                  <button
-                    onClick={() => setShowBillManager(true)}
-                    className="glass-button"
-                    style={{
-                      background: 'linear-gradient(135deg, #3498db, #2980b9)',
-                      border: 'none',
-                      borderRadius: '10px',
-                      padding: '12px 20px',
-                      color: 'white',
-                      cursor: 'pointer',
-                      fontSize: '14px',
-                      fontWeight: 'bold',
-                      width: '100%'
-                    }}
-                  >
-                    🛠️ Open Bill Manager
-                  </button>
-                  
-                  <button
-                    onClick={() => setShowBulkOperations(true)}
-                    className="glass-button"
-                    style={{
-                      background: 'linear-gradient(135deg, #e74c3c, #c0392b)',
-                      border: 'none',
-                      borderRadius: '10px',
-                      padding: '12px 20px',
-                      color: 'white',
-                      cursor: 'pointer',
-                      fontSize: '14px',
-                      fontWeight: 'bold',
-                      width: '100%'
-                    }}
-                  >
-                    ⚡ Bulk Operations
-                  </button>
-                  
-                  <button
-                    onClick={() => setShowCustomerManager(true)}
-                    className="glass-button"
-                    style={{
-                      background: 'linear-gradient(135deg, #1abc9c, #16a085)',
-                      border: 'none',
-                      borderRadius: '10px',
-                      padding: '12px 20px',
-                      color: 'white',
-                      cursor: 'pointer',
-                      fontSize: '14px',
-                      fontWeight: 'bold',
-                      width: '100%'
-                    }}
-                  >
-                    👥 Customer Manager
-                  </button>
-                </div>
-              </div>
-
-              {/* Reports & Analytics */}
-              <div style={{
-                background: 'linear-gradient(135deg, rgba(231, 76, 60, 0.2), rgba(231, 76, 60, 0.1))',
-                borderRadius: '20px',
-                padding: '30px',
-                border: '2px solid rgba(231, 76, 60, 0.3)',
-                position: 'relative',
-                overflow: 'hidden'
-              }}>
-                <div style={{
-                  position: 'absolute',
-                  top: '-30px',
-                  right: '-30px',
-                  width: '100px',
-                  height: '100px',
-                  background: 'rgba(231, 76, 60, 0.1)',
-                  borderRadius: '50%'
-                }}></div>
-                <div style={{ fontSize: '48px', marginBottom: '20px', position: 'relative', zIndex: 1 }}>📈</div>
-                <h3 style={{ color: '#e74c3c', margin: '0 0 15px 0', fontSize: '22px', fontWeight: 'bold', position: 'relative', zIndex: 1 }}>
-                  Reports & Analytics
-                </h3>
-                <p style={{ opacity: 0.9, marginBottom: '20px', fontSize: '14px', lineHeight: '1.5', position: 'relative', zIndex: 1 }}>
-                  Generate detailed reports and analyze business performance.
-                </p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', position: 'relative', zIndex: 1 }}>
-                  <button
-                    onClick={() => setShowReportsGenerator(true)}
-                    className="glass-button"
-                    style={{
-                      background: 'linear-gradient(135deg, #e74c3c, #c0392b)',
-                      border: 'none',
-                      borderRadius: '10px',
-                      padding: '12px 20px',
-                      color: 'white',
-                      cursor: 'pointer',
-                      fontSize: '14px',
-                      fontWeight: 'bold',
-                      width: '100%'
-                    }}
-                  >
-                    📊 Custom Reports
-                  </button>
-                  
-                  <button
-                    onClick={() => {
-                      const today = new Date().toISOString().split('T')[0];
-                      const lastWeek = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-                      generateCustomReport('sales', { start: lastWeek, end: today });
-                    }}
-                    disabled={loading}
-                    className="glass-button"
-                    style={{
-                      background: 'linear-gradient(135deg, #f39c12, #e67e22)',
-                      border: 'none',
-                      borderRadius: '10px',
-                      padding: '12px 20px',
-                      color: 'white',
-                      cursor: loading ? 'not-allowed' : 'pointer',
-                      fontSize: '14px',
-                      fontWeight: 'bold',
-                      width: '100%'
-                    }}
-                  >
-                    {loading ? '⏳ Generating...' : '📅 Weekly Sales Report'}
-                  </button>
-                  
-                  <button
-                    onClick={() => {
-                      const today = new Date().toISOString().split('T')[0];
-                      const lastMonth = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-                      generateCustomReport('customer', { start: lastMonth, end: today });
-                    }}
-                    disabled={loading}
-                    className="glass-button"
-                    style={{
-                      background: 'linear-gradient(135deg, #27ae60, #2ecc71)',
-                      border: 'none',
-                      borderRadius: '10px',
-                      padding: '12px 20px',
-                      color: 'white',
-                      cursor: loading ? 'not-allowed' : 'pointer',
-                      fontSize: '14px',
-                      fontWeight: 'bold',
-                      width: '100%'
-                    }}
-                  >
-                    {loading ? '⏳ Generating...' : '👥 Customer Analysis'}
-                  </button>
-                </div>
-              </div>
-
-              {/* System Management */}
-              <div style={{
-                background: 'linear-gradient(135deg, rgba(243, 156, 18, 0.2), rgba(243, 156, 18, 0.1))',
-                borderRadius: '20px',
-                padding: '30px',
-                border: '2px solid rgba(243, 156, 18, 0.3)',
-                position: 'relative',
-                overflow: 'hidden'
-              }}>
-                <div style={{
-                  position: 'absolute',
-                  top: '-30px',
-                  right: '-30px',
-                  width: '100px',
-                  height: '100px',
-                  background: 'rgba(243, 156, 18, 0.1)',
-                  borderRadius: '50%'
-                }}></div>
-                <div style={{ fontSize: '48px', marginBottom: '20px', position: 'relative', zIndex: 1 }}>⚙️</div>
-                <h3 style={{ color: '#f39c12', margin: '0 0 15px 0', fontSize: '22px', fontWeight: 'bold', position: 'relative', zIndex: 1 }}>
-                  System Management
-                </h3>
-                <p style={{ opacity: 0.9, marginBottom: '20px', fontSize: '14px', lineHeight: '1.5', position: 'relative', zIndex: 1 }}>
-                  Advanced system operations and maintenance tools.
-                </p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', position: 'relative', zIndex: 1 }}>
-                  <button
-                    onClick={testAllEndpoints}
-                    disabled={loading}
-                    className="glass-button"
-                    style={{
-                      background: 'linear-gradient(135deg, #3498db, #2980b9)',
-                      border: 'none',
-                      borderRadius: '10px',
-                      padding: '12px 20px',
-                      color: 'white',
-                      cursor: loading ? 'not-allowed' : 'pointer',
-                      fontSize: '14px',
-                      fontWeight: 'bold',
-                      width: '100%'
-                    }}
-                  >
-                    {loading ? '⏳ Testing...' : '🧪 System Health Check'}
-                  </button>
-                  
-                  <button
-                    onClick={() => {
-                      const stats = {
-                        totalBills: pendingBills.length + billHistory.length,
-                        totalRevenue: [...pendingBills, ...billHistory].reduce((sum, bill) => sum + bill.grandTotal, 0),
-                        dbStatus: connectionStatus,
-                        lastBackup: localStorage.getItem('last_backup_date') || 'Never'
-                      };
-                      showAlert({ 
-                        message: `System Stats: ${stats.totalBills} bills, ₹${stats.totalRevenue} revenue, DB: ${stats.dbStatus}`, 
-                        type: 'info' 
-                      });
-                    }}
-                    className="glass-button"
-                    style={{
-                      background: 'linear-gradient(135deg, #1abc9c, #16a085)',
-                      border: 'none',
-                      borderRadius: '10px',
-                      padding: '12px 20px',
-                      color: 'white',
-                      cursor: 'pointer',
-                      fontSize: '14px',
-                      fontWeight: 'bold',
-                      width: '100%'
-                    }}
-                  >
-                    📊 System Statistics
-                  </button>
-                  
-                  <button
-                    onClick={() => {
-                      // Create a comprehensive system report
-                      const systemReport = {
-                        timestamp: new Date().toISOString(),
-                        totalBills: pendingBills.length + billHistory.length,
-                        pendingBills: pendingBills.length,
-                        completedBills: billHistory.filter(b => b.status === 'completed').length,
-                        deliveredBills: billHistory.filter(b => b.status === 'delivered').length,
-                        totalRevenue: [...pendingBills, ...billHistory].reduce((sum, bill) => sum + bill.grandTotal, 0),
-                        uniqueCustomers: new Set([...pendingBills, ...billHistory].map(bill => bill.customerName)).size,
-                        databaseStatus: connectionStatus,
-                        averageBillValue: Math.round([...pendingBills, ...billHistory].reduce((sum, bill) => sum + bill.grandTotal, 0) / (pendingBills.length + billHistory.length)) || 0,
-                        todaysBills: [...pendingBills, ...billHistory].filter(bill => 
-                          new Date(bill.createdAt).toDateString() === new Date().toDateString()
-                        ).length,
-                        thisMonthRevenue: [...pendingBills, ...billHistory]
-                          .filter(bill => {
-                            const billDate = new Date(bill.createdAt);
-                            const now = new Date();
-                            return billDate.getMonth() === now.getMonth() && billDate.getFullYear() === now.getFullYear();
-                          })
-                          .reduce((sum, bill) => sum + bill.grandTotal, 0)
-                      };
-                      
-                      const reportContent = `GenZ Laundry System Report
-Generated: ${new Date().toLocaleString()}
-
-=== BUSINESS OVERVIEW ===
-Total Bills: ${systemReport.totalBills}
-Pending Bills: ${systemReport.pendingBills}
-Completed Bills: ${systemReport.completedBills}
-Delivered Bills: ${systemReport.deliveredBills}
-
-=== FINANCIAL SUMMARY ===
-Total Revenue: ₹${systemReport.totalRevenue.toLocaleString()}
-This Month Revenue: ₹${systemReport.thisMonthRevenue.toLocaleString()}
-Average Bill Value: ₹${systemReport.averageBillValue}
-
-=== CUSTOMER INSIGHTS ===
-Unique Customers: ${systemReport.uniqueCustomers}
-Today's Bills: ${systemReport.todaysBills}
-
-=== SYSTEM STATUS ===
-Database Connection: ${systemReport.databaseStatus}
-Report Generated: ${systemReport.timestamp}
-
-=== PERFORMANCE METRICS ===
-Bills per Customer: ${Math.round(systemReport.totalBills / systemReport.uniqueCustomers) || 0}
-Revenue per Customer: ₹${Math.round(systemReport.totalRevenue / systemReport.uniqueCustomers) || 0}
-`;
-                      
-                      const blob = new Blob([reportContent], { type: 'text/plain' });
-                      const url = window.URL.createObjectURL(blob);
-                      const a = document.createElement('a');
-                      a.href = url;
-                      a.download = `system_report_${new Date().toISOString().split('T')[0]}.txt`;
-                      a.click();
-                      window.URL.revokeObjectURL(url);
-                      
-                      showAlert({ message: 'System report generated successfully!', type: 'success' });
-                    }}
-                    className="glass-button"
-                    style={{
-                      background: 'linear-gradient(135deg, #f39c12, #e67e22)',
-                      border: 'none',
-                      borderRadius: '10px',
-                      padding: '12px 20px',
-                      color: 'white',
-                      cursor: 'pointer',
-                      fontSize: '14px',
-                      fontWeight: 'bold',
-                      width: '100%'
-                    }}
-                  >
-                    📋 Generate System Report
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Quick Stats Summary */}
-            <div style={{
-              background: 'rgba(255, 255, 255, 0.1)',
-              borderRadius: '20px',
-              padding: '25px',
-              border: '1px solid rgba(255, 255, 255, 0.2)'
-            }}>
-              <h3 style={{ color: 'white', marginBottom: '20px', fontSize: '20px', fontWeight: 'bold' }}>
-                📊 Data Management Summary
-              </h3>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#ffffffff' }}>
-                    {pendingBills.length + billHistory.length}
-                  </div>
-                  <div style={{ fontSize: '14px', opacity: 0.8, color: 'white' }}>Total Bills in System</div>
-                </div>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#000000ff' }}>
-                    ₹{[...pendingBills, ...billHistory].reduce((sum, bill) => sum + bill.grandTotal, 0).toLocaleString()}
-                  </div>
-                  <div style={{ fontSize: '14px', opacity: 0.8, color: 'white' }}>Total Revenue Tracked</div>
-                </div>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#f39c12' }}>
-                    {connectionStatus === 'connected' ? '🟢' : connectionStatus === 'disconnected' ? '🔴' : '🟡'}
-                  </div>
-                  <div style={{ fontSize: '14px', opacity: 0.8, color: 'white' }}>Database Status</div>
-                </div>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#9b59b6' }}>
-                    {new Set([...pendingBills, ...billHistory].map(bill => bill.customerName)).size}
-                  </div>
-                  <div style={{ fontSize: '14px', opacity: 0.8, color: 'white' }}>Unique Customers</div>
-                </div>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#e74c3c' }}>
-                    {localStorage.getItem('last_backup_date') 
-                      ? new Date(localStorage.getItem('last_backup_date')!).toLocaleDateString()
-                      : 'Never'
-                    }
-                  </div>
-                  <div style={{ fontSize: '14px', opacity: 0.8, color: 'white' }}>Last Backup</div>
-                </div>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#000000ff' }}>
-                    {Math.round([...pendingBills, ...billHistory].reduce((sum, bill) => sum + bill.grandTotal, 0) / (pendingBills.length + billHistory.length)) || 0}
-                  </div>
-                  <div style={{ fontSize: '14px', opacity: 0.8, color: 'white' }}>Average Bill Value</div>
-                </div>
-              </div>
-              
-              {/* Quick Action Buttons */}
-              <div style={{ 
-                marginTop: '25px', 
-                display: 'grid', 
-                gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', 
-                gap: '12px' 
-              }}>
-                <button
-                  onClick={() => setShowBulkOperations(true)}
-                  className="glass-button"
-                  style={{
-                    background: 'linear-gradient(135deg, #e74c3c, #c0392b)',
-                    border: 'none',
-                    borderRadius: '10px',
-                    padding: '12px 16px',
-                    color: 'white',
-                    cursor: 'pointer',
-                    fontSize: '13px',
-                    fontWeight: 'bold'
-                  }}
-                >
-                  ⚡ Bulk Operations
-                </button>
-                <button
-                  onClick={() => setShowReportsGenerator(true)}
-                  className="glass-button"
-                  style={{
-                    background: 'linear-gradient(135deg, #9b59b6, #8e44ad)',
-                    border: 'none',
-                    borderRadius: '10px',
-                    padding: '12px 16px',
-                    color: 'white',
-                    cursor: 'pointer',
-                    fontSize: '13px',
-                    fontWeight: 'bold'
-                  }}
-                >
-                  📊 Custom Reports
-                </button>
-                <button
-                  onClick={() => setShowCustomerManager(true)}
-                  className="glass-button"
-                  style={{
-                    background: 'linear-gradient(135deg, #3498db, #2980b9)',
-                    border: 'none',
-                    borderRadius: '10px',
-                    padding: '12px 16px',
-                    color: 'white',
-                    cursor: 'pointer',
-                    fontSize: '13px',
-                    fontWeight: 'bold'
-                  }}
-                >
-                  👥 Customer Manager
-                </button>
-                <button
-                  onClick={testAllEndpoints}
-                  disabled={loading}
-                  className="glass-button"
-                  style={{
-                    background: loading ? 'rgba(255, 255, 255, 0.1)' : 'linear-gradient(135deg, #f39c12, #e67e22)',
-                    border: 'none',
-                    borderRadius: '10px',
-                    padding: '12px 16px',
-                    color: 'white',
-                    cursor: loading ? 'not-allowed' : 'pointer',
-                    fontSize: '13px',
-                    fontWeight: 'bold'
-                  }}
-                >
-                  {loading ? '⏳ Testing...' : '🧪 System Test'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'tags' && (
-          <TagHistoryViewer />
-        )}
-
-        {activeTab === 'settings' && (
-          <div>
-            <h2 style={{ color: 'white', marginBottom: '20px', fontSize: '24px' }}>⚙️ Settings</h2>
-            
-            {/* Store Configuration Section */}
-            <div style={{ 
-              background: 'rgba(255, 255, 255, 0.1)', 
-              borderRadius: '12px', 
-              padding: '25px',
-              marginBottom: '20px'
-            }}>
-              <h3 style={{ color: 'white', marginBottom: '20px', fontSize: '18px' }}>🏪 Store Configuration</h3>
-              <div style={{ display: 'grid', gap: '15px', maxWidth: '500px' }}>
-                <div>
-                  <label style={{ color: 'white', display: 'block', marginBottom: '8px', fontWeight: '500' }}>
-                    Store Name
-                  </label>
-                  <input
-                    type="text"
-                    value={shopConfig.shopName}
-                    onChange={(e) => setShopConfig({...shopConfig, shopName: e.target.value})}
-                    style={{
-                      width: '100%',
-                      padding: '12px',
-                      borderRadius: '8px',
-                      border: 'none',
-                      background: 'rgba(255, 255, 255, 0.9)',
-                      fontSize: '16px'
-                    }}
-                  />
-                </div>
-                
-                <div>
-                  <label style={{ color: 'white', display: 'block', marginBottom: '8px', fontWeight: '500' }}>
-                    Address
-                  </label>
-                  <textarea
-                    value={shopConfig.address}
-                    onChange={(e) => setShopConfig({...shopConfig, address: e.target.value})}
-                    style={{
-                      width: '100%',
-                      padding: '12px',
-                      borderRadius: '8px',
-                      border: 'none',
-                      background: 'rgba(255, 255, 255, 0.9)',
-                      fontSize: '16px',
-                      minHeight: '80px',
-                      resize: 'vertical'
-                    }}
-                  />
-                </div>
-                
-                <div>
-                  <label style={{ color: 'white', display: 'block', marginBottom: '8px', fontWeight: '500' }}>
-                    Contact Number
-                  </label>
-                  <input
-                    type="text"
-                    value={shopConfig.contact}
-                    onChange={(e) => setShopConfig({...shopConfig, contact: e.target.value})}
-                    style={{
-                      width: '100%',
-                      padding: '12px',
-                      borderRadius: '8px',
-                      border: 'none',
-                      background: 'rgba(255, 255, 255, 0.9)',
-                      fontSize: '16px'
-                    }}
-                  />
-                </div>
-                
-                <div>
-                  <label style={{ color: 'white', display: 'block', marginBottom: '8px', fontWeight: '500' }}>
-                    GST Number (Optional)
-                  </label>
-                  <input
-                    type="text"
-                    value={shopConfig.gstNumber || ''}
-                    onChange={(e) => setShopConfig({...shopConfig, gstNumber: e.target.value})}
-                    style={{
-                      width: '100%',
-                      padding: '12px',
-                      borderRadius: '8px',
-                      border: 'none',
-                      background: 'rgba(255, 255, 255, 0.9)',
-                      fontSize: '16px'
-                    }}
-                  />
-                </div>
-                
-                <button
-                  onClick={saveShopConfig}
-                  disabled={loading}
-                  style={{
-                    background: loading ? 'rgba(189, 195, 199, 0.5)' : 'linear-gradient(45deg, #4CAF50, #45a049)',
-                    border: 'none',
-                    borderRadius: '8px',
-                    padding: '15px 30px',
-                    color: 'white',
-                    cursor: loading ? 'not-allowed' : 'pointer',
-                    fontSize: '16px',
-                    fontWeight: 'bold',
-                    marginTop: '10px'
-                  }}
-                >
-                  {loading ? '💾 Saving...' : '💾 Save Store Settings'}
-                </button>
-              </div>
-            </div>
-
-            {/* Password Change Section */}
-            <div style={{ 
-              background: 'rgba(255, 255, 255, 0.1)', 
-              borderRadius: '12px', 
-              padding: '25px'
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                <h3 style={{ color: 'white', margin: 0, fontSize: '18px' }}>🔐 Admin Password</h3>
-                <button
-                  onClick={() => setShowPasswordSection(!showPasswordSection)}
-                  style={{
-                    background: showPasswordSection ? 'rgba(231, 76, 60, 0.8)' : 'linear-gradient(45deg, #667eea, #764ba2)',
-                    border: 'none',
-                    borderRadius: '8px',
-                    padding: '10px 20px',
-                    color: 'white',
-                    cursor: 'pointer',
-                    fontSize: '14px',
-                    fontWeight: 'bold'
-                  }}
-                >
-                  {showPasswordSection ? '✕ Cancel' : '🔑 Change Password'}
-                </button>
-              </div>
-
-              {showPasswordSection && (
-                <div style={{ display: 'grid', gap: '15px', maxWidth: '500px' }}>
-                  <div>
-                    <label style={{ color: 'white', display: 'block', marginBottom: '8px', fontWeight: '500' }}>
-                      Current Password
-                    </label>
-                    <input
-                      type="password"
-                      value={passwordChange.currentPassword}
-                      onChange={(e) => setPasswordChange({...passwordChange, currentPassword: e.target.value})}
-                      placeholder="Enter current password"
-                      style={{
-                        width: '100%',
-                        padding: '12px',
-                        borderRadius: '8px',
-                        border: 'none',
-                        background: 'rgba(255, 255, 255, 0.9)',
-                        fontSize: '16px'
-                      }}
-                    />
-                  </div>
-
-                  <div>
-                    <label style={{ color: 'white', display: 'block', marginBottom: '8px', fontWeight: '500' }}>
-                      New Password
-                    </label>
-                    <input
-                      type="password"
-                      value={passwordChange.newPassword}
-                      onChange={(e) => setPasswordChange({...passwordChange, newPassword: e.target.value})}
-                      placeholder="Enter new password (min 6 characters)"
-                      style={{
-                        width: '100%',
-                        padding: '12px',
-                        borderRadius: '8px',
-                        border: 'none',
-                        background: 'rgba(255, 255, 255, 0.9)',
-                        fontSize: '16px'
-                      }}
-                    />
-                  </div>
-
-                  <div>
-                    <label style={{ color: 'white', display: 'block', marginBottom: '8px', fontWeight: '500' }}>
-                      Confirm New Password
-                    </label>
-                    <input
-                      type="password"
-                      value={passwordChange.confirmPassword}
-                      onChange={(e) => setPasswordChange({...passwordChange, confirmPassword: e.target.value})}
-                      placeholder="Re-enter new password"
-                      style={{
-                        width: '100%',
-                        padding: '12px',
-                        borderRadius: '8px',
-                        border: 'none',
-                        background: 'rgba(255, 255, 255, 0.9)',
-                        fontSize: '16px'
-                      }}
-                    />
-                  </div>
-
-                  <div style={{
-                    background: 'rgba(255, 193, 7, 0.2)',
-                    border: '1px solid rgba(255, 193, 7, 0.5)',
-                    borderRadius: '8px',
-                    padding: '12px',
-                    color: '#ffc107',
-                    fontSize: '13px'
-                  }}>
-                    ⚠️ <strong>Important:</strong> Make sure to remember your new password. You'll need it to login next time.
-                  </div>
-
-                  <button
-                    onClick={changeAdminPassword}
-                    disabled={!passwordChange.currentPassword || !passwordChange.newPassword || !passwordChange.confirmPassword}
-                    style={{
-                      background: (!passwordChange.currentPassword || !passwordChange.newPassword || !passwordChange.confirmPassword)
-                        ? 'rgba(189, 195, 199, 0.5)'
-                        : 'linear-gradient(45deg, #e74c3c, #c0392b)',
-                      border: 'none',
-                      borderRadius: '8px',
-                      padding: '15px 30px',
-                      color: 'white',
-                      cursor: (!passwordChange.currentPassword || !passwordChange.newPassword || !passwordChange.confirmPassword)
-                        ? 'not-allowed'
-                        : 'pointer',
-                      fontSize: '16px',
-                      fontWeight: 'bold',
-                      marginTop: '10px'
-                    }}
-                  >
-                    🔒 Update Password
-                  </button>
-                </div>
-              )}
-
-              {!showPasswordSection && (
-                <p style={{ color: 'rgba(255,255,255,0.7)', margin: 0, fontSize: '14px' }}>
-                  Click "Change Password" to update your admin login credentials
-                </p>
-              )}
-            </div>
-
-            {/* PIN Change Section */}
-            <div style={{ 
-              background: 'rgba(255, 255, 255, 0.1)', 
-              borderRadius: '12px', 
-              padding: '25px',
-              marginTop: '20px'
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                <h3 style={{ color: 'white', margin: 0, fontSize: '18px' }}>🔢 Admin Panel PIN</h3>
-                <button
-                  onClick={() => setShowPinSection(!showPinSection)}
-                  style={{
-                    background: showPinSection ? 'rgba(231, 76, 60, 0.8)' : 'linear-gradient(45deg, #10b981, #059669)',
-                    border: 'none',
-                    borderRadius: '8px',
-                    padding: '10px 20px',
-                    color: 'white',
-                    cursor: 'pointer',
-                    fontSize: '14px',
-                    fontWeight: 'bold'
-                  }}
-                >
-                  {showPinSection ? '✕ Cancel' : '🔢 Change PIN'}
-                </button>
-              </div>
-
-              {showPinSection && (
-                <div style={{ display: 'grid', gap: '15px', maxWidth: '500px' }}>
-                  <div>
-                    <label style={{ color: 'white', display: 'block', marginBottom: '8px', fontWeight: '500' }}>
-                      Current PIN
-                    </label>
-                    <input
-                      type="password"
-                      inputMode="numeric"
-                      maxLength={6}
-                      value={pinChange.currentPin}
-                      onChange={(e) => setPinChange({...pinChange, currentPin: e.target.value.replace(/\D/g, '')})}
-                      placeholder="Enter current PIN"
-                      style={{
-                        width: '100%',
-                        padding: '12px',
-                        borderRadius: '8px',
-                        border: 'none',
-                        background: 'rgba(255, 255, 255, 0.9)',
-                        fontSize: '16px',
-                        letterSpacing: '4px'
-                      }}
-                    />
-                  </div>
-
-                  <div>
-                    <label style={{ color: 'white', display: 'block', marginBottom: '8px', fontWeight: '500' }}>
-                      New PIN (4-6 digits)
-                    </label>
-                    <input
-                      type="password"
-                      inputMode="numeric"
-                      maxLength={6}
-                      value={pinChange.newPin}
-                      onChange={(e) => setPinChange({...pinChange, newPin: e.target.value.replace(/\D/g, '')})}
-                      placeholder="Enter new PIN"
-                      style={{
-                        width: '100%',
-                        padding: '12px',
-                        borderRadius: '8px',
-                        border: 'none',
-                        background: 'rgba(255, 255, 255, 0.9)',
-                        fontSize: '16px',
-                        letterSpacing: '4px'
-                      }}
-                    />
-                  </div>
-
-                  <div>
-                    <label style={{ color: 'white', display: 'block', marginBottom: '8px', fontWeight: '500' }}>
-                      Confirm New PIN
-                    </label>
-                    <input
-                      type="password"
-                      inputMode="numeric"
-                      maxLength={6}
-                      value={pinChange.confirmPin}
-                      onChange={(e) => setPinChange({...pinChange, confirmPin: e.target.value.replace(/\D/g, '')})}
-                      placeholder="Re-enter new PIN"
-                      style={{
-                        width: '100%',
-                        padding: '12px',
-                        borderRadius: '8px',
-                        border: 'none',
-                        background: 'rgba(255, 255, 255, 0.9)',
-                        fontSize: '16px',
-                        letterSpacing: '4px'
-                      }}
-                    />
-                  </div>
-
-                  <div style={{
-                    background: 'rgba(59, 130, 246, 0.2)',
-                    border: '1px solid rgba(59, 130, 246, 0.5)',
-                    borderRadius: '8px',
-                    padding: '12px',
-                    color: '#3b82f6',
-                    fontSize: '13px'
-                  }}>
-                    ℹ️ <strong>Info:</strong> This PIN is required when clicking "Admin Panel" button from billing screen.
-                  </div>
-
-                  <button
-                    onClick={changeAdminPin}
-                    disabled={!pinChange.currentPin || !pinChange.newPin || !pinChange.confirmPin}
-                    style={{
-                      background: (!pinChange.currentPin || !pinChange.newPin || !pinChange.confirmPin)
-                        ? 'rgba(189, 195, 199, 0.5)'
-                        : 'linear-gradient(45deg, #10b981, #059669)',
-                      border: 'none',
-                      borderRadius: '8px',
-                      padding: '15px 30px',
-                      color: 'white',
-                      cursor: (!pinChange.currentPin || !pinChange.newPin || !pinChange.confirmPin)
-                        ? 'not-allowed'
-                        : 'pointer',
-                      fontSize: '16px',
-                      fontWeight: 'bold',
-                      marginTop: '10px'
-                    }}
-                  >
-                    🔢 Update PIN
-                  </button>
-                </div>
-              )}
-
-              {!showPinSection && (
-                <p style={{ color: 'rgba(255,255,255,0.7)', margin: 0, fontSize: '14px' }}>
-                  Click "Change PIN" to update your admin panel access PIN (Default: 1234)
-                </p>
-              )}
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'pending' && (
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-              <h2 style={{ color: 'white', margin: 0, fontSize: '18px' }}>📋 Pending Bills ({pendingBills.length})</h2>
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                <button
-                  onClick={loadPendingBills}
-                  style={{
-                    background: 'linear-gradient(135deg, #27ae60, #2ecc71)',
-                    border: 'none',
-                    borderRadius: '8px',
-                    padding: '10px 20px',
-                    color: 'white',
-                    cursor: 'pointer',
-                    fontSize: '14px',
-                    fontWeight: 'bold'
-                  }}
-                >
-                  🔄 Refresh
-                </button>
-                <button
-                  onClick={() => setShowAddPreviousBill(true)}
-                  style={{
-                    background: 'linear-gradient(135deg, #3498db, #2980b9)',
-                    border: 'none',
-                    borderRadius: '8px',
-                    padding: '10px 20px',
-                    color: 'white',
-                    cursor: 'pointer',
-                    fontSize: '14px',
-                    fontWeight: 'bold'
-                  }}
-                >
-                  ➕ Add Previous Bill
-                </button>
-                <input
-                  type="text"
-                  placeholder="Search by customer name or bill number..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  style={{
-                    padding: '10px',
-                    borderRadius: '8px',
-                    border: 'none',
-                    background: 'rgba(255, 255, 255, 0.9)',
-                    width: '300px'
-                  }}
-                />
-              </div>
-            </div>
-            
-            {filteredPendingBills.length === 0 ? (
-              <div style={{ textAlign: 'center', color: 'white', padding: '50px' }}>
-                <h3>No pending bills found</h3>
-                <p>All bills are completed or no bills match your search.</p>
-              </div>
-            ) : (
-              <div style={{ display: 'grid', gap: '8px' }}>
-                {filteredPendingBills.map(bill => (
-                  <div key={bill.id} style={{
-                    background: 'rgba(255, 255, 255, 0.1)',
-                    borderRadius: '8px',
-                    padding: '12px',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center'
-                  }}>
-                    <div style={{ color: 'white' }}>
-                      <h4 style={{ margin: '0 0 3px 0', fontSize: '14px' }}>{bill.customerName}</h4>
-                      <p style={{ margin: '0 0 2px 0', opacity: 0.8, fontSize: '11px' }}>Bill: {bill.billNumber}</p>
-                      <p style={{ margin: '0 0 2px 0', opacity: 0.8, fontSize: '11px' }}>
-                        Items: {bill.items.length} | Total: ₹{bill.grandTotal}
-                      </p>
-                      <p style={{ margin: 0, opacity: 0.6, fontSize: '10px' }}>
-                        Created: {new Date(bill.createdAt).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <div style={{ display: 'flex', gap: '10px' }}>
-                      <button
-                        onClick={() => reprintBill(bill)}
-                        style={{
-                          background: 'rgba(0, 123, 255, 0.8)',
-                          border: 'none',
-                          borderRadius: '6px',
-                          padding: '8px 15px',
-                          color: 'white',
-                          cursor: 'pointer',
-                          fontSize: '12px'
-                        }}
-                      >
-                        🖨️ Reprint
-                      </button>
-                      <button
-                        onClick={() => markBillAsCompleted(bill.id || bill._id)}
-                        style={{
-                          background: 'rgba(40, 167, 69, 0.8)',
-                          border: 'none',
-                          borderRadius: '6px',
-                          padding: '8px 15px',
-                          color: 'white',
-                          cursor: 'pointer',
-                          fontSize: '12px'
-                        }}
-                      >
-                        ✅ Complete
-                      </button>
-                      <button
-                        onClick={() => markBillAsDelivered(bill.id || bill._id)}
-                        style={{
-                          background: 'rgba(255, 193, 7, 0.8)',
-                          border: 'none',
-                          borderRadius: '6px',
-                          padding: '8px 15px',
-                          color: 'white',
-                          cursor: 'pointer',
-                          fontSize: '12px'
-                        }}
-                      >
-                        🚚 Deliver
-                      </button>
-                    </div>
-                  </div>
-                ))}
               </div>
             )}
-          </div>
-        )}
 
-        {activeTab === 'history' && (
-          <div style={{ animation: 'slideIn 0.5s ease-out' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
-              <div>
-                <h2 style={{ color: 'white', margin: 0, fontSize: '24px', fontWeight: 'bold' }}>
-                  📚 Bill History ({billHistory.length})
-                </h2>
-                <p style={{ color: 'rgba(255,255,255,0.8)', margin: '5px 0 0 0', fontSize: '14px' }}>
-                  View all completed and delivered bills • Use Bill Management for editing
-                </p>
-              </div>
-              <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
-                <button
-                  onClick={loadBillHistory}
-                  disabled={loading}
-                  className="glass-button"
-                  style={{
-                    background: 'linear-gradient(135deg, #27ae60, #2ecc71)',
-                    border: 'none',
-                    borderRadius: '10px',
-                    padding: '12px 18px',
-                    color: 'white',
-                    cursor: loading ? 'not-allowed' : 'pointer',
-                    fontSize: '14px',
-                    fontWeight: 'bold',
-                    boxShadow: '0 6px 15px rgba(39, 174, 96, 0.3)'
-                  }}
-                >
-                  {loading ? '⏳' : '🔄'} Refresh History
-                </button>
-                <button
-                  onClick={() => exportData('bills')}
-                  disabled={loading}
-                  className="glass-button"
-                  style={{
-                    background: 'linear-gradient(135deg, #3498db, #2980b9)',
-                    border: 'none',
-                    borderRadius: '10px',
-                    padding: '12px 18px',
-                    color: 'white',
-                    cursor: loading ? 'not-allowed' : 'pointer',
-                    fontSize: '14px',
-                    fontWeight: 'bold',
-                    boxShadow: '0 6px 15px rgba(52, 152, 219, 0.3)'
-                  }}
-                >
-                  {loading ? '⏳' : '📊'} Export CSV
-                </button>
-                <button
-                  onClick={() => setShowBillManager(true)}
-                  className="glass-button"
-                  style={{
-                    background: 'linear-gradient(135deg, #9b59b6, #8e44ad)',
-                    border: 'none',
-                    borderRadius: '10px',
-                    padding: '12px 18px',
-                    color: 'white',
-                    cursor: 'pointer',
-                    fontSize: '14px',
-                    fontWeight: 'bold',
-                    boxShadow: '0 6px 15px rgba(155, 89, 182, 0.3)'
-                  }}
-                >
-                  🛠️ Manage Bills
-                </button>
-              </div>
-            </div>
+            {activeTab === 'revenue' && (
+              <ComprehensiveRevenueDashboard
+                onClose={() => setActiveTab('dashboard')}
+                bills={[...pendingBills, ...billHistory]}
+              />
+            )}
 
-            {/* Search and Filter */}
-            <div style={{ 
-              background: 'rgba(255, 255, 255, 0.1)', 
-              borderRadius: '15px', 
-              padding: '20px', 
-              marginBottom: '25px',
-              border: '1px solid rgba(255, 255, 255, 0.2)'
-            }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '15px', alignItems: 'end', marginBottom: '15px' }}>
-                <div>
-                  <label style={{ color: 'white', display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '500' }}>
-                    🔍 Search Bills
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Search by customer name, bill number, or phone..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '12px 16px',
-                      borderRadius: '10px',
-                      border: 'none',
-                      background: 'rgba(255, 255, 255, 0.9)',
-                      fontSize: '14px',
-                      fontWeight: '500'
-                    }}
-                  />
-                </div>
-                <div>
-                  <label style={{ color: 'white', display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '500' }}>
-                    📊 Status Filter
-                  </label>
-                  <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '12px 16px',
-                      borderRadius: '10px',
-                      border: 'none',
-                      background: 'rgba(255, 255, 255, 0.9)',
-                      fontSize: '14px',
-                      fontWeight: '500',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    <option value="">All Status</option>
-                    <option value="pending">Pending</option>
-                    <option value="completed">Completed</option>
-                    <option value="delivered">Delivered</option>
-                  </select>
-                </div>
-                <div>
+            {activeTab === 'analytics' && (
+              <AnalyticsDashboard />
+            )}
+
+            {activeTab === 'expenses' && (
+              <div style={{ animation: 'slideIn 0.5s ease-out' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <div>
+                    <h2 style={{ color: 'var(--text-primary)', margin: 0, fontSize: '18px', fontWeight: 'bold', display: 'flex', alignItems: 'center' }}>
+                      <i className="fas fa-wallet" style={{ marginRight: '8px', color: 'var(--accent)' }}></i> Expense Management
+                    </h2>
+                    <p style={{ color: 'var(--text-secondary)', margin: '4px 0 0 0', fontSize: '12px' }}>
+                      Track and manage business expenses
+                    </p>
+                  </div>
                   <button
-                    onClick={() => {
-                      setSearchTerm('');
-                      setStatusFilter('');
-                      setStartDateFilter('');
-                      setEndDateFilter('');
-                    }}
-                    style={{
-                      width: '100%',
-                      padding: '12px 16px',
-                      borderRadius: '10px',
-                      border: 'none',
-                      background: 'linear-gradient(135deg, #e74c3c, #c0392b)',
-                      color: 'white',
-                      fontSize: '14px',
-                      fontWeight: 'bold',
-                      cursor: 'pointer'
-                    }}
+                    onClick={() => { closeAllModals(); setShowExpenseManager(true); }}
+                    className="btn btn-primary"
+                    style={{ padding: '8px 16px', borderRadius: 'var(--radius-md)', fontSize: '12px' }}
                   >
-                    🗑️ Clear Filters
+                    <i className="fas fa-wallet" style={{ marginRight: '6px' }}></i> Manage Expenses
+                  </button>
+                </div>
+
+                <div style={{
+                  textAlign: 'center',
+                  padding: '32px 20px',
+                  background: 'var(--bg-elevated)',
+                  borderRadius: 'var(--radius-lg)',
+                  border: '1px solid var(--border-subtle)'
+                }}>
+                  <div style={{
+                    fontSize: '32px',
+                    marginBottom: '16px',
+                    color: 'var(--accent)'
+                  }}>
+                    <i className="fas fa-money-check-alt"></i>
+                  </div>
+                  <h3 style={{
+                    fontSize: '18px',
+                    fontWeight: 'bold',
+                    marginBottom: '8px',
+                    color: 'var(--text-primary)'
+                  }}>
+                    Track Business Expenses
+                  </h3>
+                  <p style={{
+                    color: 'var(--text-secondary)',
+                    marginBottom: '24px',
+                    fontSize: '14px',
+                    lineHeight: '1.5',
+                    maxWidth: '400px',
+                    margin: '0 auto 24px auto'
+                  }}>
+                    Add and manage all business expenses including rent, utilities, and supplies.<br />
+                    Calculate true profit by tracking income against expenses.
+                  </p>
+
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(3, 1fr)',
+                    gap: '16px',
+                    marginBottom: '24px',
+                    maxWidth: '800px',
+                    margin: '0 auto 24px auto'
+                  }}>
+                    {[
+                      { icon: 'fa-home', title: 'Rent & Utilities', desc: 'Fixed costs', color: 'var(--error)' },
+                      { icon: 'fa-box-open', title: 'Supplies', desc: 'Materials', color: 'var(--warning)' },
+                      { icon: 'fa-chart-line', title: 'Profit Analysis', desc: 'Income vs Expenses', color: 'var(--success)' }
+                    ].map((item, index) => (
+                      <div key={index} style={{
+                        background: 'var(--bg-base)',
+                        padding: '16px 12px',
+                        borderRadius: 'var(--radius-md)',
+                        border: '1px solid var(--border-subtle)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px'
+                      }}>
+                        <i className={`fas ${item.icon}`} style={{ fontSize: '20px', color: item.color }}></i>
+                        <div style={{ fontWeight: '600', fontSize: '13px', color: 'var(--text-primary)' }}>{item.title}</div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{item.desc}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <button
+                    onClick={() => { closeAllModals(); setShowExpenseManager(true); }}
+                    className="btn btn-primary"
+                    style={{ borderRadius: 'var(--radius-md)', padding: '12px 24px', fontSize: '14px' }}
+                  >
+                    <i className="fas fa-rocket" style={{ marginRight: '8px' }}></i> Open Expense Manager
                   </button>
                 </div>
               </div>
-              
-              {/* Date Range Filter */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr', gap: '15px', alignItems: 'end' }}>
-                <div>
-                  <label style={{ color: 'white', display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '500' }}>
-                    📅 Start Date
-                  </label>
-                  <input
-                    type="date"
-                    value={startDateFilter}
-                    onChange={(e) => setStartDateFilter(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '12px 16px',
-                      borderRadius: '10px',
-                      border: 'none',
-                      background: 'rgba(255, 255, 255, 0.9)',
-                      fontSize: '14px',
-                      fontWeight: '500'
-                    }}
-                  />
+            )}
+
+            {activeTab === 'manage' && (
+              <div>
+                <div style={{ marginBottom: '20px' }}>
+                  <h2 style={{ color: 'var(--text-primary)', margin: 0, fontSize: '20px', fontWeight: '700' }}>
+                    <i className="fas fa-database" style={{ marginRight: '8px', color: 'var(--accent)' }}></i>
+                    Data Manager
+                  </h2>
+                  <p style={{ color: 'var(--text-muted)', margin: '4px 0 0 0', fontSize: '13px' }}>
+                    Backup, import, export, and manage your business data
+                  </p>
                 </div>
-                <div>
-                  <label style={{ color: 'white', display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '500' }}>
-                    📅 End Date
-                  </label>
-                  <input
-                    type="date"
-                    value={endDateFilter}
-                    onChange={(e) => setEndDateFilter(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '12px 16px',
-                      borderRadius: '10px',
-                      border: 'none',
-                      background: 'rgba(255, 255, 255, 0.9)',
-                      fontSize: '14px',
-                      fontWeight: '500'
-                    }}
-                  />
-                </div>
-                <div>
-                  {(startDateFilter || endDateFilter) && (
-                    <div style={{
-                      padding: '12px 16px',
-                      borderRadius: '10px',
-                      background: 'linear-gradient(135deg, #27ae60, #2ecc71)',
-                      color: 'white',
-                      fontSize: '14px',
-                      fontWeight: 'bold',
-                      textAlign: 'center'
-                    }}>
-                      💰 Revenue: ₹{dateFilteredRevenue.toFixed(2)} • 📋 Bills: {dateFilteredBillCount}
+
+                {/* Management Cards */}
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                  gap: '12px',
+                  marginBottom: '20px'
+                }}>
+
+                  {/* Data Operations */}
+                  <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '20px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
+                      <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'var(--accent-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent)', fontSize: '14px' }}>
+                        <i className="fas fa-hdd"></i>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-primary)' }}>Data Operations</div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Backup, restore, import & export</div>
+                      </div>
                     </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <button onClick={backupAllData} disabled={loading} className="btn btn-ghost" style={{ width: '100%', justifyContent: 'flex-start', fontSize: '13px', padding: '8px 12px' }}>
+                        <i className={`fas ${loading ? 'fa-spinner fa-spin' : 'fa-cloud-download-alt'}`} style={{ marginRight: '8px', width: '14px', color: 'var(--success)' }}></i>
+                        Backup All Data
+                      </button>
+                      <label style={{ width: '100%', cursor: 'pointer' }}>
+                        <input type="file" accept=".json" onChange={restoreFromBackup} style={{ display: 'none' }} />
+                        <div className="btn btn-ghost" style={{ width: '100%', justifyContent: 'flex-start', fontSize: '13px', padding: '8px 12px', display: 'flex', alignItems: 'center' }}>
+                          <i className="fas fa-upload" style={{ marginRight: '8px', width: '14px', color: 'var(--warning)' }}></i>
+                          Restore from Backup
+                        </div>
+                      </label>
+                      <button onClick={() => exportData('bills')} disabled={loading} className="btn btn-ghost" style={{ width: '100%', justifyContent: 'flex-start', fontSize: '13px', padding: '8px 12px' }}>
+                        <i className={`fas ${loading ? 'fa-spinner fa-spin' : 'fa-file-csv'}`} style={{ marginRight: '8px', width: '14px', color: 'var(--accent)' }}></i>
+                        Export to CSV
+                      </button>
+                      <label style={{ width: '100%', cursor: 'pointer' }}>
+                        <input type="file" accept=".csv"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            const reader = new FileReader();
+                            reader.onload = (event) => {
+                              try {
+                                const csvContent = event.target?.result as string;
+                                const lines = csvContent.split('\n');
+                                const headers = lines[0].split(',');
+                                if (headers.includes('Bill Number') && headers.includes('Customer Name')) {
+                                  showAlert({ message: `CSV loaded: ${lines.length - 1} rows. Import coming soon!`, type: 'info' });
+                                } else {
+                                  showAlert({ message: 'Invalid CSV format. Use exported CSV as template.', type: 'error' });
+                                }
+                              } catch { showAlert({ message: 'Error reading CSV file', type: 'error' }); }
+                            };
+                            reader.readAsText(file);
+                          }}
+                          style={{ display: 'none' }}
+                        />
+                        <div className="btn btn-ghost" style={{ width: '100%', justifyContent: 'flex-start', fontSize: '13px', padding: '8px 12px', display: 'flex', alignItems: 'center' }}>
+                          <i className="fas fa-file-import" style={{ marginRight: '8px', width: '14px', color: 'var(--text-muted)' }}></i>
+                          Import from CSV
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Bill Management */}
+                  <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '20px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
+                      <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'var(--accent-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent)', fontSize: '14px' }}>
+                        <i className="fas fa-file-invoice"></i>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-primary)' }}>Bill Management</div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Edit, delete & bulk operations</div>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <button onClick={() => { closeAllModals(); setShowBillManager(true); }} className="btn btn-ghost" style={{ width: '100%', justifyContent: 'flex-start', fontSize: '13px', padding: '8px 12px' }}>
+                        <i className="fas fa-pen" style={{ marginRight: '8px', width: '14px', color: 'var(--accent)' }}></i>
+                        Open Bill Manager
+                      </button>
+                      <button onClick={() => { closeAllModals(); setShowBulkOperations(true); }} className="btn btn-ghost" style={{ width: '100%', justifyContent: 'flex-start', fontSize: '13px', padding: '8px 12px' }}>
+                        <i className="fas fa-layer-group" style={{ marginRight: '8px', width: '14px', color: 'var(--warning)' }}></i>
+                        Bulk Operations
+                      </button>
+                      <button onClick={() => { closeAllModals(); setShowCustomerManager(true); }} className="btn btn-ghost" style={{ width: '100%', justifyContent: 'flex-start', fontSize: '13px', padding: '8px 12px' }}>
+                        <i className="fas fa-users" style={{ marginRight: '8px', width: '14px', color: 'var(--success)' }}></i>
+                        Customer Manager
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Reports & Analytics */}
+                  <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '20px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
+                      <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'var(--accent-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent)', fontSize: '14px' }}>
+                        <i className="fas fa-chart-bar"></i>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-primary)' }}>Reports</div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Generate reports & analytics</div>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <button onClick={() => { closeAllModals(); setShowReportsGenerator(true); }} className="btn btn-ghost" style={{ width: '100%', justifyContent: 'flex-start', fontSize: '13px', padding: '8px 12px' }}>
+                        <i className="fas fa-file-alt" style={{ marginRight: '8px', width: '14px', color: 'var(--accent)' }}></i>
+                        Custom Reports
+                      </button>
+                      <button onClick={() => { const today = new Date().toISOString().split('T')[0]; const lastWeek = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]; generateCustomReport('sales', { start: lastWeek, end: today }); }} disabled={loading} className="btn btn-ghost" style={{ width: '100%', justifyContent: 'flex-start', fontSize: '13px', padding: '8px 12px' }}>
+                        <i className={`fas ${loading ? 'fa-spinner fa-spin' : 'fa-calendar-week'}`} style={{ marginRight: '8px', width: '14px', color: 'var(--warning)' }}></i>
+                        Weekly Sales Report
+                      </button>
+                      <button onClick={() => { const today = new Date().toISOString().split('T')[0]; const lastMonth = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]; generateCustomReport('customer', { start: lastMonth, end: today }); }} disabled={loading} className="btn btn-ghost" style={{ width: '100%', justifyContent: 'flex-start', fontSize: '13px', padding: '8px 12px' }}>
+                        <i className={`fas ${loading ? 'fa-spinner fa-spin' : 'fa-user-chart'}`} style={{ marginRight: '8px', width: '14px', color: 'var(--success)' }}></i>
+                        Customer Analysis
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* System */}
+                  <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '20px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
+                      <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'var(--accent-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent)', fontSize: '14px' }}>
+                        <i className="fas fa-cog"></i>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-primary)' }}>System</div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Health checks & diagnostics</div>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <button onClick={testAllEndpoints} disabled={loading} className="btn btn-ghost" style={{ width: '100%', justifyContent: 'flex-start', fontSize: '13px', padding: '8px 12px' }}>
+                        <i className={`fas ${loading ? 'fa-spinner fa-spin' : 'fa-heartbeat'}`} style={{ marginRight: '8px', width: '14px', color: 'var(--success)' }}></i>
+                        System Health Check
+                      </button>
+                      <button onClick={() => {
+                        const stats = { totalBills: pendingBills.length + billHistory.length, totalRevenue: [...pendingBills, ...billHistory].reduce((sum, bill) => sum + bill.grandTotal, 0), dbStatus: connectionStatus, lastBackup: localStorage.getItem('last_backup_date') || 'Never' };
+                        showAlert({ message: `${stats.totalBills} bills · ₹${stats.totalRevenue.toLocaleString()} revenue · DB: ${stats.dbStatus}`, type: 'info' });
+                      }} className="btn btn-ghost" style={{ width: '100%', justifyContent: 'flex-start', fontSize: '13px', padding: '8px 12px' }}>
+                        <i className="fas fa-info-circle" style={{ marginRight: '8px', width: '14px', color: 'var(--accent)' }}></i>
+                        System Statistics
+                      </button>
+                      <button onClick={() => {
+                        const systemReport = { timestamp: new Date().toISOString(), totalBills: pendingBills.length + billHistory.length, pendingBills: pendingBills.length, completedBills: billHistory.filter(b => b.status === 'completed').length, deliveredBills: billHistory.filter(b => b.status === 'delivered').length, totalRevenue: [...pendingBills, ...billHistory].reduce((sum, bill) => sum + bill.grandTotal, 0), uniqueCustomers: new Set([...pendingBills, ...billHistory].map(bill => bill.customerName)).size, databaseStatus: connectionStatus, averageBillValue: Math.round([...pendingBills, ...billHistory].reduce((sum, bill) => sum + bill.grandTotal, 0) / (pendingBills.length + billHistory.length)) || 0, todaysBills: [...pendingBills, ...billHistory].filter(bill => new Date(bill.createdAt).toDateString() === new Date().toDateString()).length, thisMonthRevenue: [...pendingBills, ...billHistory].filter(bill => { const d = new Date(bill.createdAt); const n = new Date(); return d.getMonth() === n.getMonth() && d.getFullYear() === n.getFullYear(); }).reduce((sum, bill) => sum + bill.grandTotal, 0) };
+                        const reportContent = `GenZ Laundry System Report\nGenerated: ${new Date().toLocaleString()}\n\n=== BUSINESS OVERVIEW ===\nTotal Bills: ${systemReport.totalBills}\nPending: ${systemReport.pendingBills}\nCompleted: ${systemReport.completedBills}\nDelivered: ${systemReport.deliveredBills}\n\n=== FINANCIAL ===\nTotal Revenue: ₹${systemReport.totalRevenue.toLocaleString()}\nThis Month: ₹${systemReport.thisMonthRevenue.toLocaleString()}\nAvg Bill: ₹${systemReport.averageBillValue}\n\n=== CUSTOMERS ===\nUnique: ${systemReport.uniqueCustomers}\nToday's Bills: ${systemReport.todaysBills}\n\n=== SYSTEM ===\nDB: ${systemReport.databaseStatus}\nGenerated: ${systemReport.timestamp}\n`;
+                        const blob = new Blob([reportContent], { type: 'text/plain' }); const url = window.URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `system_report_${new Date().toISOString().split('T')[0]}.txt`; a.click(); window.URL.revokeObjectURL(url);
+                        showAlert({ message: 'System report downloaded', type: 'success' });
+                      }} className="btn btn-ghost" style={{ width: '100%', justifyContent: 'flex-start', fontSize: '13px', padding: '8px 12px' }}>
+                        <i className="fas fa-download" style={{ marginRight: '8px', width: '14px', color: 'var(--warning)' }}></i>
+                        Download System Report
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Summary Bar */}
+                <div style={{
+                  background: 'var(--bg-elevated)',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: 'var(--radius-md)',
+                  padding: '16px 20px',
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+                  gap: '16px'
+                }}>
+                  {[
+                    { label: 'Total Bills', value: (pendingBills.length + billHistory.length).toString(), icon: 'fa-file-invoice' },
+                    { label: 'Revenue', value: `₹${[...pendingBills, ...billHistory].reduce((sum, bill) => sum + bill.grandTotal, 0).toLocaleString()}`, icon: 'fa-rupee-sign' },
+                    { label: 'Database', value: connectionStatus === 'connected' ? 'Online' : connectionStatus === 'disconnected' ? 'Offline' : 'Testing', icon: connectionStatus === 'connected' ? 'fa-check-circle' : 'fa-times-circle' },
+                    { label: 'Customers', value: new Set([...pendingBills, ...billHistory].map(bill => bill.customerName)).size.toString(), icon: 'fa-users' },
+                    { label: 'Last Backup', value: localStorage.getItem('last_backup_date') ? new Date(localStorage.getItem('last_backup_date')!).toLocaleDateString('en-IN') : 'Never', icon: 'fa-clock' },
+                    { label: 'Avg Bill', value: `₹${Math.round([...pendingBills, ...billHistory].reduce((sum, bill) => sum + bill.grandTotal, 0) / (pendingBills.length + billHistory.length)) || 0}`, icon: 'fa-receipt' }
+                  ].map((item, i) => (
+                    <div key={i} style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        <i className={`fas ${item.icon}`} style={{ marginRight: '4px' }}></i>{item.label}
+                      </div>
+                      <div style={{ fontSize: '16px', fontWeight: '700', color: 'var(--text-primary)' }}>{item.value}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {activeTab === 'tags' && (
+              <TagHistoryViewer />
+            )}
+
+            {activeTab === 'settings' && (
+              <div>
+                <h2 style={{ color: 'white', marginBottom: '20px', fontSize: '24px' }}>⚙️ Settings</h2>
+
+                {/* Store Configuration Section */}
+                <div style={{
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  borderRadius: '12px',
+                  padding: '25px',
+                  marginBottom: '20px'
+                }}>
+                  <h3 style={{ color: 'white', marginBottom: '20px', fontSize: '18px' }}>🏪 Store Configuration</h3>
+                  <div style={{ display: 'grid', gap: '15px', maxWidth: '500px' }}>
+                    <div>
+                      <label style={{ color: 'white', display: 'block', marginBottom: '8px', fontWeight: '500' }}>
+                        Store Name
+                      </label>
+                      <input
+                        type="text"
+                        value={shopConfig.shopName}
+                        onChange={(e) => setShopConfig({ ...shopConfig, shopName: e.target.value })}
+                        style={{
+                          width: '100%',
+                          padding: '12px',
+                          borderRadius: '8px',
+                          border: 'none',
+                          background: 'rgba(255, 255, 255, 0.9)',
+                          fontSize: '16px'
+                        }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ color: 'white', display: 'block', marginBottom: '8px', fontWeight: '500' }}>
+                        Address
+                      </label>
+                      <textarea
+                        value={shopConfig.address}
+                        onChange={(e) => setShopConfig({ ...shopConfig, address: e.target.value })}
+                        style={{
+                          width: '100%',
+                          padding: '12px',
+                          borderRadius: '8px',
+                          border: 'none',
+                          background: 'rgba(255, 255, 255, 0.9)',
+                          fontSize: '16px',
+                          minHeight: '80px',
+                          resize: 'vertical'
+                        }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ color: 'white', display: 'block', marginBottom: '8px', fontWeight: '500' }}>
+                        Contact Number
+                      </label>
+                      <input
+                        type="text"
+                        value={shopConfig.contact}
+                        onChange={(e) => setShopConfig({ ...shopConfig, contact: e.target.value })}
+                        style={{
+                          width: '100%',
+                          padding: '12px',
+                          borderRadius: '8px',
+                          border: 'none',
+                          background: 'rgba(255, 255, 255, 0.9)',
+                          fontSize: '16px'
+                        }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ color: 'white', display: 'block', marginBottom: '8px', fontWeight: '500' }}>
+                        GST Number (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={shopConfig.gstNumber || ''}
+                        onChange={(e) => setShopConfig({ ...shopConfig, gstNumber: e.target.value })}
+                        style={{
+                          width: '100%',
+                          padding: '12px',
+                          borderRadius: '8px',
+                          border: 'none',
+                          background: 'rgba(255, 255, 255, 0.9)',
+                          fontSize: '16px'
+                        }}
+                      />
+                    </div>
+
+                    <button
+                      onClick={saveShopConfig}
+                      disabled={loading}
+                      style={{
+                        background: loading ? 'rgba(189, 195, 199, 0.5)' : 'linear-gradient(45deg, #4CAF50, #45a049)',
+                        border: 'none',
+                        borderRadius: '8px',
+                        padding: '15px 30px',
+                        color: 'white',
+                        cursor: loading ? 'not-allowed' : 'pointer',
+                        fontSize: '16px',
+                        fontWeight: 'bold',
+                        marginTop: '10px'
+                      }}
+                    >
+                      {loading ? '💾 Saving...' : '💾 Save Store Settings'}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Password Change Section */}
+                <div style={{
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  borderRadius: '12px',
+                  padding: '25px'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                    <h3 style={{ color: 'white', margin: 0, fontSize: '18px' }}>🔐 Admin Password</h3>
+                    <button
+                      onClick={() => setShowPasswordSection(!showPasswordSection)}
+                      style={{
+                        background: showPasswordSection ? 'rgba(231, 76, 60, 0.8)' : 'linear-gradient(45deg, #667eea, #764ba2)',
+                        border: 'none',
+                        borderRadius: '8px',
+                        padding: '10px 20px',
+                        color: 'white',
+                        cursor: 'pointer',
+                        fontSize: '14px',
+                        fontWeight: 'bold'
+                      }}
+                    >
+                      {showPasswordSection ? '✕ Cancel' : '🔑 Change Password'}
+                    </button>
+                  </div>
+
+                  {showPasswordSection && (
+                    <div style={{ display: 'grid', gap: '15px', maxWidth: '500px' }}>
+                      <div>
+                        <label style={{ color: 'white', display: 'block', marginBottom: '8px', fontWeight: '500' }}>
+                          Current Password
+                        </label>
+                        <input
+                          type="password"
+                          value={passwordChange.currentPassword}
+                          onChange={(e) => setPasswordChange({ ...passwordChange, currentPassword: e.target.value })}
+                          placeholder="Enter current password"
+                          style={{
+                            width: '100%',
+                            padding: '12px',
+                            borderRadius: '8px',
+                            border: 'none',
+                            background: 'rgba(255, 255, 255, 0.9)',
+                            fontSize: '16px'
+                          }}
+                        />
+                      </div>
+
+                      <div>
+                        <label style={{ color: 'white', display: 'block', marginBottom: '8px', fontWeight: '500' }}>
+                          New Password
+                        </label>
+                        <input
+                          type="password"
+                          value={passwordChange.newPassword}
+                          onChange={(e) => setPasswordChange({ ...passwordChange, newPassword: e.target.value })}
+                          placeholder="Enter new password (min 6 characters)"
+                          style={{
+                            width: '100%',
+                            padding: '12px',
+                            borderRadius: '8px',
+                            border: 'none',
+                            background: 'rgba(255, 255, 255, 0.9)',
+                            fontSize: '16px'
+                          }}
+                        />
+                      </div>
+
+                      <div>
+                        <label style={{ color: 'white', display: 'block', marginBottom: '8px', fontWeight: '500' }}>
+                          Confirm New Password
+                        </label>
+                        <input
+                          type="password"
+                          value={passwordChange.confirmPassword}
+                          onChange={(e) => setPasswordChange({ ...passwordChange, confirmPassword: e.target.value })}
+                          placeholder="Re-enter new password"
+                          style={{
+                            width: '100%',
+                            padding: '12px',
+                            borderRadius: '8px',
+                            border: 'none',
+                            background: 'rgba(255, 255, 255, 0.9)',
+                            fontSize: '16px'
+                          }}
+                        />
+                      </div>
+
+                      <div style={{
+                        background: 'rgba(255, 193, 7, 0.2)',
+                        border: '1px solid rgba(255, 193, 7, 0.5)',
+                        borderRadius: '8px',
+                        padding: '12px',
+                        color: '#ffc107',
+                        fontSize: '13px'
+                      }}>
+                        ⚠️ <strong>Important:</strong> Make sure to remember your new password. You'll need it to login next time.
+                      </div>
+
+                      <button
+                        onClick={changeAdminPassword}
+                        disabled={!passwordChange.currentPassword || !passwordChange.newPassword || !passwordChange.confirmPassword}
+                        style={{
+                          background: (!passwordChange.currentPassword || !passwordChange.newPassword || !passwordChange.confirmPassword)
+                            ? 'rgba(189, 195, 199, 0.5)'
+                            : 'linear-gradient(45deg, #e74c3c, #c0392b)',
+                          border: 'none',
+                          borderRadius: '8px',
+                          padding: '15px 30px',
+                          color: 'white',
+                          cursor: (!passwordChange.currentPassword || !passwordChange.newPassword || !passwordChange.confirmPassword)
+                            ? 'not-allowed'
+                            : 'pointer',
+                          fontSize: '16px',
+                          fontWeight: 'bold',
+                          marginTop: '10px'
+                        }}
+                      >
+                        🔒 Update Password
+                      </button>
+                    </div>
+                  )}
+
+                  {!showPasswordSection && (
+                    <p style={{ color: 'rgba(255,255,255,0.7)', margin: 0, fontSize: '14px' }}>
+                      Click "Change Password" to update your admin login credentials
+                    </p>
+                  )}
+                </div>
+
+                {/* PIN Change Section */}
+                <div style={{
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  borderRadius: '12px',
+                  padding: '25px',
+                  marginTop: '20px'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                    <h3 style={{ color: 'white', margin: 0, fontSize: '18px' }}>🔢 Admin Panel PIN</h3>
+                    <button
+                      onClick={() => setShowPinSection(!showPinSection)}
+                      style={{
+                        background: showPinSection ? 'rgba(231, 76, 60, 0.8)' : 'linear-gradient(45deg, #10b981, #059669)',
+                        border: 'none',
+                        borderRadius: '8px',
+                        padding: '10px 20px',
+                        color: 'white',
+                        cursor: 'pointer',
+                        fontSize: '14px',
+                        fontWeight: 'bold'
+                      }}
+                    >
+                      {showPinSection ? '✕ Cancel' : '🔢 Change PIN'}
+                    </button>
+                  </div>
+
+                  {showPinSection && (
+                    <div style={{ display: 'grid', gap: '15px', maxWidth: '500px' }}>
+                      <div>
+                        <label style={{ color: 'white', display: 'block', marginBottom: '8px', fontWeight: '500' }}>
+                          Current PIN
+                        </label>
+                        <input
+                          type="password"
+                          inputMode="numeric"
+                          maxLength={6}
+                          value={pinChange.currentPin}
+                          onChange={(e) => setPinChange({ ...pinChange, currentPin: e.target.value.replace(/\D/g, '') })}
+                          placeholder="Enter current PIN"
+                          style={{
+                            width: '100%',
+                            padding: '12px',
+                            borderRadius: '8px',
+                            border: 'none',
+                            background: 'rgba(255, 255, 255, 0.9)',
+                            fontSize: '16px',
+                            letterSpacing: '4px'
+                          }}
+                        />
+                      </div>
+
+                      <div>
+                        <label style={{ color: 'white', display: 'block', marginBottom: '8px', fontWeight: '500' }}>
+                          New PIN (4-6 digits)
+                        </label>
+                        <input
+                          type="password"
+                          inputMode="numeric"
+                          maxLength={6}
+                          value={pinChange.newPin}
+                          onChange={(e) => setPinChange({ ...pinChange, newPin: e.target.value.replace(/\D/g, '') })}
+                          placeholder="Enter new PIN"
+                          style={{
+                            width: '100%',
+                            padding: '12px',
+                            borderRadius: '8px',
+                            border: 'none',
+                            background: 'rgba(255, 255, 255, 0.9)',
+                            fontSize: '16px',
+                            letterSpacing: '4px'
+                          }}
+                        />
+                      </div>
+
+                      <div>
+                        <label style={{ color: 'white', display: 'block', marginBottom: '8px', fontWeight: '500' }}>
+                          Confirm New PIN
+                        </label>
+                        <input
+                          type="password"
+                          inputMode="numeric"
+                          maxLength={6}
+                          value={pinChange.confirmPin}
+                          onChange={(e) => setPinChange({ ...pinChange, confirmPin: e.target.value.replace(/\D/g, '') })}
+                          placeholder="Re-enter new PIN"
+                          style={{
+                            width: '100%',
+                            padding: '12px',
+                            borderRadius: '8px',
+                            border: 'none',
+                            background: 'rgba(255, 255, 255, 0.9)',
+                            fontSize: '16px',
+                            letterSpacing: '4px'
+                          }}
+                        />
+                      </div>
+
+                      <div style={{
+                        background: 'rgba(59, 130, 246, 0.2)',
+                        border: '1px solid rgba(59, 130, 246, 0.5)',
+                        borderRadius: '8px',
+                        padding: '12px',
+                        color: '#3b82f6',
+                        fontSize: '13px'
+                      }}>
+                        ℹ️ <strong>Info:</strong> This PIN is required when clicking "Admin Panel" button from billing screen.
+                      </div>
+
+                      <button
+                        onClick={changeAdminPin}
+                        disabled={!pinChange.currentPin || !pinChange.newPin || !pinChange.confirmPin}
+                        style={{
+                          background: (!pinChange.currentPin || !pinChange.newPin || !pinChange.confirmPin)
+                            ? 'rgba(189, 195, 199, 0.5)'
+                            : 'linear-gradient(45deg, #10b981, #059669)',
+                          border: 'none',
+                          borderRadius: '8px',
+                          padding: '15px 30px',
+                          color: 'white',
+                          cursor: (!pinChange.currentPin || !pinChange.newPin || !pinChange.confirmPin)
+                            ? 'not-allowed'
+                            : 'pointer',
+                          fontSize: '16px',
+                          fontWeight: 'bold',
+                          marginTop: '10px'
+                        }}
+                      >
+                        🔢 Update PIN
+                      </button>
+                    </div>
+                  )}
+
+                  {!showPinSection && (
+                    <p style={{ color: 'rgba(255,255,255,0.7)', margin: 0, fontSize: '14px' }}>
+                      Click "Change PIN" to update your admin panel access PIN (Default: 1234)
+                    </p>
                   )}
                 </div>
               </div>
-            </div>
-            
-            {/* Bills Display */}
-            {filteredBillHistory.length === 0 ? (
-              <div style={{ 
-                textAlign: 'center', 
-                color: 'white', 
-                padding: '60px 20px',
-                background: 'rgba(255, 255, 255, 0.05)',
-                borderRadius: '20px',
-                border: '1px solid rgba(255, 255, 255, 0.1)'
-              }}>
-                <div style={{ fontSize: '80px', marginBottom: '20px', opacity: 0.6 }}>📚</div>
-                <h3 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '15px' }}>
-                  {searchTerm || statusFilter ? 'No bills match your filters' : 'No bills found'}
-                </h3>
-                <p style={{ fontSize: '16px', opacity: 0.8, marginBottom: '25px' }}>
-                  {searchTerm || statusFilter
-                    ? 'Try adjusting your search terms or filters to see more bills.'
-                    : 'Create some bills to see them here. All bills (pending, completed, and delivered) will appear in this section.'
-                  }
-                </p>
-                {(searchTerm || statusFilter) && (
-                  <button
-                    onClick={() => {
-                      setSearchTerm('');
-                      setStatusFilter('');
-                    }}
-                    style={{
-                      background: 'linear-gradient(135deg, #3498db, #2980b9)',
-                      border: 'none',
-                      borderRadius: '12px',
-                      padding: '12px 24px',
-                      color: 'white',
-                      fontSize: '14px',
-                      fontWeight: 'bold',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    🔄 Show All Bills
-                  </button>
-                )}
-              </div>
-            ) : (
-              <div style={{ display: 'grid', gap: '15px' }}>
-                {filteredBillHistory.map((bill, index) => (
-                  <div key={bill.id || bill._id || index} style={{
-                    background: 'rgba(255, 255, 255, 0.12)',
-                    backdropFilter: 'blur(15px)',
-                    border: '1px solid rgba(255, 255, 255, 0.2)',
-                    borderRadius: '16px',
-                    padding: '25px',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    transition: 'all 0.3s ease',
-                    animation: `slideIn 0.5s ease-out ${index * 0.1}s both`,
-                    position: 'relative'
-                  }}>
-                    {/* Serial Number Badge */}
-                    <div style={{
-                      position: 'absolute',
-                      top: '15px',
-                      left: '15px',
-                      background: 'linear-gradient(135deg, #667eea, #764ba2)',
-                      color: 'white',
-                      width: '40px',
-                      height: '40px',
-                      borderRadius: '50%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '16px',
-                      fontWeight: 'bold',
-                      boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)',
-                      border: '2px solid rgba(255, 255, 255, 0.3)'
-                    }}>
-                      {index + 1}
-                    </div>
-
-                    <div style={{ color: 'white', flex: 1, paddingLeft: '50px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '12px' }}>
-                        <h4 style={{ margin: 0, fontSize: '18px', fontWeight: 'bold' }}>
-                          {bill.customerName}
-                        </h4>
-                        <span style={{ 
-                          background: bill.status === 'delivered' ? '#27ae60' : bill.status === 'completed' ? '#3498db' : '#f39c12',
-                          padding: '4px 12px',
-                          borderRadius: '20px',
-                          color: 'white',
-                          fontSize: '12px',
-                          fontWeight: 'bold'
-                        }}>
-                          {bill.status.toUpperCase()}
-                        </span>
-                      </div>
-                      
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px', marginBottom: '12px' }}>
-                        <div>
-                          <p style={{ margin: '0 0 4px 0', opacity: 0.8, fontSize: '13px' }}>
-                            📋 Bill Number: <strong>{bill.billNumber}</strong>
-                          </p>
-                          <p style={{ margin: '0 0 4px 0', opacity: 0.8, fontSize: '13px' }}>
-                            📱 Phone: <strong>{bill.customerPhone || 'N/A'}</strong>
-                          </p>
-                        </div>
-                        <div>
-                          <p style={{ margin: '0 0 4px 0', opacity: 0.8, fontSize: '13px' }}>
-                            🛍️ Items: <strong>{bill.items.length} items</strong>
-                          </p>
-                          <p style={{ margin: '0 0 4px 0', opacity: 0.8, fontSize: '13px' }}>
-                            💰 Total: <strong style={{ color: '#000000ff', fontSize: '16px' }}>₹{bill.grandTotal}</strong>
-                          </p>
-                        </div>
-                        <div>
-                          <p style={{ margin: '0 0 4px 0', opacity: 0.8, fontSize: '13px' }}>
-                            📅 Created: <strong>{new Date(bill.createdAt).toLocaleDateString()}</strong>
-                          </p>
-                          {bill.deliveredAt && (
-                            <p style={{ margin: '0 0 4px 0', opacity: 0.8, fontSize: '13px' }}>
-                              🚚 Delivered: <strong>{new Date(bill.deliveredAt).toLocaleDateString()}</strong>
-                            </p>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Item Details */}
-                      <div style={{ 
-                        background: 'rgba(255, 255, 255, 0.1)', 
-                        borderRadius: '10px', 
-                        padding: '12px',
-                        marginTop: '12px'
-                      }}>
-                        <p style={{ margin: '0 0 8px 0', fontSize: '12px', fontWeight: 'bold', opacity: 0.9 }}>
-                          📦 Items Details:
-                        </p>
-                        <div style={{ fontSize: '12px', opacity: 0.8 }}>
-                          {bill.items.slice(0, 3).map((item: any, idx: number) => (
-                            <span key={idx}>
-                              {item.name} (₹{item.rate} × {item.quantity})
-                              {idx < Math.min(bill.items.length - 1, 2) ? ', ' : ''}
-                            </span>
-                          ))}
-                          {bill.items.length > 3 && (
-                            <span> +{bill.items.length - 3} more items</span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {/* Action Buttons - Read Only */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginLeft: '25px' }}>
-                      <button
-                        onClick={() => reprintBill(bill)}
-                        className="glass-button"
-                        style={{
-                          background: 'linear-gradient(135deg, #3498db, #2980b9)',
-                          border: 'none',
-                          borderRadius: '8px',
-                          padding: '10px 16px',
-                          color: 'white',
-                          cursor: 'pointer',
-                          fontSize: '13px',
-                          fontWeight: 'bold',
-                          minWidth: '120px'
-                        }}
-                      >
-                        🖨️ Reprint Bill
-                      </button>
-                      
-                      {bill.status !== 'delivered' && (
-                        <button
-                          onClick={() => markBillAsDelivered(bill.id || bill._id)}
-                          className="glass-button"
-                          style={{
-                            background: 'linear-gradient(135deg, #f39c12, #e67e22)',
-                            border: 'none',
-                            borderRadius: '8px',
-                            padding: '10px 16px',
-                            color: 'white',
-                            cursor: 'pointer',
-                            fontSize: '13px',
-                            fontWeight: 'bold',
-                            minWidth: '120px'
-                          }}
-                        >
-                          🚚 Mark Delivered
-                        </button>
-                      )}
-                      
-                      <button
-                        onClick={() => setShowBillManager(true)}
-                        className="glass-button"
-                        style={{
-                          background: 'linear-gradient(135deg, #9b59b6, #8e44ad)',
-                          border: 'none',
-                          borderRadius: '8px',
-                          padding: '10px 16px',
-                          color: 'white',
-                          cursor: 'pointer',
-                          fontSize: '13px',
-                          fontWeight: 'bold',
-                          minWidth: '120px'
-                        }}
-                      >
-                        ✏️ Edit in Manager
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
             )}
 
-            {/* Summary Stats */}
-            {billHistory.length > 0 && (
-              <div style={{ 
-                marginTop: '30px',
-                background: 'rgba(255, 255, 255, 0.1)', 
-                borderRadius: '15px', 
-                padding: '20px',
-                border: '1px solid rgba(255, 255, 255, 0.2)'
-              }}>
-                <h3 style={{ color: 'white', marginBottom: '15px', fontSize: '18px', fontWeight: 'bold' }}>
-                  📊 History Summary
-                </h3>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '15px' }}>
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#000000ff' }}>
-                      {billHistory.length}
-                    </div>
-                    <div style={{ fontSize: '12px', opacity: 0.8, color: 'white' }}>Total Bills</div>
-                  </div>
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#1000a0ff' }}>
-                      ₹{billHistory.reduce((sum, bill) => sum + bill.grandTotal, 0).toLocaleString()}
-                    </div>
-                    <div style={{ fontSize: '12px', opacity: 0.8, color: 'white' }}>Total Revenue</div>
-                  </div>
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#0c2c33ff' }}>
-                      {billHistory.filter(bill => bill.status === 'delivered').length}
-                    </div>
-                    <div style={{ fontSize: '12px', opacity: 0.8, color: 'white' }}>Delivered</div>
-                  </div>
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#ffffffff' }}>
-                      {Math.round(billHistory.reduce((sum, bill) => sum + bill.grandTotal, 0) / billHistory.length) || 0}
-                    </div>
-                    <div style={{ fontSize: '12px', opacity: 0.8, color: 'white' }}>Avg. Bill Value</div>
+            {activeTab === 'pending' && (
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <h2 style={{ color: 'white', margin: 0, fontSize: '18px' }}>📋 Pending Bills ({pendingBills.length})</h2>
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                    <button
+                      onClick={loadPendingBills}
+                      style={{
+                        background: 'linear-gradient(135deg, #27ae60, #2ecc71)',
+                        border: 'none',
+                        borderRadius: '8px',
+                        padding: '10px 20px',
+                        color: 'white',
+                        cursor: 'pointer',
+                        fontSize: '14px',
+                        fontWeight: 'bold'
+                      }}
+                    >
+                      🔄 Refresh
+                    </button>
+                    <button
+                      onClick={() => setShowAddPreviousBill(true)}
+                      style={{
+                        background: 'linear-gradient(135deg, #3498db, #2980b9)',
+                        border: 'none',
+                        borderRadius: '8px',
+                        padding: '10px 20px',
+                        color: 'white',
+                        cursor: 'pointer',
+                        fontSize: '14px',
+                        fontWeight: 'bold'
+                      }}
+                    >
+                      ➕ Add Previous Bill
+                    </button>
+                    <input
+                      type="text"
+                      placeholder="Search by customer name or bill number..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      style={{
+                        padding: '10px',
+                        borderRadius: '8px',
+                        border: 'none',
+                        background: 'rgba(255, 255, 255, 0.9)',
+                        width: '300px'
+                      }}
+                    />
                   </div>
                 </div>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
 
-      {/* Analytics Modal */}
-      {showAnalytics && (
-        <AnalyticsDashboard onClose={() => setShowAnalytics(false)} />
-      )}
-
-      {/* Expense Manager Modal */}
-      {showExpenseManager && (
-        <ExpenseManager onClose={() => setShowExpenseManager(false)} />
-      )}
-
-      {/* Bill Manager Modal */}
-      {showBillManager && (
-        <BillManager onClose={() => {
-          setShowBillManager(false);
-          // Refresh pending bills and bill history after closing BillManager
-          loadPendingBills();
-          loadBillHistory();
-        }} />
-      )}
-
-      {/* Add Previous Bill Modal */}
-      {showAddPreviousBill && (
-        <AddPreviousBill
-          onClose={() => setShowAddPreviousBill(false)}
-          onBillAdded={() => {
-            loadPendingBills();
-            setActiveTab('pending');
-          }}
-        />
-      )}
-
-      {/* Bulk Operations Modal */}
-      {showBulkOperations && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0, 0, 0, 0.8)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000
-        }}>
-          <div style={{
-            background: 'linear-gradient(135deg, #1f2937, #374151)',
-            borderRadius: '20px',
-            padding: '30px',
-            width: '90%',
-            maxWidth: '600px',
-            maxHeight: '80vh',
-            overflowY: 'auto',
-            border: '2px solid rgba(255, 255, 255, 0.2)'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
-              <h2 style={{ color: 'white', margin: 0, fontSize: '24px', fontWeight: 'bold' }}>
-                ⚡ Bulk Operations
-              </h2>
-              <button
-                onClick={() => setShowBulkOperations(false)}
-                style={{
-                  background: 'rgba(255, 255, 255, 0.1)',
-                  border: 'none',
-                  borderRadius: '50%',
-                  width: '40px',
-                  height: '40px',
-                  color: 'white',
-                  cursor: 'pointer',
-                  fontSize: '18px'
-                }}
-              >
-                ✕
-              </button>
-            </div>
-
-            <div style={{ marginBottom: '25px' }}>
-              <h3 style={{ color: 'white', marginBottom: '15px', fontSize: '18px' }}>
-                📋 Select Bills for Bulk Operations
-              </h3>
-              <div style={{ 
-                background: 'rgba(255, 255, 255, 0.1)', 
-                borderRadius: '12px', 
-                padding: '15px',
-                maxHeight: '300px',
-                overflowY: 'auto'
-              }}>
-                {[...pendingBills, ...billHistory].map(bill => (
-                  <div key={bill.id || bill._id} style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '12px',
-                    padding: '10px',
-                    marginBottom: '8px',
-                    background: 'rgba(255, 255, 255, 0.05)',
-                    borderRadius: '8px'
-                  }}>
-                    <input
-                      type="checkbox"
-                      checked={selectedBills.includes(bill.id || bill._id)}
-                      onChange={(e) => {
-                        const billId = bill.id || bill._id;
-                        if (e.target.checked) {
-                          setSelectedBills([...selectedBills, billId]);
-                        } else {
-                          setSelectedBills(selectedBills.filter(id => id !== billId));
-                        }
-                      }}
-                      style={{ transform: 'scale(1.2)' }}
-                    />
-                    <div style={{ color: 'white', flex: 1 }}>
-                      <div style={{ fontWeight: 'bold' }}>{bill.customerName}</div>
-                      <div style={{ fontSize: '12px', opacity: 0.8 }}>
-                        {bill.billNumber} • ₹{bill.grandTotal} • {bill.status}
-                      </div>
-                    </div>
+                {filteredPendingBills.length === 0 ? (
+                  <div style={{ textAlign: 'center', color: 'white', padding: '50px' }}>
+                    <h3>No pending bills found</h3>
+                    <p>All bills are completed or no bills match your search.</p>
                   </div>
-                ))}
-              </div>
-            </div>
-
-            <div style={{ marginBottom: '25px' }}>
-              <p style={{ color: 'rgba(255, 255, 255, 0.8)', marginBottom: '15px' }}>
-                Selected: {selectedBills.length} bills
-              </p>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
-                <button
-                  onClick={() => {
-                    setSelectedBills([...pendingBills, ...billHistory].map(b => b.id || b._id));
-                  }}
-                  style={{
-                    background: 'linear-gradient(135deg, #3498db, #2980b9)',
-                    border: 'none',
-                    borderRadius: '10px',
-                    padding: '12px 20px',
-                    color: 'white',
-                    cursor: 'pointer',
-                    fontSize: '14px',
-                    fontWeight: 'bold'
-                  }}
-                >
-                  ✅ Select All
-                </button>
-                <button
-                  onClick={() => setSelectedBills([])}
-                  style={{
-                    background: 'linear-gradient(135deg, #e74c3c, #c0392b)',
-                    border: 'none',
-                    borderRadius: '10px',
-                    padding: '12px 20px',
-                    color: 'white',
-                    cursor: 'pointer',
-                    fontSize: '14px',
-                    fontWeight: 'bold'
-                  }}
-                >
-                  🗑️ Clear Selection
-                </button>
-                <button
-                  onClick={() => {
-                    if (selectedBills.length > 0) {
-                      bulkMarkAsCompleted(selectedBills);
-                      setSelectedBills([]);
-                      setShowBulkOperations(false);
-                    }
-                  }}
-                  disabled={selectedBills.length === 0 || loading}
-                  style={{
-                    background: selectedBills.length === 0 ? 'rgba(255, 255, 255, 0.1)' : 'linear-gradient(135deg, #27ae60, #2ecc71)',
-                    border: 'none',
-                    borderRadius: '10px',
-                    padding: '12px 20px',
-                    color: 'white',
-                    cursor: selectedBills.length === 0 ? 'not-allowed' : 'pointer',
-                    fontSize: '14px',
-                    fontWeight: 'bold'
-                  }}
-                >
-                  {loading ? '⏳ Processing...' : '✅ Mark as Completed'}
-                </button>
-                <button
-                  onClick={() => {
-                    if (selectedBills.length > 0) {
-                      bulkMarkAsDelivered(selectedBills);
-                      setSelectedBills([]);
-                      setShowBulkOperations(false);
-                    }
-                  }}
-                  disabled={selectedBills.length === 0 || loading}
-                  style={{
-                    background: selectedBills.length === 0 ? 'rgba(255, 255, 255, 0.1)' : 'linear-gradient(135deg, #f39c12, #e67e22)',
-                    border: 'none',
-                    borderRadius: '10px',
-                    padding: '12px 20px',
-                    color: 'white',
-                    cursor: selectedBills.length === 0 ? 'not-allowed' : 'pointer',
-                    fontSize: '14px',
-                    fontWeight: 'bold'
-                  }}
-                >
-                  {loading ? '⏳ Processing...' : '🚚 Mark as Delivered'}
-                </button>
-                <button
-                  onClick={() => {
-                    if (selectedBills.length > 0) {
-                      const selectedBillsData = [...pendingBills, ...billHistory].filter(bill => 
-                        selectedBills.includes(bill.id || bill._id)
-                      );
-                      const csvContent = convertToCSV(selectedBillsData, 'bills');
-                      downloadCSV(csvContent, `selected_bills_${new Date().toISOString().split('T')[0]}.csv`);
-                      showAlert({ message: `${selectedBills.length} bills exported successfully`, type: 'success' });
-                    }
-                  }}
-                  disabled={selectedBills.length === 0}
-                  style={{
-                    background: selectedBills.length === 0 ? 'rgba(255, 255, 255, 0.1)' : 'linear-gradient(135deg, #9b59b6, #8e44ad)',
-                    border: 'none',
-                    borderRadius: '10px',
-                    padding: '12px 20px',
-                    color: 'white',
-                    cursor: selectedBills.length === 0 ? 'not-allowed' : 'pointer',
-                    fontSize: '14px',
-                    fontWeight: 'bold'
-                  }}
-                >
-                  📊 Export Selected
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Custom Reports Generator Modal */}
-      {showReportsGenerator && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0, 0, 0, 0.8)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000
-        }}>
-          <div style={{
-            background: 'linear-gradient(135deg, #1f2937, #374151)',
-            borderRadius: '20px',
-            padding: '30px',
-            width: '90%',
-            maxWidth: '500px',
-            border: '2px solid rgba(255, 255, 255, 0.2)'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
-              <h2 style={{ color: 'white', margin: 0, fontSize: '24px', fontWeight: 'bold' }}>
-                📊 Custom Report Generator
-              </h2>
-              <button
-                onClick={() => setShowReportsGenerator(false)}
-                style={{
-                  background: 'rgba(255, 255, 255, 0.1)',
-                  border: 'none',
-                  borderRadius: '50%',
-                  width: '40px',
-                  height: '40px',
-                  color: 'white',
-                  cursor: 'pointer',
-                  fontSize: '18px'
-                }}
-              >
-                ✕
-              </button>
-            </div>
-
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{ color: 'white', display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 'bold' }}>
-                📈 Report Type
-              </label>
-              <select
-                id="reportType"
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  borderRadius: '10px',
-                  border: 'none',
-                  background: 'rgba(255, 255, 255, 0.9)',
-                  fontSize: '14px',
-                  fontWeight: '500'
-                }}
-              >
-                <option value="sales">Sales Report (Daily Revenue)</option>
-                <option value="customer">Customer Analysis</option>
-                <option value="items">Items Performance</option>
-                <option value="bills">Complete Bills Export</option>
-              </select>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '25px' }}>
-              <div>
-                <label style={{ color: 'white', display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 'bold' }}>
-                  📅 Start Date
-                </label>
-                <input
-                  type="date"
-                  id="startDate"
-                  defaultValue={new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    borderRadius: '10px',
-                    border: 'none',
-                    background: 'rgba(255, 255, 255, 0.9)',
-                    fontSize: '14px'
-                  }}
-                />
-              </div>
-              <div>
-                <label style={{ color: 'white', display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 'bold' }}>
-                  📅 End Date
-                </label>
-                <input
-                  type="date"
-                  id="endDate"
-                  defaultValue={new Date().toISOString().split('T')[0]}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    borderRadius: '10px',
-                    border: 'none',
-                    background: 'rgba(255, 255, 255, 0.9)',
-                    fontSize: '14px'
-                  }}
-                />
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', gap: '12px' }}>
-              <button
-                onClick={() => {
-                  const reportType = (document.getElementById('reportType') as HTMLSelectElement).value;
-                  const startDate = (document.getElementById('startDate') as HTMLInputElement).value;
-                  const endDate = (document.getElementById('endDate') as HTMLInputElement).value;
-                  
-                  generateCustomReport(reportType, { start: startDate, end: endDate });
-                  setShowReportsGenerator(false);
-                }}
-                disabled={loading}
-                style={{
-                  flex: 1,
-                  background: loading ? 'rgba(255, 255, 255, 0.1)' : 'linear-gradient(135deg, #27ae60, #2ecc71)',
-                  border: 'none',
-                  borderRadius: '12px',
-                  padding: '15px 25px',
-                  color: 'white',
-                  cursor: loading ? 'not-allowed' : 'pointer',
-                  fontSize: '16px',
-                  fontWeight: 'bold'
-                }}
-              >
-                {loading ? '⏳ Generating...' : '🚀 Generate Report'}
-              </button>
-              <button
-                onClick={() => setShowReportsGenerator(false)}
-                style={{
-                  background: 'rgba(255, 255, 255, 0.1)',
-                  border: 'none',
-                  borderRadius: '12px',
-                  padding: '15px 25px',
-                  color: 'white',
-                  cursor: 'pointer',
-                  fontSize: '16px',
-                  fontWeight: 'bold'
-                }}
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Customer Manager Modal */}
-      {showCustomerManager && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0, 0, 0, 0.8)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000
-        }}>
-          <div style={{
-            background: 'linear-gradient(135deg, #1f2937, #374151)',
-            borderRadius: '20px',
-            padding: '30px',
-            width: '90%',
-            maxWidth: '800px',
-            maxHeight: '80vh',
-            overflowY: 'auto',
-            border: '2px solid rgba(255, 255, 255, 0.2)'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
-              <h2 style={{ color: 'white', margin: 0, fontSize: '24px', fontWeight: 'bold' }}>
-                👥 Customer Manager
-              </h2>
-              <button
-                onClick={() => setShowCustomerManager(false)}
-                style={{
-                  background: 'rgba(255, 255, 255, 0.1)',
-                  border: 'none',
-                  borderRadius: '50%',
-                  width: '40px',
-                  height: '40px',
-                  color: 'white',
-                  cursor: 'pointer',
-                  fontSize: '18px'
-                }}
-              >
-                ✕
-              </button>
-            </div>
-
-            <div style={{ marginBottom: '20px' }}>
-              <input
-                type="text"
-                placeholder="Search customers by name or phone..."
-                style={{
-                  width: '100%',
-                  padding: '12px 16px',
-                  borderRadius: '10px',
-                  border: 'none',
-                  background: 'rgba(255, 255, 255, 0.9)',
-                  fontSize: '14px'
-                }}
-                onChange={(e) => {
-                  // This would filter customers in a real implementation
-                }}
-              />
-            </div>
-
-            <div style={{ 
-              background: 'rgba(255, 255, 255, 0.1)', 
-              borderRadius: '12px', 
-              padding: '20px'
-            }}>
-              <h3 style={{ color: 'white', marginBottom: '15px', fontSize: '18px' }}>
-                📊 Customer Analytics
-              </h3>
-              
-              {(() => {
-                const customerData = [...pendingBills, ...billHistory].reduce((acc: any, bill) => {
-                  const key = bill.customerName;
-                  if (!acc[key]) {
-                    acc[key] = { 
-                      phone: bill.customerPhone || 'N/A', 
-                      count: 0, 
-                      total: 0, 
-                      lastVisit: bill.createdAt 
-                    };
-                  }
-                  acc[key].count++;
-                  acc[key].total += bill.grandTotal;
-                  if (new Date(bill.createdAt) > new Date(acc[key].lastVisit)) {
-                    acc[key].lastVisit = bill.createdAt;
-                  }
-                  return acc;
-                }, {});
-
-                const customers = Object.entries(customerData)
-                  .sort(([,a]: [string, any], [,b]: [string, any]) => b.total - a.total)
-                  .slice(0, 10);
-
-                return (
-                  <div style={{ display: 'grid', gap: '12px' }}>
-                    {customers.map(([name, data]: [string, any], index) => (
-                      <div key={index} style={{
+                ) : (
+                  <div style={{ display: 'grid', gap: '8px' }}>
+                    {filteredPendingBills.map(bill => (
+                      <div key={bill.id} style={{
                         background: 'rgba(255, 255, 255, 0.1)',
-                        borderRadius: '10px',
-                        padding: '15px',
+                        borderRadius: '8px',
+                        padding: '12px',
                         display: 'flex',
                         justifyContent: 'space-between',
                         alignItems: 'center'
                       }}>
                         <div style={{ color: 'white' }}>
-                          <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>{name}</div>
-                          <div style={{ fontSize: '12px', opacity: 0.8 }}>
-                            📱 {data.phone} • 📅 Last: {new Date(data.lastVisit).toLocaleDateString()}
-                          </div>
+                          <h4 style={{ margin: '0 0 3px 0', fontSize: '14px' }}>{bill.customerName}</h4>
+                          <p style={{ margin: '0 0 2px 0', opacity: 0.8, fontSize: '11px' }}>Bill: {bill.billNumber}</p>
+                          <p style={{ margin: '0 0 2px 0', opacity: 0.8, fontSize: '11px' }}>
+                            Items: {bill.items.length} | Total: ₹{bill.grandTotal}
+                          </p>
+                          <p style={{ margin: 0, opacity: 0.6, fontSize: '10px' }}>
+                            Created: {new Date(bill.createdAt).toLocaleDateString()}
+                          </p>
                         </div>
-                        <div style={{ textAlign: 'right', color: 'white' }}>
-                          <div style={{ fontWeight: 'bold', color: '#27ae60' }}>₹{data.total.toLocaleString()}</div>
-                          <div style={{ fontSize: '12px', opacity: 0.8 }}>{data.count} bills</div>
+                        <div style={{ display: 'flex', gap: '10px' }}>
+                          <button
+                            onClick={() => reprintBill(bill)}
+                            style={{
+                              background: 'rgba(0, 123, 255, 0.8)',
+                              border: 'none',
+                              borderRadius: '6px',
+                              padding: '8px 15px',
+                              color: 'white',
+                              cursor: 'pointer',
+                              fontSize: '12px'
+                            }}
+                          >
+                            🖨️ Reprint
+                          </button>
+                          <button
+                            onClick={() => markBillAsCompleted(bill.id || bill._id)}
+                            style={{
+                              background: 'rgba(40, 167, 69, 0.8)',
+                              border: 'none',
+                              borderRadius: '6px',
+                              padding: '8px 15px',
+                              color: 'white',
+                              cursor: 'pointer',
+                              fontSize: '12px'
+                            }}
+                          >
+                            ✅ Complete
+                          </button>
+                          <button
+                            onClick={() => markBillAsDelivered(bill.id || bill._id)}
+                            style={{
+                              background: 'rgba(255, 193, 7, 0.8)',
+                              border: 'none',
+                              borderRadius: '6px',
+                              padding: '8px 15px',
+                              color: 'white',
+                              cursor: 'pointer',
+                              fontSize: '12px'
+                            }}
+                          >
+                            🚚 Deliver
+                          </button>
                         </div>
                       </div>
                     ))}
                   </div>
-                );
-              })()}
-            </div>
+                )}
+              </div>
+            )}
 
-            <div style={{ marginTop: '20px', display: 'flex', gap: '12px' }}>
-              <button
-                onClick={() => {
-                  generateCustomReport('customer', { 
-                    start: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], 
-                    end: new Date().toISOString().split('T')[0] 
-                  });
-                }}
-                disabled={loading}
-                style={{
-                  flex: 1,
-                  background: loading ? 'rgba(255, 255, 255, 0.1)' : 'linear-gradient(135deg, #3498db, #2980b9)',
-                  border: 'none',
-                  borderRadius: '12px',
-                  padding: '12px 20px',
-                  color: 'white',
-                  cursor: loading ? 'not-allowed' : 'pointer',
-                  fontSize: '14px',
-                  fontWeight: 'bold'
-                }}
-              >
-                {loading ? '⏳ Exporting...' : '📊 Export Customer Report'}
-              </button>
-            </div>
+            {activeTab === 'history' && (
+              <div style={{ animation: 'slideIn 0.5s ease-out' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                  <div>
+                    <h2 style={{ color: 'var(--text-primary)', margin: 0, fontSize: '24px', fontWeight: 'bold', display: 'flex', alignItems: 'center' }}>
+                      <i className="fas fa-history" style={{ marginRight: '12px', color: 'var(--accent)' }}></i>
+                      Bill History <span style={{ marginLeft: '12px', background: 'var(--bg-elevated)', padding: '4px 12px', borderRadius: 'var(--radius-full)', fontSize: '14px', border: '1px solid var(--border-subtle)' }}>{billHistory.length}</span>
+                    </h2>
+                    <p style={{ color: 'var(--text-secondary)', margin: '8px 0 0 0', fontSize: '14px' }}>
+                      View all completed and delivered bills • Use Bill Management for editing
+                    </p>
+                  </div>
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <button
+                      onClick={loadBillHistory}
+                      disabled={loading}
+                      className="btn btn-ghost"
+                      style={{ borderRadius: 'var(--radius-md)', opacity: loading ? 0.7 : 1, cursor: loading ? 'not-allowed' : 'pointer' }}
+                    >
+                      <i className={`fas ${loading ? 'fa-circle-notch fa-spin' : 'fa-sync-alt'}`}></i> Refresh History
+                    </button>
+                    <button
+                      onClick={() => exportData('bills')}
+                      disabled={loading}
+                      className="btn btn-ghost"
+                      style={{ borderRadius: 'var(--radius-md)', opacity: loading ? 0.7 : 1, cursor: loading ? 'not-allowed' : 'pointer' }}
+                    >
+                      <i className={`fas ${loading ? 'fa-circle-notch fa-spin' : 'fa-file-csv'}`}></i> Export CSV
+                    </button>
+                    <button
+                      onClick={() => setShowBillManager(true)}
+                      className="btn btn-primary"
+                      style={{ borderRadius: 'var(--radius-md)' }}
+                    >
+                      <i className="fas fa-tasks"></i> Manage Bills
+                    </button>
+                  </div>
+                </div>
+
+                {/* Search and Filter */}
+                <div style={{
+                  background: 'var(--bg-elevated)',
+                  borderRadius: 'var(--radius-lg)',
+                  padding: '24px',
+                  marginBottom: '24px',
+                  border: '1px solid var(--border-subtle)'
+                }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr auto', gap: '16px', alignItems: 'end', marginBottom: '16px' }}>
+                    <div>
+                      <label style={{ color: 'var(--text-secondary)', display: 'block', marginBottom: '8px', fontSize: '13px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        <i className="fas fa-search" style={{ marginRight: '6px' }}></i> Search Bills
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Search by customer name, bill number, or phone..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="input-field"
+                        style={{ width: '100%', background: 'var(--bg-base)' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ color: 'var(--text-secondary)', display: 'block', marginBottom: '8px', fontSize: '13px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        <i className="fas fa-filter" style={{ marginRight: '6px' }}></i> Status Filter
+                      </label>
+                      <select
+                        value={statusFilter}
+                        onChange={(e) => setStatusFilter(e.target.value)}
+                        className="input-field"
+                        style={{ width: '100%', background: 'var(--bg-base)' }}
+                      >
+                        <option value="">All Status</option>
+                        <option value="pending">Pending</option>
+                        <option value="completed">Completed</option>
+                        <option value="delivered">Delivered</option>
+                      </select>
+                    </div>
+                    <div>
+                      <button
+                        onClick={() => {
+                          setSearchTerm('');
+                          setStatusFilter('');
+                          setStartDateFilter('');
+                          setEndDateFilter('');
+                        }}
+                        className="btn btn-ghost"
+                        style={{ height: '42px', borderRadius: 'var(--radius-md)', color: 'var(--error)' }}
+                      >
+                        <i className="fas fa-times"></i> Clear Filters
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Date Range Filter */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'minmax(200px, 1fr) minmax(200px, 1fr) 2fr', gap: '16px', alignItems: 'end' }}>
+                    <div>
+                      <label style={{ color: 'var(--text-secondary)', display: 'block', marginBottom: '8px', fontSize: '13px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        <i className="far fa-calendar-alt" style={{ marginRight: '6px' }}></i> Start Date
+                      </label>
+                      <input
+                        type="date"
+                        value={startDateFilter}
+                        onChange={(e) => setStartDateFilter(e.target.value)}
+                        className="input-field"
+                        style={{ width: '100%', background: 'var(--bg-base)' }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ color: 'var(--text-secondary)', display: 'block', marginBottom: '8px', fontSize: '13px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        <i className="far fa-calendar-alt" style={{ marginRight: '6px' }}></i> End Date
+                      </label>
+                      <input
+                        type="date"
+                        value={endDateFilter}
+                        onChange={(e) => setEndDateFilter(e.target.value)}
+                        className="input-field"
+                        style={{ width: '100%', background: 'var(--bg-base)' }}
+                      />
+                    </div>
+                    <div>
+                      {(startDateFilter || endDateFilter) && (
+                        <div style={{
+                          padding: '12px 16px',
+                          borderRadius: 'var(--radius-md)',
+                          background: 'rgba(39, 174, 96, 0.1)',
+                          border: '1px solid rgba(39, 174, 96, 0.2)',
+                          color: 'var(--success)',
+                          fontSize: '14px',
+                          fontWeight: '600',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '16px',
+                          height: '42px'
+                        }}>
+                          <span><i className="fas fa-wallet" style={{ marginRight: '6px' }}></i> Revenue: {new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(dateFilteredRevenue)}</span>
+                          <span style={{ width: '1px', height: '14px', background: 'currentColor', opacity: 0.3 }}></span>
+                          <span><i className="fas fa-file-invoice" style={{ marginRight: '6px' }}></i> Bills: {dateFilteredBillCount}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bills Display */}
+                {filteredBillHistory.length === 0 ? (
+                  <div style={{
+                    textAlign: 'center',
+                    color: 'var(--text-secondary)',
+                    padding: '80px 20px',
+                    background: 'var(--bg-elevated)',
+                    borderRadius: 'var(--radius-xl)',
+                    border: '1px dashed var(--border-subtle)'
+                  }}>
+                    <i className="fas fa-file-invoice fa-4x" style={{ opacity: 0.3, marginBottom: '24px' }}></i>
+                    <h3 style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '12px', color: 'var(--text-primary)' }}>
+                      {searchTerm || statusFilter ? 'No bills match your filters' : 'No bills found'}
+                    </h3>
+                    <p style={{ fontSize: '15px', margin: '0 auto 24px auto', maxWidth: '400px' }}>
+                      {searchTerm || statusFilter
+                        ? 'Try adjusting your search terms or filters to see more bills.'
+                        : 'Create some bills to see them here. All bills (pending, completed, and delivered) will appear in this section.'
+                      }
+                    </p>
+                    {(searchTerm || statusFilter) && (
+                      <button
+                        onClick={() => {
+                          setSearchTerm('');
+                          setStatusFilter('');
+                        }}
+                        className="btn btn-primary"
+                        style={{ borderRadius: 'var(--radius-md)' }}
+                      >
+                        <i className="fas fa-sync-alt"></i> Show All Bills
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gap: '16px' }}>
+                    {filteredBillHistory.map((bill, index) => (
+                      <div key={bill.id || bill._id || index} style={{
+                        background: 'var(--bg-elevated)',
+                        border: '1px solid var(--border-subtle)',
+                        borderRadius: 'var(--radius-lg)',
+                        padding: '24px',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        transition: 'all 0.3s ease',
+                        animation: `slideIn 0.5s ease-out ${index * 0.1}s both`,
+                        position: 'relative'
+                      }}>
+                        {/* Serial Number Badge */}
+                        <div style={{
+                          position: 'absolute',
+                          top: '16px',
+                          left: '16px',
+                          background: 'var(--bg-base)',
+                          color: 'var(--text-secondary)',
+                          width: '32px',
+                          height: '32px',
+                          borderRadius: '50%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '13px',
+                          fontWeight: 'bold',
+                          border: '1px solid var(--border-subtle)'
+                        }}>
+                          {index + 1}
+                        </div>
+
+                        <div style={{ flex: 1, paddingLeft: '48px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
+                            <h4 style={{ margin: 0, fontSize: '18px', fontWeight: '600', color: 'var(--text-primary)' }}>
+                              {bill.customerName}
+                            </h4>
+                            <span style={{
+                              background: bill.status === 'delivered' ? 'rgba(39, 174, 96, 0.1)' : bill.status === 'completed' ? 'rgba(52, 152, 219, 0.1)' : 'rgba(243, 156, 18, 0.1)',
+                              border: `1px solid ${bill.status === 'delivered' ? 'rgba(39, 174, 96, 0.3)' : bill.status === 'completed' ? 'rgba(52, 152, 219, 0.3)' : 'rgba(243, 156, 18, 0.3)'}`,
+                              padding: '4px 12px',
+                              borderRadius: 'var(--radius-full)',
+                              color: bill.status === 'delivered' ? 'var(--success)' : bill.status === 'completed' ? '#3498db' : 'var(--warning)',
+                              fontSize: '11px',
+                              fontWeight: 'bold',
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.5px'
+                            }}>
+                              <i className={`fas ${bill.status === 'delivered' ? 'fa-check-circle' : bill.status === 'completed' ? 'fa-clipboard-check' : 'fa-clock'}`} style={{ marginRight: '6px' }}></i>
+                              {bill.status}
+                            </span>
+                          </div>
+
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '16px' }}>
+                            <div>
+                              <p style={{ margin: '0 0 6px 0', color: 'var(--text-secondary)', fontSize: '13px' }}>
+                                <i className="fas fa-hashtag" style={{ width: '16px', marginRight: '6px', color: 'var(--accent)' }}></i> Bill No: <strong style={{ color: 'var(--text-primary)' }}>{bill.billNumber}</strong>
+                              </p>
+                              <p style={{ margin: '0 0 6px 0', color: 'var(--text-secondary)', fontSize: '13px' }}>
+                                <i className="fas fa-phone-alt" style={{ width: '16px', marginRight: '6px', color: 'var(--accent)' }}></i> Phone: <strong style={{ color: 'var(--text-primary)' }}>{bill.customerPhone || 'N/A'}</strong>
+                              </p>
+                            </div>
+                            <div>
+                              <p style={{ margin: '0 0 6px 0', color: 'var(--text-secondary)', fontSize: '13px' }}>
+                                <i className="fas fa-tshirt" style={{ width: '16px', marginRight: '6px', color: 'var(--accent)' }}></i> Items: <strong style={{ color: 'var(--text-primary)' }}>{bill.items.length} items</strong>
+                              </p>
+                              <p style={{ margin: '0 0 6px 0', color: 'var(--text-secondary)', fontSize: '14px' }}>
+                                <i className="fas fa-rupee-sign" style={{ width: '16px', marginRight: '6px', color: 'var(--success)' }}></i> Total: <strong style={{ color: 'var(--text-primary)', fontSize: '16px' }}>{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(bill.grandTotal)}</strong>
+                              </p>
+                            </div>
+                            <div>
+                              <p style={{ margin: '0 0 6px 0', color: 'var(--text-secondary)', fontSize: '13px' }}>
+                                <i className="fas fa-calendar-plus" style={{ width: '16px', marginRight: '6px', color: 'var(--accent)' }}></i> Created: <strong style={{ color: 'var(--text-primary)' }}>{new Date(bill.createdAt).toLocaleDateString('en-IN')}</strong>
+                              </p>
+                              {bill.deliveredAt && (
+                                <p style={{ margin: '0 0 6px 0', color: 'var(--text-secondary)', fontSize: '13px' }}>
+                                  <i className="fas fa-truck" style={{ width: '16px', marginRight: '6px', color: 'var(--accent)' }}></i> Delivered: <strong style={{ color: 'var(--text-primary)' }}>{new Date(bill.deliveredAt).toLocaleDateString('en-IN')}</strong>
+                                </p>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Item Details */}
+                          <div style={{
+                            background: 'var(--bg-base)',
+                            borderRadius: 'var(--radius-md)',
+                            padding: '12px 16px',
+                            marginTop: '16px',
+                            border: '1px solid var(--border-subtle)'
+                          }}>
+                            <p style={{ margin: '0 0 8px 0', fontSize: '12px', fontWeight: 'bold', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                              <i className="fas fa-box-open" style={{ marginRight: '6px' }}></i> Items Details:
+                            </p>
+                            <div style={{ fontSize: '13px', color: 'var(--text-primary)', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                              {bill.items.slice(0, 3).map((item: any, idx: number) => (
+                                <span key={idx} style={{ background: 'var(--bg-elevated)', padding: '4px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
+                                  {item.name} <span style={{ color: 'var(--text-secondary)' }}>(₹{item.rate} × {item.quantity})</span>
+                                </span>
+                              ))}
+                              {bill.items.length > 3 && (
+                                <span style={{ background: 'var(--bg-elevated)', padding: '4px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}>
+                                  +{bill.items.length - 3} more
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginLeft: '32px' }}>
+                          <button
+                            onClick={() => reprintBill(bill)}
+                            className="btn btn-ghost"
+                            style={{ borderRadius: 'var(--radius-md)', width: '100%', justifyContent: 'flex-start' }}
+                          >
+                            <i className="fas fa-print" style={{ width: '20px' }}></i> Reprint
+                          </button>
+
+                          {bill.status !== 'delivered' && (
+                            <button
+                              onClick={() => markBillAsDelivered(bill.id || bill._id)}
+                              className="btn btn-primary"
+                              style={{ borderRadius: 'var(--radius-md)', width: '100%', justifyContent: 'flex-start' }}
+                            >
+                              <i className="fas fa-truck" style={{ width: '20px' }}></i> Deliver
+                            </button>
+                          )}
+
+                          <button
+                            onClick={() => {
+                              // We can pass the bill to edit specifically
+                              setEditBillToPass(bill);
+                              setShowBillManager(true);
+                            }}
+                            className="btn btn-ghost"
+                            style={{ borderRadius: 'var(--radius-md)', width: '100%', justifyContent: 'flex-start' }}
+                          >
+                            <i className="fas fa-edit" style={{ width: '20px' }}></i> Edit Bill
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Summary Stats */}
+                {billHistory.length > 0 && (
+                  <div style={{
+                    marginTop: '32px',
+                    background: 'var(--bg-elevated)',
+                    borderRadius: 'var(--radius-lg)',
+                    padding: '24px',
+                    border: '1px solid var(--border-subtle)'
+                  }}>
+                    <h3 style={{ color: 'var(--text-primary)', marginBottom: '24px', fontSize: '18px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <i className="fas fa-chart-bar" style={{ color: 'var(--accent)' }}></i> History Summary
+                    </h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
+                      <div style={{ background: 'var(--bg-base)', padding: '20px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
+                          <i className="fas fa-file-invoice" style={{ marginRight: '6px' }}></i> Total Bills
+                        </div>
+                        <div style={{ fontSize: '28px', fontWeight: 'bold', color: 'var(--text-primary)' }}>
+                          {billHistory.length}
+                        </div>
+                      </div>
+                      <div style={{ background: 'var(--bg-base)', padding: '20px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
+                          <i className="fas fa-rupee-sign" style={{ marginRight: '6px' }}></i> Total Revenue
+                        </div>
+                        <div style={{ fontSize: '28px', fontWeight: 'bold', color: 'var(--success)' }}>
+                          {new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(billHistory.reduce((sum, bill) => sum + bill.grandTotal, 0))}
+                        </div>
+                      </div>
+                      <div style={{ background: 'var(--bg-base)', padding: '20px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
+                          <i className="fas fa-truck" style={{ marginRight: '6px' }}></i> Delivered
+                        </div>
+                        <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#3498db' }}>
+                          {billHistory.filter(bill => bill.status === 'delivered').length}
+                        </div>
+                      </div>
+                      <div style={{ background: 'var(--bg-base)', padding: '20px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
+                          <i className="fas fa-chart-pie" style={{ marginRight: '6px' }}></i> Avg. Bill Value
+                        </div>
+                        <div style={{ fontSize: '28px', fontWeight: 'bold', color: 'var(--text-primary)' }}>
+                          {new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(Math.round(billHistory.reduce((sum, bill) => sum + bill.grandTotal, 0) / (billHistory.length || 1)))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
-        </div>
-      )}
 
-      {/* Global Notification Panel - Highest Z-Index */}
-      {showNotifications && (
-        <>
-          {/* Backdrop to close notifications */}
-          <div 
-            style={{
+          {/* Removed Analytics Modal - Now renders inline */}
+
+          {/* Expense Manager Modal */}
+          {showExpenseManager && (
+            <ExpenseManager onClose={() => setShowExpenseManager(false)} />
+          )}
+
+          {/* Bill Manager Modal */}
+          {showBillManager && (
+            <BillManager onClose={() => {
+              setShowBillManager(false);
+              // Refresh pending bills and bill history after closing BillManager
+              loadPendingBills();
+              loadBillHistory();
+            }} />
+          )}
+
+          {/* Add Previous Bill Modal */}
+          {showAddPreviousBill && (
+            <AddPreviousBill
+              onClose={() => setShowAddPreviousBill(false)}
+              onBillAdded={() => {
+                loadPendingBills();
+                setActiveTab('pending');
+              }}
+            />
+          )}
+
+          {/* Bulk Operations Modal */}
+          {showBulkOperations && (
+            <div style={{
               position: 'fixed',
               top: 0,
               left: 0,
               right: 0,
               bottom: 0,
-              zIndex: 2147483646,
-              background: 'rgba(0, 0, 0, 0.1)'
-            }}
-            onClick={() => setShowNotifications(false)}
-          />
-          
-          {/* Notification Panel */}
-          <div style={{
-            position: 'fixed',
-            top: '80px',
-            right: '20px',
-            width: '320px',
-            background: 'rgba(255, 255, 255, 0.98)',
-            backdropFilter: 'blur(25px)',
-            borderRadius: '16px',
-            border: '2px solid rgba(255, 255, 255, 0.4)',
-            boxShadow: '0 25px 50px rgba(0, 0, 0, 0.3)',
-            zIndex: 2147483647,
-            color: '#1f2937',
-            animation: 'slideIn 0.3s ease-out'
-          }}>
-            <div style={{ 
-              padding: '16px 20px', 
-              borderBottom: '1px solid rgba(0, 0, 0, 0.1)',
+              background: 'rgba(15, 23, 42, 0.8)', // Darker auth backdrop
+              backdropFilter: 'blur(8px)',
               display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center'
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 1000,
+              padding: '20px'
             }}>
-              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 'bold' }}>Notifications</h3>
-              <button
-                onClick={() => setShowNotifications(false)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  fontSize: '18px',
-                  cursor: 'pointer',
-                  color: '#6b7280',
-                  padding: '4px'
-                }}
-              >
-                ✕
-              </button>
-            </div>
-            <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
-              {notifications.map(notification => (
-                <div key={notification.id} style={{
-                  padding: '12px 20px',
-                  borderBottom: '1px solid rgba(0, 0, 0, 0.05)',
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  gap: '12px'
-                }}>
+              <div style={{
+                background: 'var(--bg-surface)',
+                borderRadius: 'var(--radius-xl)',
+                padding: '32px',
+                width: '100%',
+                maxWidth: '650px',
+                maxHeight: '85vh',
+                overflowY: 'auto',
+                border: '1px solid var(--border-subtle)',
+                boxShadow: 'var(--shadow-lg)'
+              }} className="custom-scrollbar">
+                
+                {/* Header */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', paddingBottom: '16px', borderBottom: '1px solid var(--border-subtle)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'var(--warning-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--warning)' }}>
+                      <i className="fas fa-layer-group" style={{ fontSize: '18px' }}></i>
+                    </div>
+                    <div>
+                      <h2 style={{ color: 'var(--text-primary)', margin: 0, fontSize: '20px', fontWeight: 'bold' }}>
+                        Bulk Operations
+                      </h2>
+                      <p style={{ margin: '4px 0 0 0', color: 'var(--text-muted)', fontSize: '13px' }}>Manage multiple bills simultaneously</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setShowBulkOperations(false)}
+                    style={{
+                      background: 'var(--bg-elevated)',
+                      border: '1px solid var(--border-subtle)',
+                      borderRadius: '50%',
+                      width: '36px',
+                      height: '36px',
+                      color: 'var(--text-muted)',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      transition: 'all 0.2s',
+                    }}
+                    onMouseOver={(e) => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.background = 'var(--bg-surface-hover)'; }}
+                    onMouseOut={(e) => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.background = 'var(--bg-elevated)'; }}
+                  >
+                    <i className="fas fa-times"></i>
+                  </button>
+                </div>
+
+                <div style={{ marginBottom: '24px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                    <h3 style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '14px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      Select Bills
+                    </h3>
+                    <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+                      <span style={{ color: 'var(--accent)', fontWeight: 'bold' }}>{selectedBills.length}</span> / {[...pendingBills, ...billHistory].length} selected
+                    </div>
+                  </div>
                   <div style={{
-                    width: '10px',
-                    height: '10px',
-                    borderRadius: '50%',
-                    background: notification.type === 'success' ? '#10b981' : 
-                               notification.type === 'warning' ? '#f59e0b' : '#3b82f6',
-                    marginTop: '8px',
-                    flexShrink: 0
-                  }}></div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                      <p style={{ margin: 0, fontSize: '14px', fontWeight: '600' }}>
-                        {notification.message}
-                      </p>
-                      {notification.count !== undefined && (
-                        <span style={{
-                          background: notification.type === 'success' ? '#10b981' : 
-                                     notification.type === 'warning' ? '#f59e0b' : '#3b82f6',
-                          color: 'white',
-                          padding: '2px 8px',
-                          borderRadius: '12px',
-                          fontSize: '12px',
-                          fontWeight: 'bold'
-                        }}>
-                          {notification.count}
-                        </span>
+                    background: 'var(--bg-base)',
+                    borderRadius: 'var(--radius-lg)',
+                    border: '1px solid var(--border-subtle)',
+                    maxHeight: '340px',
+                    overflowY: 'auto'
+                  }} className="custom-scrollbar">
+                    {/* Select All Row */}
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                      padding: '12px 16px',
+                      background: 'var(--bg-elevated)',
+                      borderBottom: '1px solid var(--border-subtle)',
+                      position: 'sticky',
+                      top: 0,
+                      zIndex: 1
+                    }}>
+                      <div className="checkbox-wrapper">
+                         <input
+                           type="checkbox"
+                           id="selectAllBillsBulk"
+                           checked={selectedBills.length === [...pendingBills, ...billHistory].length && [...pendingBills, ...billHistory].length > 0}
+                           onChange={(e) => {
+                             if (e.target.checked) {
+                               setSelectedBills([...pendingBills, ...billHistory].map(b => b.id || b._id));
+                             } else {
+                               setSelectedBills([]);
+                             }
+                           }}
+                         />
+                         <label htmlFor="selectAllBillsBulk"></label>
+                      </div>
+                      <span style={{ color: 'var(--text-primary)', fontSize: '14px', fontWeight: '600' }}>Select All Bills</span>
+                    </div>
+
+                    {/* Bills List */}
+                    <div style={{ padding: '8px' }}>
+                      {[...pendingBills, ...billHistory].map(bill => (
+                        <div key={bill.id || bill._id} 
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '16px',
+                            padding: '12px 16px',
+                            background: selectedBills.includes(bill.id || bill._id) ? 'var(--accent-muted)' : 'var(--bg-surface)',
+                            border: `1px solid ${selectedBills.includes(bill.id || bill._id) ? 'var(--accent)' : 'transparent'}`,
+                            borderRadius: 'var(--radius-md)',
+                            marginBottom: '6px',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                          }}
+                          onClick={() => {
+                            const billId = bill.id || bill._id;
+                            if (selectedBills.includes(billId)) {
+                              setSelectedBills(selectedBills.filter(id => id !== billId));
+                            } else {
+                              setSelectedBills([...selectedBills, billId]);
+                            }
+                          }}
+                        >
+                          <div className="checkbox-wrapper" onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="checkbox"
+                              id={`bulk-bill-${bill.id || bill._id}`}
+                              checked={selectedBills.includes(bill.id || bill._id)}
+                              onChange={(e) => {
+                                const billId = bill.id || bill._id;
+                                if (e.target.checked) {
+                                  setSelectedBills([...selectedBills, billId]);
+                                } else {
+                                  setSelectedBills(selectedBills.filter(id => id !== billId));
+                                }
+                              }}
+                            />
+                            <label htmlFor={`bulk-bill-${bill.id || bill._id}`}></label>
+                          </div>
+                          
+                          <div style={{ flex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div>
+                              <div style={{ color: 'var(--text-primary)', fontWeight: '600', fontSize: '14px', marginBottom: '4px' }}>
+                                {bill.customerName}
+                              </div>
+                              <div style={{ color: 'var(--text-muted)', fontSize: '12px', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                <span style={{ fontFamily: 'monospace', background: 'var(--bg-base)', padding: '2px 6px', borderRadius: '4px' }}>
+                                  #{bill.billNumber}
+                                </span>
+                                <span>•</span>
+                                <span style={{ fontWeight: '500', color: 'var(--text-secondary)' }}>₹{bill.grandTotal}</span>
+                              </div>
+                            </div>
+                            
+                            <div>
+                              <span style={{
+                                padding: '4px 10px',
+                                borderRadius: '20px',
+                                fontSize: '11px',
+                                fontWeight: '600',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.05em',
+                                background: bill.status === 'completed' || bill.status === 'delivered' ? 'var(--success-muted)' : (bill.status === 'pending' ? 'var(--warning-muted)' : 'var(--bg-elevated)'),
+                                color: bill.status === 'completed' || bill.status === 'delivered' ? 'var(--success)' : (bill.status === 'pending' ? 'var(--warning)' : 'var(--text-muted)'),
+                                border: `1px solid ${bill.status === 'completed' || bill.status === 'delivered' ? 'rgba(34, 197, 94, 0.2)' : (bill.status === 'pending' ? 'rgba(245, 158, 11, 0.2)' : 'var(--border-subtle)')}`
+                              }}>
+                                {bill.status}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                      {[...pendingBills, ...billHistory].length === 0 && (
+                        <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                          <i className="fas fa-inbox" style={{ fontSize: '32px', marginBottom: '12px', opacity: 0.5 }}></i>
+                          <p style={{ margin: 0, fontSize: '14px' }}>No bills available for bulk operations</p>
+                        </div>
                       )}
                     </div>
-                    <p style={{ margin: 0, fontSize: '12px', opacity: 0.6 }}>
-                      Updated: {notification.time.toLocaleTimeString()}
-                    </p>
                   </div>
                 </div>
-              ))}
+                <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '24px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: '16px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      <h4 style={{ color: 'var(--text-muted)', margin: '0 0 8px 0', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Selection</h4>
+                      <button
+                        onClick={() => setSelectedBills([])}
+                        disabled={selectedBills.length === 0}
+                        className="btn btn-ghost"
+                        style={{ width: '100%', justifyContent: 'center' }}
+                      >
+                        <i className="fas fa-eraser" style={{ marginRight: '8px' }}></i>
+                        Clear Selection
+                      </button>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      <h4 style={{ color: 'var(--text-muted)', margin: '0 0 8px 0', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Actions</h4>
+                      <button
+                        onClick={() => {
+                          if (selectedBills.length > 0) {
+                            showConfirm(`Are you sure you want to mark ${selectedBills.length} bills as completed?`, async () => {
+                              await bulkMarkAsCompleted(selectedBills);
+                              setSelectedBills([]);
+                              setShowBulkOperations(false);
+                            });
+                          }
+                        }}
+                        disabled={selectedBills.length === 0 || loading}
+                        className="btn btn-primary"
+                        style={{ 
+                          width: '100%', 
+                          justifyContent: 'center',
+                          background: 'var(--success)',
+                          boxShadow: '0 4px 12px rgba(34, 197, 94, 0.2)'
+                        }}
+                      >
+                        {loading ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-check-circle" style={{ marginRight: '8px' }}></i>}
+                        Mark Completed
+                      </button>
+
+                      <div style={{ display: 'flex', gap: '12px' }}>
+                        <button
+                          onClick={() => {
+                            if (selectedBills.length > 0) {
+                              showConfirm(`Are you sure you want to mark ${selectedBills.length} bills as delivered?`, async () => {
+                                await bulkMarkAsDelivered(selectedBills);
+                                setSelectedBills([]);
+                                setShowBulkOperations(false);
+                              });
+                            }
+                          }}
+                          disabled={selectedBills.length === 0 || loading}
+                          className="btn btn-primary"
+                          style={{ 
+                            flex: 1, 
+                            justifyContent: 'center',
+                            background: 'var(--accent)',
+                            boxShadow: '0 4px 12px rgba(139, 92, 246, 0.2)' 
+                          }}
+                        >
+                          {loading ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-truck" style={{ marginRight: '8px' }}></i>}
+                          Mark Delivered
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            if (selectedBills.length > 0) {
+                              const selectedBillsData = [...pendingBills, ...billHistory].filter(bill =>
+                                selectedBills.includes(bill.id || bill._id)
+                              );
+                              const csvContent = convertToCSV(selectedBillsData, 'bills');
+                              downloadCSV(csvContent, `selected_bills_${new Date().toISOString().split('T')[0]}.csv`);
+                              showAlert({ message: `${selectedBills.length} bills exported successfully`, type: 'success' });
+                            }
+                          }}
+                          disabled={selectedBills.length === 0}
+                          className="btn btn-ghost"
+                          style={{ flex: 1, justifyContent: 'center' }}
+                        >
+                          <i className="fas fa-file-export" style={{ marginRight: '8px' }}></i>
+                          Export Selected
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
             </div>
-          </div>
-        </>
-      )}
-    </div>
-      )}
+          )}
+
+          {/* Custom Reports Generator Modal */}
+          {showReportsGenerator && (
+            <div style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: 'rgba(0, 0, 0, 0.8)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 1000
+            }}>
+              <div style={{
+                background: 'linear-gradient(135deg, #1f2937, #374151)',
+                borderRadius: '20px',
+                padding: '30px',
+                width: '90%',
+                maxWidth: '500px',
+                border: '2px solid rgba(255, 255, 255, 0.2)'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
+                  <h2 style={{ color: 'white', margin: 0, fontSize: '24px', fontWeight: 'bold' }}>
+                    📊 Custom Report Generator
+                  </h2>
+                  <button
+                    onClick={() => setShowReportsGenerator(false)}
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.1)',
+                      border: 'none',
+                      borderRadius: '50%',
+                      width: '40px',
+                      height: '40px',
+                      color: 'white',
+                      cursor: 'pointer',
+                      fontSize: '18px'
+                    }}
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <div style={{ marginBottom: '20px' }}>
+                  <label style={{ color: 'white', display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 'bold' }}>
+                    📈 Report Type
+                  </label>
+                  <select
+                    id="reportType"
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      borderRadius: '10px',
+                      border: 'none',
+                      background: 'rgba(255, 255, 255, 0.9)',
+                      fontSize: '14px',
+                      fontWeight: '500'
+                    }}
+                  >
+                    <option value="sales">Sales Report (Daily Revenue)</option>
+                    <option value="customer">Customer Analysis</option>
+                    <option value="items">Items Performance</option>
+                    <option value="bills">Complete Bills Export</option>
+                  </select>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '25px' }}>
+                  <div>
+                    <label style={{ color: 'white', display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 'bold' }}>
+                      📅 Start Date
+                    </label>
+                    <input
+                      type="date"
+                      id="startDate"
+                      defaultValue={new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
+                      style={{
+                        width: '100%',
+                        padding: '12px',
+                        borderRadius: '10px',
+                        border: 'none',
+                        background: 'rgba(255, 255, 255, 0.9)',
+                        fontSize: '14px'
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ color: 'white', display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 'bold' }}>
+                      📅 End Date
+                    </label>
+                    <input
+                      type="date"
+                      id="endDate"
+                      defaultValue={new Date().toISOString().split('T')[0]}
+                      style={{
+                        width: '100%',
+                        padding: '12px',
+                        borderRadius: '10px',
+                        border: 'none',
+                        background: 'rgba(255, 255, 255, 0.9)',
+                        fontSize: '14px'
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  <button
+                    onClick={() => {
+                      const reportType = (document.getElementById('reportType') as HTMLSelectElement).value;
+                      const startDate = (document.getElementById('startDate') as HTMLInputElement).value;
+                      const endDate = (document.getElementById('endDate') as HTMLInputElement).value;
+
+                      generateCustomReport(reportType, { start: startDate, end: endDate });
+                      setShowReportsGenerator(false);
+                    }}
+                    disabled={loading}
+                    style={{
+                      flex: 1,
+                      background: loading ? 'rgba(255, 255, 255, 0.1)' : 'linear-gradient(135deg, #27ae60, #2ecc71)',
+                      border: 'none',
+                      borderRadius: '12px',
+                      padding: '15px 25px',
+                      color: 'white',
+                      cursor: loading ? 'not-allowed' : 'pointer',
+                      fontSize: '16px',
+                      fontWeight: 'bold'
+                    }}
+                  >
+                    {loading ? '⏳ Generating...' : '🚀 Generate Report'}
+                  </button>
+                  <button
+                    onClick={() => setShowReportsGenerator(false)}
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.1)',
+                      border: 'none',
+                      borderRadius: '12px',
+                      padding: '15px 25px',
+                      color: 'white',
+                      cursor: 'pointer',
+                      fontSize: '16px',
+                      fontWeight: 'bold'
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Customer Manager Modal */}
+          {showCustomerManager && (
+            <div style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: 'rgba(0, 0, 0, 0.8)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 1000
+            }}>
+              <div style={{
+                background: 'linear-gradient(135deg, #1f2937, #374151)',
+                borderRadius: '20px',
+                padding: '30px',
+                width: '90%',
+                maxWidth: '800px',
+                maxHeight: '80vh',
+                overflowY: 'auto',
+                border: '2px solid rgba(255, 255, 255, 0.2)'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
+                  <h2 style={{ color: 'white', margin: 0, fontSize: '24px', fontWeight: 'bold' }}>
+                    👥 Customer Manager
+                  </h2>
+                  <button
+                    onClick={() => setShowCustomerManager(false)}
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.1)',
+                      border: 'none',
+                      borderRadius: '50%',
+                      width: '40px',
+                      height: '40px',
+                      color: 'white',
+                      cursor: 'pointer',
+                      fontSize: '18px'
+                    }}
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <div style={{ marginBottom: '20px' }}>
+                  <input
+                    type="text"
+                    placeholder="Search customers by name or phone..."
+                    style={{
+                      width: '100%',
+                      padding: '12px 16px',
+                      borderRadius: '10px',
+                      border: 'none',
+                      background: 'rgba(255, 255, 255, 0.9)',
+                      fontSize: '14px'
+                    }}
+                    onChange={(e) => {
+                      // This would filter customers in a real implementation
+                    }}
+                  />
+                </div>
+
+                <div style={{
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  borderRadius: '12px',
+                  padding: '20px'
+                }}>
+                  <h3 style={{ color: 'white', marginBottom: '15px', fontSize: '18px' }}>
+                    📊 Customer Analytics
+                  </h3>
+
+                  {(() => {
+                    const customerData = [...pendingBills, ...billHistory].reduce((acc: any, bill) => {
+                      const key = bill.customerName;
+                      if (!acc[key]) {
+                        acc[key] = {
+                          phone: bill.customerPhone || 'N/A',
+                          count: 0,
+                          total: 0,
+                          lastVisit: bill.createdAt
+                        };
+                      }
+                      acc[key].count++;
+                      acc[key].total += bill.grandTotal;
+                      if (new Date(bill.createdAt) > new Date(acc[key].lastVisit)) {
+                        acc[key].lastVisit = bill.createdAt;
+                      }
+                      return acc;
+                    }, {});
+
+                    const customers = Object.entries(customerData)
+                      .sort(([, a]: [string, any], [, b]: [string, any]) => b.total - a.total)
+                      .slice(0, 10);
+
+                    return (
+                      <div style={{ display: 'grid', gap: '12px' }}>
+                        {customers.map(([name, data]: [string, any], index) => (
+                          <div key={index} style={{
+                            background: 'rgba(255, 255, 255, 0.1)',
+                            borderRadius: '10px',
+                            padding: '15px',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center'
+                          }}>
+                            <div style={{ color: 'white' }}>
+                              <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>{name}</div>
+                              <div style={{ fontSize: '12px', opacity: 0.8 }}>
+                                📱 {data.phone} • 📅 Last: {new Date(data.lastVisit).toLocaleDateString()}
+                              </div>
+                            </div>
+                            <div style={{ textAlign: 'right', color: 'white' }}>
+                              <div style={{ fontWeight: 'bold', color: '#27ae60' }}>₹{data.total.toLocaleString()}</div>
+                              <div style={{ fontSize: '12px', opacity: 0.8 }}>{data.count} bills</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                <div style={{ marginTop: '20px', display: 'flex', gap: '12px' }}>
+                  <button
+                    onClick={() => {
+                      generateCustomReport('customer', {
+                        start: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                        end: new Date().toISOString().split('T')[0]
+                      });
+                    }}
+                    disabled={loading}
+                    style={{
+                      flex: 1,
+                      background: loading ? 'rgba(255, 255, 255, 0.1)' : 'linear-gradient(135deg, #3498db, #2980b9)',
+                      border: 'none',
+                      borderRadius: '12px',
+                      padding: '12px 20px',
+                      color: 'white',
+                      cursor: loading ? 'not-allowed' : 'pointer',
+                      fontSize: '14px',
+                      fontWeight: 'bold'
+                    }}
+                  >
+                    {loading ? '⏳ Exporting...' : '📊 Export Customer Report'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Global Notification Panel - Highest Z-Index */}
+          {showNotifications && (
+            <>
+              {/* Backdrop to close notifications */}
+              <div
+                style={{
+                  position: 'fixed',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  zIndex: 2147483646,
+                  background: 'rgba(0, 0, 0, 0.1)'
+                }}
+                onClick={() => setShowNotifications(false)}
+              />
+
+              {/* Notification Panel */}
+              <div style={{
+                position: 'fixed',
+                top: '80px',
+                right: '20px',
+                width: '320px',
+                background: 'rgba(121, 106, 106, 0.27)',
+                backdropFilter: 'blur(25px)',
+                borderRadius: '16px',
+                border: '2px solid rgba(95, 69, 69, 0.4)',
+                boxShadow: '0 25px 50px rgba(0, 0, 0, 0.3)',
+                zIndex: 2147483647,
+                color: '#000000ff',
+                animation: 'slideIn 0.3s ease-out'
+              }}>
+                <div style={{
+                  padding: '16px 20px',
+                  borderBottom: '1px solid rgba(0, 0, 0, 0.1)',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center'
+                }}>
+                  <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 'bold' }}>Notifications</h3>
+                  <button
+                    onClick={() => setShowNotifications(false)}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      fontSize: '18px',
+                      cursor: 'pointer',
+                      color: '#000000ff',
+                      padding: '4px'
+                    }}
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                  {notifications.map(notification => (
+                    <div key={notification.id} style={{
+                      padding: '12px 20px',
+                      borderBottom: '1px solid rgba(0, 0, 0, 0.05)',
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: '12px'
+                    }}>
+                      <div style={{
+                        width: '10px',
+                        height: '10px',
+                        borderRadius: '50%',
+                        background: notification.type === 'success' ? '#10b981' :
+                          notification.type === 'warning' ? '#f59e0b' : '#3b82f6',
+                        marginTop: '8px',
+                        flexShrink: 0
+                      }}></div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                          <p style={{ margin: 0, fontSize: '14px', fontWeight: '600' }}>
+                            {notification.message}
+                          </p>
+                          {notification.count !== undefined && (
+                            <span style={{
+                              background: notification.type === 'success' ? '#10b981' :
+                                notification.type === 'warning' ? '#f59e0b' : '#3b82f6',
+                              color: 'white',
+                              padding: '2px 8px',
+                              borderRadius: '12px',
+                              fontSize: '12px',
+                              fontWeight: 'bold'
+                            }}>
+                              {notification.count}
+                            </span>
+                          )}
+                        </div>
+                        <p style={{ margin: 0, fontSize: '12px', opacity: 0.6 }}>
+                          Updated: {notification.time.toLocaleTimeString()}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
     </>
   );
 };

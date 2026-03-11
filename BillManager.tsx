@@ -27,9 +27,10 @@ interface Bill {
 
 interface BillManagerProps {
   onClose: () => void;
+  initialEditBill?: Bill | null;
 }
 
-const BillManager: React.FC<BillManagerProps> = ({ onClose }) => {
+const BillManager: React.FC<BillManagerProps> = ({ onClose, initialEditBill }) => {
   const { showAlert, showConfirm } = useAlert();
   const [bills, setBills] = useState<Bill[]>([]);
   const [loading, setLoading] = useState(true);
@@ -53,12 +54,18 @@ const BillManager: React.FC<BillManagerProps> = ({ onClose }) => {
     loadBills();
   }, [currentPage, statusFilter, searchTerm]);
 
+  useEffect(() => {
+    if (initialEditBill) {
+      handleEdit(initialEditBill);
+    }
+  }, [initialEditBill]);
+
   const loadBills = async () => {
     try {
       setLoading(true);
       const params: any = { 
         page: currentPage, 
-        limit: 10 
+        limit: 500 
       };
       
       if (statusFilter !== 'ALL') {
@@ -267,49 +274,46 @@ const BillManager: React.FC<BillManagerProps> = ({ onClose }) => {
 
   return (
     <div style={{
-      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-      background: 'rgba(0,0,0,0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center',
-      zIndex: 1000, backdropFilter: 'blur(10px)'
+      background: 'transparent', width: '100%',
+      display: 'flex', flexDirection: 'column',
+      animation: 'slideIn 0.3s ease-out'
     }}>
       <div style={{
-        background: 'white', borderRadius: '20px', width: '95%', maxWidth: '1400px',
-        height: '90%', display: 'flex', flexDirection: 'column', overflow: 'hidden',
-        boxShadow: '0 25px 50px rgba(0,0,0,0.3)'
+        background: 'var(--bg-surface)', borderRadius: 'var(--radius-lg)', width: '100%',
+        display: 'flex', flexDirection: 'column', overflow: 'hidden',
+        border: '1px solid var(--border-subtle)'
       }}>
         
         {/* Header */}
         <div style={{
-          background: 'linear-gradient(135deg, #3498db, #2980b9)',
-          color: 'white', padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+          background: 'transparent',
+          color: 'var(--text-primary)', padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          borderBottom: '1px solid var(--border-subtle)'
         }}>
           <div>
-            <h2 style={{ margin: 0, fontSize: '24px', fontWeight: 'bold' }}>🧾 Bill Management</h2>
-            <p style={{ margin: '5px 0 0 0', opacity: 0.9, fontSize: '14px' }}>
+            <h2 style={{ margin: 0, fontSize: '20px', fontWeight: '700', color: 'var(--text-primary)' }}>
+              <i className="fas fa-file-invoice" style={{ marginRight: '8px', color: 'var(--accent)' }}></i>Bill Management
+            </h2>
+            <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>
               Edit and manage all bills
             </p>
           </div>
-          <button onClick={onClose} style={{
-            background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '10px',
-            padding: '10px 15px', color: 'white', cursor: 'pointer', fontSize: '16px'
-          }}>
-            ✕ Close
+          <button className="btn btn-ghost btn-sm" onClick={onClose}>
+            <i className="fas fa-times"></i> Close
           </button>
         </div>
 
         {/* Filters */}
-        <div style={{ padding: '20px', borderBottom: '1px solid #dee2e6', display: 'flex', gap: '15px', alignItems: 'center', flexWrap: 'wrap' }}>
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
           <input
             type="text"
-            placeholder="🔍 Search by customer name..."
+            placeholder="Search by customer name..."
             value={searchTerm}
             onChange={(e) => {
               setSearchTerm(e.target.value);
               setCurrentPage(1);
             }}
-            style={{
-              flex: 1, minWidth: '200px', padding: '10px', borderRadius: '8px', 
-              border: '2px solid #dee2e6', fontSize: '14px'
-            }}
+            style={{ flex: 1, minWidth: '200px', padding: '10px' }}
           />
 
           <select
@@ -318,10 +322,7 @@ const BillManager: React.FC<BillManagerProps> = ({ onClose }) => {
               setStatusFilter(e.target.value);
               setCurrentPage(1);
             }}
-            style={{
-              padding: '10px', borderRadius: '8px', border: '2px solid #dee2e6',
-              fontSize: '14px', cursor: 'pointer', minWidth: '150px'
-            }}
+            style={{ padding: '10px', minWidth: '150px' }}
           >
             <option value="ALL">All Status</option>
             <option value="completed">Completed</option>
@@ -333,17 +334,17 @@ const BillManager: React.FC<BillManagerProps> = ({ onClose }) => {
 
         {/* Edit Form */}
         {showEditForm && editingBill && (
-          <div style={{ padding: '20px', background: '#f8f9fa', borderBottom: '1px solid #dee2e6' }}>
-            <h3 style={{ margin: '0 0 15px 0', color: '#2c3e50' }}>
-              ✏️ Edit Bill: {editingBill.billNumber}
+          <div style={{ padding: '16px 20px', background: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-subtle)' }}>
+            <h3 style={{ margin: '0 0 12px 0', color: 'var(--text-primary)', fontSize: '16px' }}>
+              <i className="fas fa-pen" style={{ marginRight: '6px' }}></i>Edit Bill: {editingBill.billNumber}
             </h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
               <input
                 type="text"
                 placeholder="Customer Name"
                 value={editFormData.customerName}
                 onChange={(e) => setEditFormData({ ...editFormData, customerName: e.target.value })}
-                style={{ padding: '10px', borderRadius: '8px', border: '2px solid #dee2e6', fontSize: '14px' }}
+                style={{ padding: '10px' }}
               />
               
               <input
@@ -351,7 +352,7 @@ const BillManager: React.FC<BillManagerProps> = ({ onClose }) => {
                 placeholder="Customer Phone"
                 value={editFormData.customerPhone}
                 onChange={(e) => setEditFormData({ ...editFormData, customerPhone: e.target.value })}
-                style={{ padding: '10px', borderRadius: '8px', border: '2px solid #dee2e6', fontSize: '14px' }}
+                style={{ padding: '10px' }}
               />
 
               <input
@@ -359,7 +360,7 @@ const BillManager: React.FC<BillManagerProps> = ({ onClose }) => {
                 placeholder="Discount (₹)"
                 value={editFormData.discount}
                 onChange={(e) => setEditFormData({ ...editFormData, discount: parseFloat(e.target.value) || 0 })}
-                style={{ padding: '10px', borderRadius: '8px', border: '2px solid #dee2e6', fontSize: '14px' }}
+                style={{ padding: '10px' }}
                 min="0"
                 step="0.01"
               />
@@ -369,7 +370,7 @@ const BillManager: React.FC<BillManagerProps> = ({ onClose }) => {
                 placeholder="Delivery Charge (₹)"
                 value={editFormData.deliveryCharge}
                 onChange={(e) => setEditFormData({ ...editFormData, deliveryCharge: parseFloat(e.target.value) || 0 })}
-                style={{ padding: '10px', borderRadius: '8px', border: '2px solid #dee2e6', fontSize: '14px' }}
+                style={{ padding: '10px' }}
                 min="0"
                 step="0.01"
               />
@@ -379,7 +380,7 @@ const BillManager: React.FC<BillManagerProps> = ({ onClose }) => {
                 placeholder="Previous Due (₹)"
                 value={editFormData.previousBalance}
                 onChange={(e) => setEditFormData({ ...editFormData, previousBalance: parseFloat(e.target.value) || 0 })}
-                style={{ padding: '10px', borderRadius: '8px', border: '2px solid #dee2e6', fontSize: '14px' }}
+                style={{ padding: '10px' }}
                 min="0"
                 step="0.01"
               />
@@ -387,7 +388,7 @@ const BillManager: React.FC<BillManagerProps> = ({ onClose }) => {
               <select
                 value={editFormData.status}
                 onChange={(e) => setEditFormData({ ...editFormData, status: e.target.value })}
-                style={{ padding: '10px', borderRadius: '8px', border: '2px solid #dee2e6', fontSize: '14px' }}
+                style={{ padding: '10px' }}
               >
                 <option value="completed">Completed</option>
                 <option value="pending">Pending</option>
@@ -396,32 +397,18 @@ const BillManager: React.FC<BillManagerProps> = ({ onClose }) => {
               </select>
             </div>
 
-            <div style={{ marginTop: '15px', display: 'flex', gap: '10px' }}>
-              <button
-                onClick={handleSaveEdit}
-                style={{
-                  background: 'linear-gradient(135deg, #27ae60, #2ecc71)', color: 'white',
-                  border: 'none', borderRadius: '8px', padding: '10px 20px',
-                  cursor: 'pointer', fontWeight: 'bold'
-                }}
-              >
-                💾 Save Changes
+            <div style={{ marginTop: '12px', display: 'flex', gap: '8px' }}>
+              <button onClick={handleSaveEdit} className="btn btn-success btn-sm">
+                <i className="fas fa-save"></i> Save Changes
               </button>
-              <button
-                onClick={resetForm}
-                style={{
-                  background: '#95a5a6', color: 'white',
-                  border: 'none', borderRadius: '8px', padding: '10px 20px',
-                  cursor: 'pointer'
-                }}
-              >
+              <button onClick={resetForm} className="btn btn-ghost btn-sm">
                 Cancel
               </button>
             </div>
 
-            <div style={{ marginTop: '10px', padding: '10px', background: '#e8f5e8', borderRadius: '8px', fontSize: '14px' }}>
+            <div style={{ marginTop: '8px', padding: '8px 12px', background: 'var(--accent-muted)', borderRadius: 'var(--radius-md)', fontSize: '13px', color: 'var(--text-primary)' }}>
               <strong>New Total: ₹{(editingBill.subtotal - editFormData.discount + editFormData.deliveryCharge).toLocaleString()}</strong>
-              <span style={{ marginLeft: '15px', color: '#666' }}>
+              <span style={{ marginLeft: '12px', color: 'var(--text-secondary)' }}>
                 (Subtotal: ₹{editingBill.subtotal} - Discount: ₹{editFormData.discount} + Delivery: ₹{editFormData.deliveryCharge})
               </span>
             </div>
@@ -431,113 +418,98 @@ const BillManager: React.FC<BillManagerProps> = ({ onClose }) => {
         {/* Bills List */}
         <div style={{ flex: 1, overflow: 'auto', padding: '20px' }}>
           {loading ? (
-            <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
-              <div style={{ fontSize: '40px', marginBottom: '10px' }}>⏳</div>
-              Loading bills...
+            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+              <i className="fas fa-spinner fa-spin" style={{ fontSize: '24px', marginBottom: '10px' }}></i>
+              <div>Loading bills...</div>
             </div>
           ) : bills.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
-              <div style={{ fontSize: '60px', marginBottom: '15px' }}>🧾</div>
-              <h3>No bills found</h3>
-              <p>No bills match your current filters</p>
+            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+              <i className="fas fa-file-invoice" style={{ fontSize: '24px', marginBottom: '12px', opacity: 0.3 }}></i>
+              <h3 style={{ color: 'var(--text-secondary)' }}>No bills found</h3>
+              <p style={{ color: 'var(--text-muted)' }}>No bills match your current filters</p>
             </div>
           ) : (
             <div style={{ display: 'grid', gap: '15px' }}>
               {bills.map((bill) => (
                 <div key={bill._id || bill.billNumber} style={{
-                  background: 'white', borderRadius: '10px', padding: '20px',
-                  boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-                  border: '1px solid #dee2e6'
+                  background: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--border-subtle)', position: 'relative'
                 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '15px' }}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-                        <h4 style={{ margin: 0, fontSize: '18px', fontWeight: 'bold', color: '#2c3e50' }}>
-                          {bill.billNumber}
-                        </h4>
-                        <span style={{
-                          background: getStatusColor(bill.status), color: 'white',
-                          padding: '3px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: 'bold'
-                        }}>
-                          {bill.status.toUpperCase()}
-                        </span>
-                      </div>
-                      
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px', marginBottom: '10px' }}>
-                        <div>
-                          <strong>Customer:</strong> {bill.customerName}
-                          {bill.customerPhone && <div style={{ fontSize: '12px', color: '#666' }}>📱 {bill.customerPhone}</div>}
-                        </div>
-                        <div>
-                          <strong>Items:</strong> {bill.items?.length || 0} items
-                          <div style={{ fontSize: '12px', color: '#666' }}>Subtotal: ₹{bill.subtotal?.toLocaleString()}</div>
-                        </div>
-                        <div>
-                          <strong>Total:</strong> <span style={{ color: '#27ae60', fontWeight: 'bold', fontSize: '16px' }}>₹{bill.grandTotal?.toLocaleString()}</span>
-                          {(bill.discount > 0 || bill.deliveryCharge > 0) && (
-                            <div style={{ fontSize: '12px', color: '#666' }}>
-                              {bill.discount > 0 && `Discount: -₹${bill.discount} `}
-                              {bill.deliveryCharge > 0 && `Delivery: +₹${bill.deliveryCharge}`}
-                            </div>
-                          )}
-                        </div>
-                        <div>
-                          <strong>Date:</strong> {new Date(bill.createdAt).toLocaleDateString('en-IN')}
-                          <div style={{ fontSize: '12px', color: '#666' }}>
-                            {new Date(bill.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
-                          </div>
-                        </div>
-                      </div>
-
-                      {bill.items && bill.items.length > 0 && (
-                        <div style={{ marginTop: '10px' }}>
-                          <strong>Items:</strong>
-                          <div style={{ marginTop: '5px', fontSize: '14px' }}>
-                            {bill.items.slice(0, 3).map((item, index) => (
-                              <span key={index} style={{ 
-                                display: 'inline-block', 
-                                background: '#f8f9fa', 
-                                padding: '2px 8px', 
-                                borderRadius: '12px', 
-                                margin: '2px 5px 2px 0',
-                                fontSize: '12px'
-                              }}>
-                                {item.name} x{item.quantity} (₹{item.amount})
-                              </span>
-                            ))}
-                            {bill.items.length > 3 && (
-                              <span style={{ color: '#666', fontSize: '12px' }}>
-                                +{bill.items.length - 3} more items
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      )}
+                  {/* Card body */}
+                  <div style={{ padding: '16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+                      <h4 style={{ margin: 0, fontSize: '15px', fontWeight: '700', color: 'var(--text-primary)' }}>
+                        {bill.billNumber}
+                      </h4>
+                      <span style={{
+                        background: getStatusColor(bill.status), color: 'white',
+                        padding: '2px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: '600', textTransform: 'uppercase'
+                      }}>
+                        {bill.status}
+                      </span>
+                      <span style={{ marginLeft: 'auto', color: 'var(--accent-text)', fontWeight: '700', fontSize: '16px' }}>
+                        ₹{bill.grandTotal?.toLocaleString()}
+                      </span>
                     </div>
-                    
-                    <div style={{ display: 'flex', gap: '8px', marginLeft: '15px', flexDirection: 'column' }}>
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <button
-                          onClick={() => handleEdit(bill)}
-                          style={{
-                            background: '#3498db', color: 'white', border: 'none',
-                            borderRadius: '6px', padding: '8px 12px', cursor: 'pointer', fontSize: '12px',
-                            fontWeight: 'bold'
-                          }}
-                        >
-                          ✏️ Edit
-                        </button>
-                        <button
-                          onClick={() => handleDelete(bill)}
-                          style={{
-                            background: '#e74c3c', color: 'white', border: 'none',
-                            borderRadius: '6px', padding: '8px 12px', cursor: 'pointer', fontSize: '12px',
-                            fontWeight: 'bold'
-                          }}
-                        >
-                          🗑️ Delete
-                        </button>
+                      
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '6px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+                      <div>
+                        <i className="fas fa-user" style={{ width: '14px', marginRight: '6px', fontSize: '11px', color: 'var(--text-muted)' }}></i>
+                        {bill.customerName}
+                        {bill.customerPhone && (
+                          <span style={{ marginLeft: '8px', color: 'var(--text-muted)', fontSize: '12px' }}>
+                            <i className="fas fa-phone" style={{ marginRight: '3px', fontSize: '10px' }}></i>{bill.customerPhone}
+                          </span>
+                        )}
                       </div>
+                      <div>
+                        <i className="fas fa-box" style={{ width: '14px', marginRight: '6px', fontSize: '11px', color: 'var(--text-muted)' }}></i>
+                        {bill.items?.length || 0} items · Subtotal ₹{bill.subtotal?.toLocaleString()}
+                      </div>
+                      <div>
+                        <i className="fas fa-calendar" style={{ width: '14px', marginRight: '6px', fontSize: '11px', color: 'var(--text-muted)' }}></i>
+                        {new Date(bill.createdAt).toLocaleDateString('en-IN')} · {new Date(bill.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    </div>
+
+                    {bill.items && bill.items.length > 0 && (
+                      <div style={{ marginTop: '8px' }}>
+                        {bill.items.slice(0, 4).map((item, index) => (
+                          <span key={index} style={{ 
+                            display: 'inline-block', 
+                            background: 'var(--bg-base)', 
+                            padding: '2px 8px', 
+                            borderRadius: '10px', 
+                            margin: '2px 4px 2px 0',
+                            fontSize: '11px',
+                            color: 'var(--text-muted)'
+                          }}>
+                            {item.name} ×{item.quantity}
+                          </span>
+                        ))}
+                        {bill.items.length > 4 && (
+                          <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>
+                            +{bill.items.length - 4} more
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Action bar */}
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: '8px',
+                    padding: '10px 16px',
+                    borderTop: '1px solid var(--border-subtle)',
+                    background: 'var(--bg-surface)'
+                  }}>
+                    <button onClick={() => handleEdit(bill)} className="btn btn-ghost btn-sm" style={{ fontSize: '12px' }}>
+                      <i className="fas fa-pen" style={{ marginRight: '4px' }}></i>Edit
+                    </button>
+                    <button onClick={() => handleDelete(bill)} className="btn btn-ghost btn-sm" style={{ fontSize: '12px', color: 'var(--danger)' }}>
+                      <i className="fas fa-trash" style={{ marginRight: '4px' }}></i>Delete
+                    </button>
+                    <div style={{ marginLeft: 'auto' }}>
                       <BillShareButton 
                         billData={{
                           billNumber: bill.billNumber,
@@ -553,7 +525,7 @@ const BillManager: React.FC<BillManagerProps> = ({ onClose }) => {
                           businessPhone: '+91 9256930727',
                           billDate: bill.createdAt
                         }}
-                        variant="icon"
+                        variant="button"
                       />
                     </div>
                   </div>
@@ -565,34 +537,26 @@ const BillManager: React.FC<BillManagerProps> = ({ onClose }) => {
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div style={{ padding: '20px', borderTop: '1px solid #dee2e6', textAlign: 'center' }}>
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '10px' }}>
+          <div style={{ padding: '16px 20px', borderTop: '1px solid var(--border-subtle)', textAlign: 'center' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', alignItems: 'center' }}>
               <button
                 onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                 disabled={currentPage === 1}
-                style={{
-                  padding: '8px 15px', borderRadius: '6px', border: 'none',
-                  background: currentPage === 1 ? '#bdc3c7' : '#3498db',
-                  color: 'white', cursor: currentPage === 1 ? 'not-allowed' : 'pointer'
-                }}
+                className="btn btn-ghost btn-sm"
               >
-                ← Previous
+                <i className="fas fa-chevron-left"></i> Previous
               </button>
               
-              <span style={{ padding: '8px 15px', color: '#666' }}>
+              <span style={{ padding: '8px 12px', color: 'var(--text-secondary)', fontSize: '13px' }}>
                 Page {currentPage} of {totalPages}
               </span>
               
               <button
                 onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                 disabled={currentPage === totalPages}
-                style={{
-                  padding: '8px 15px', borderRadius: '6px', border: 'none',
-                  background: currentPage === totalPages ? '#bdc3c7' : '#3498db',
-                  color: 'white', cursor: currentPage === totalPages ? 'not-allowed' : 'pointer'
-                }}
+                className="btn btn-ghost btn-sm"
               >
-                Next →
+                Next <i className="fas fa-chevron-right"></i>
               </button>
             </div>
           </div>

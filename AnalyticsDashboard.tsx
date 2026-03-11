@@ -34,11 +34,7 @@ interface DashboardData {
   }>;
 }
 
-interface AnalyticsDashboardProps {
-  onClose: () => void;
-}
-
-const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ onClose }) => {
+const AnalyticsDashboard: React.FC = () => {
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -201,32 +197,14 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ onClose }) => {
   if (loading) {
     return (
       <div style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: 'rgba(0, 0, 0, 0.8)',
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
-        zIndex: 1000
+        padding: '60px',
+        color: 'var(--text-secondary)'
       }}>
-        <div style={{
-          background: 'white',
-          padding: '40px',
-          borderRadius: '20px',
-          textAlign: 'center'
-        }}>
-          <div style={{
-            width: '40px',
-            height: '40px',
-            border: '4px solid #f3f3f3',
-            borderTop: '4px solid #667eea',
-            borderRadius: '50%',
-            animation: 'spin 1s linear infinite',
-            margin: '0 auto 20px'
-          }}></div>
+        <div style={{ textAlign: 'center' }}>
+          <i className="fas fa-circle-notch fa-spin fa-3x" style={{ color: 'var(--accent)', marginBottom: '16px' }}></i>
           <div>Loading Analytics...</div>
         </div>
       </div>
@@ -236,58 +214,31 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ onClose }) => {
   if (error) {
     return (
       <div style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: 'rgba(0, 0, 0, 0.8)',
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
-        zIndex: 1000
+        padding: '60px'
       }}>
         <div style={{
-          background: 'white',
+          background: 'var(--bg-surface)',
+          border: '1px solid var(--border-subtle)',
           padding: '40px',
-          borderRadius: '20px',
+          borderRadius: 'var(--radius-lg)',
           textAlign: 'center',
           maxWidth: '400px'
         }}>
-          <div style={{ fontSize: '48px', marginBottom: '20px' }}>❌</div>
-          <h3 style={{ color: '#e74c3c', marginBottom: '10px' }}>Error Loading Analytics</h3>
-          <p style={{ color: '#666', marginBottom: '20px' }}>{error}</p>
-          <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
-            <button
-              onClick={() => {
-                setError(null);
-                setTimeout(() => loadDashboardData(), 100);
-              }}
-              style={{
-                background: '#3498db',
-                color: 'white',
-                border: 'none',
-                padding: '10px 20px',
-                borderRadius: '8px',
-                cursor: 'pointer'
-              }}
-            >
-              Retry
-            </button>
-            <button
-              onClick={onClose}
-              style={{
-                background: '#95a5a6',
-                color: 'white',
-                border: 'none',
-                padding: '10px 20px',
-                borderRadius: '8px',
-                cursor: 'pointer'
-              }}
-            >
-              Close
-            </button>
-          </div>
+          <i className="fas fa-exclamation-circle fa-3x" style={{ color: 'var(--error)', marginBottom: '20px' }}></i>
+          <h3 style={{ color: 'var(--text-primary)', marginBottom: '10px' }}>Error Loading Analytics</h3>
+          <p style={{ color: 'var(--text-secondary)', marginBottom: '20px' }}>{error}</p>
+          <button
+            className="btn btn-primary"
+            onClick={() => {
+              setError(null);
+              setTimeout(() => loadDashboardData(), 100);
+            }}
+          >
+            <i className="fas fa-redo"></i> Retry
+          </button>
         </div>
       </div>
     );
@@ -295,154 +246,126 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ onClose }) => {
 
   return (
     <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      background: 'rgba(0, 0, 0, 0.8)',
+      background: 'transparent',
+      width: '100%',
       display: 'flex',
-      justifyContent: 'center',
-      alignItems: 'center',
-      zIndex: 1000,
-      backdropFilter: 'blur(10px)'
+      flexDirection: 'column',
+      animation: 'slideIn 0.3s ease-out'
     }}>
       <div style={{
-        background: 'linear-gradient(135deg, #1e3c72 0%, #2a5298 50%, #3b82f6 100%)',
-        borderRadius: '20px',
-        width: '95%',
-        maxWidth: '1200px',
-        height: '90%',
+        background: 'var(--bg-surface)',
+        borderRadius: 'var(--radius-lg)',
+        width: '100%',
         display: 'flex',
         flexDirection: 'column',
-        overflow: 'hidden',
-        boxShadow: '0 25px 50px rgba(0,0,0,0.3)'
+        border: '1px solid var(--border-subtle)'
       }}>
-        <style>{`
-          .analytics-amount {
-            -webkit-font-smoothing: antialiased !important;
-            -moz-osx-font-smoothing: grayscale !important;
-            text-rendering: optimizeLegibility !important;
-            font-feature-settings: "kern" 1, "liga" 1 !important;
-            letter-spacing: -0.5px !important;
-            text-shadow: 0 1px 3px rgba(0,0,0,0.4) !important;
-            font-weight: 700 !important;
-          }
-        `}</style>
         {/* Header */}
         <div style={{
-          background: 'rgba(255, 255, 255, 0.1)',
-          backdropFilter: 'blur(10px)',
-          padding: '20px',
+          padding: '24px',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.2)'
+          borderBottom: '1px solid var(--border-subtle)'
         }}>
           <div>
-            <h2 style={{ color: 'white', margin: 0, fontSize: '24px' }}>
-              📊 Analytics Dashboard
+            <h2 style={{ color: 'var(--text-primary)', margin: 0, fontSize: '20px', fontWeight: 'bold' }}>
+              <i className="fas fa-chart-pie" style={{ marginRight: '8px', color: 'var(--accent)' }}></i>
+              Analytics Dashboard
             </h2>
-            <p style={{ color: 'rgba(255, 255, 255, 0.8)', margin: '5px 0 0 0', fontSize: '14px' }}>
+            <p style={{ color: 'var(--text-secondary)', margin: '4px 0 0 0', fontSize: '13px' }}>
               Income and performance insights
             </p>
           </div>
           
-          <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             {/* Refresh Button */}
             <button
+              className="btn btn-ghost btn-sm"
               onClick={() => {
-                console.log('🧪 Testing analytics endpoints...');
                 loadDashboardData();
                 loadComparisonData();
                 loadProfitData();
               }}
-              style={{
-                background: 'rgba(46, 204, 113, 0.3)',
-                border: 'none',
-                borderRadius: '8px',
-                padding: '8px 12px',
-                color: 'white',
-                cursor: 'pointer',
-                fontSize: '12px',
-                fontWeight: 'bold'
-              }}
             >
-              🔄 Refresh Data
+              <i className="fas fa-sync-alt"></i> Refresh
             </button>
             
             {/* View Toggle */}
-            <div style={{ display: 'flex', background: 'rgba(255, 255, 255, 0.1)', borderRadius: '10px', padding: '5px' }}>
+            <div style={{ 
+              display: 'flex', 
+              background: 'var(--bg-elevated)', 
+              borderRadius: 'var(--radius-md)', 
+              padding: '4px',
+              border: '1px solid var(--border-subtle)'
+            }}>
               <button
                 onClick={() => setActiveView('overview')}
                 style={{
-                  background: activeView === 'overview' ? 'rgba(255, 255, 255, 0.3)' : 'transparent',
-                  border: 'none',
-                  borderRadius: '8px',
-                  padding: '8px 16px',
-                  color: 'white',
+                  background: activeView === 'overview' ? 'var(--bg-base)' : 'transparent',
+                  border: activeView === 'overview' ? '1px solid var(--border-subtle)' : '1px solid transparent',
+                  borderRadius: 'var(--radius-sm)',
+                  padding: '6px 12px',
+                  color: activeView === 'overview' ? 'var(--text-primary)' : 'var(--text-secondary)',
                   cursor: 'pointer',
-                  fontSize: '14px',
-                  fontWeight: activeView === 'overview' ? 'bold' : 'normal'
+                  fontSize: '13px',
+                  fontWeight: activeView === 'overview' ? '600' : 'normal',
+                  transition: 'all 0.2s',
+                  boxShadow: activeView === 'overview' ? 'var(--shadow-sm)' : 'none'
                 }}
               >
-                📊 Overview
+                <i className="fas fa-chart-bar" style={{ marginRight: '6px' }}></i> Overview
               </button>
               <button
                 onClick={() => setActiveView('profit')}
                 style={{
-                  background: activeView === 'profit' ? 'rgba(255, 255, 255, 0.3)' : 'transparent',
-                  border: 'none',
-                  borderRadius: '8px',
-                  padding: '8px 16px',
-                  color: 'white',
+                  background: activeView === 'profit' ? 'var(--bg-base)' : 'transparent',
+                  border: activeView === 'profit' ? '1px solid var(--border-subtle)' : '1px solid transparent',
+                  borderRadius: 'var(--radius-sm)',
+                  padding: '6px 12px',
+                  color: activeView === 'profit' ? 'var(--text-primary)' : 'var(--text-secondary)',
                   cursor: 'pointer',
-                  fontSize: '14px',
-                  fontWeight: activeView === 'profit' ? 'bold' : 'normal'
+                  fontSize: '13px',
+                  fontWeight: activeView === 'profit' ? '600' : 'normal',
+                  transition: 'all 0.2s',
+                  boxShadow: activeView === 'profit' ? 'var(--shadow-sm)' : 'none'
                 }}
               >
-                💰 Profit
+                <i className="fas fa-money-bill-wave" style={{ marginRight: '6px' }}></i> Profit
               </button>
             </div>
-            
-            <button
-              onClick={onClose}
-              style={{
-                background: 'rgba(255, 0, 0, 0.3)',
-                border: 'none',
-                borderRadius: '8px',
-                padding: '10px 15px',
-                color: 'white',
-                cursor: 'pointer',
-                fontSize: '16px'
-              }}
-            >
-              ✕ Close
-            </button>
           </div>
         </div>
 
         {/* Content */}
-        <div style={{ flex: 1, overflow: 'auto', padding: '20px' }}>
+        <div style={{ padding: '24px' }}>
           {dashboardData && (
             <>
               {/* Period Selector */}
-              <div style={{ marginBottom: '20px', textAlign: 'center' }}>
-                <div style={{ display: 'inline-flex', background: 'rgba(255, 255, 255, 0.1)', borderRadius: '10px', padding: '5px' }}>
+              <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'center' }}>
+                <div style={{ 
+                  display: 'inline-flex', 
+                  background: 'var(--bg-elevated)', 
+                  borderRadius: 'var(--radius-md)', 
+                  padding: '4px',
+                  border: '1px solid var(--border-subtle)'
+                }}>
                   {(['day', 'week', 'month'] as const).map(period => (
                     <button
                       key={period}
                       onClick={() => setSelectedPeriod(period)}
                       style={{
-                        background: selectedPeriod === period ? 'rgba(255, 255, 255, 0.3)' : 'transparent',
-                        border: 'none',
-                        borderRadius: '8px',
-                        padding: '10px 20px',
-                        color: 'white',
+                        background: selectedPeriod === period ? 'var(--bg-base)' : 'transparent',
+                        border: selectedPeriod === period ? '1px solid var(--border-subtle)' : '1px solid transparent',
+                        borderRadius: 'var(--radius-sm)',
+                        padding: '8px 24px',
+                        color: selectedPeriod === period ? 'var(--text-primary)' : 'var(--text-secondary)',
                         cursor: 'pointer',
-                        fontSize: '14px',
-                        fontWeight: selectedPeriod === period ? 'bold' : 'normal',
-                        textTransform: 'capitalize'
+                        fontSize: '13px',
+                        fontWeight: selectedPeriod === period ? '600' : 'normal',
+                        textTransform: 'capitalize',
+                        transition: 'all 0.2s',
+                        boxShadow: selectedPeriod === period ? 'var(--shadow-sm)' : 'none'
                       }}
                     >
                       {period}
@@ -456,220 +379,257 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ onClose }) => {
                 <div>
 
               {/* Stats Cards */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px', marginBottom: '30px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px', marginBottom: '32px' }}>
                 {/* Today's Stats */}
                 <div style={{
-                  background: 'rgba(255, 255, 255, 0.15)',
-                  backdropFilter: 'blur(10px)',
-                  border: '1px solid rgba(255, 255, 255, 0.2)',
-                  borderRadius: '15px',
+                  background: 'var(--bg-elevated)',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: 'var(--radius-lg)',
                   padding: '20px',
-                  textAlign: 'center',
-                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px'
                 }}>
-                  <div style={{ fontSize: '32px', marginBottom: '10px' }}>📅</div>
-                  <h3 style={{ color: 'white', margin: '0 0 10px 0' }}>Today</h3>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <h3 style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '14px', fontWeight: '500' }}>Today's Revenue</h3>
+                    <div style={{ background: 'rgba(52, 152, 219, 0.1)', padding: '8px', borderRadius: '8px', color: '#3498db' }}>
+                      <i className="fas fa-calendar-day"></i>
+                    </div>
+                  </div>
                   <div 
-                    className="analytics-amount"
                     style={{ 
-                      color: '#3498db', 
-                      fontSize: '24px', 
-                      fontWeight: 'bold', 
-                      marginBottom: '5px'
+                      color: 'var(--text-primary)', 
+                      fontSize: '28px', 
+                      fontWeight: '700'
                     }}>
                     {formatCurrency(dashboardData.today.totalIncome)}
                   </div>
-                  <div style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '14px' }}>
-                    {dashboardData.today.totalBills} bills • {dashboardData.today.totalItems} items
-                  </div>
-                  <div style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: '12px', marginTop: '5px' }}>
-                    Avg: {formatCurrency(dashboardData.today.avgBillAmount)}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)', fontSize: '13px' }}>
+                    <span>{dashboardData.today.totalBills} bills • {dashboardData.today.totalItems} items</span>
+                    <span style={{ color: 'var(--accent)' }}>Avg: {formatCurrency(dashboardData.today.avgBillAmount)}</span>
                   </div>
                 </div>
 
                 {/* This Week */}
                 <div style={{
-                  background: 'rgba(255, 255, 255, 0.15)',
-                  backdropFilter: 'blur(10px)',
-                  border: '1px solid rgba(255, 255, 255, 0.2)',
-                  borderRadius: '15px',
+                  background: 'var(--bg-elevated)',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: 'var(--radius-lg)',
                   padding: '20px',
-                  textAlign: 'center',
-                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px'
                 }}>
-                  <div style={{ fontSize: '32px', marginBottom: '10px' }}>📊</div>
-                  <h3 style={{ color: 'white', margin: '0 0 10px 0' }}>This Week</h3>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <h3 style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '14px', fontWeight: '500' }}>This Week</h3>
+                    <div style={{ background: 'rgba(39, 174, 96, 0.1)', padding: '8px', borderRadius: '8px', color: '#27ae60' }}>
+                      <i className="fas fa-calendar-week"></i>
+                    </div>
+                  </div>
                   <div 
-                    className="analytics-amount"
                     style={{ 
-                      color: '#27ae60', 
-                      fontSize: '24px', 
-                      fontWeight: 'bold', 
-                      marginBottom: '5px'
+                      color: 'var(--text-primary)', 
+                      fontSize: '28px', 
+                      fontWeight: '700'
                     }}>
                     {formatCurrency(dashboardData.week.totalIncome)}
                   </div>
-                  <div style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '14px' }}>
-                    {dashboardData.week.totalBills} bills • {dashboardData.week.totalItems} items
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: 'var(--text-secondary)', fontSize: '13px' }}>
+                    <span>{dashboardData.week.totalBills} bills • {dashboardData.week.totalItems} items</span>
+                    {comparisonData && (
+                      <span style={{ 
+                        color: getChangeColor(comparisonData.changes.incomeChange),
+                        display: 'flex', alignItems: 'center', gap: '4px',
+                        background: `${getChangeColor(comparisonData.changes.incomeChange)}15`,
+                        padding: '2px 6px', borderRadius: '4px', fontWeight: '600'
+                      }}>
+                        <i className={`fas fa-caret-${comparisonData.changes.incomeChange >= 0 ? 'up' : 'down'}`}></i>
+                        {Math.abs(comparisonData.changes.incomeChange).toFixed(1)}%
+                      </span>
+                    )}
                   </div>
-                  {comparisonData && (
-                    <div style={{ 
-                      color: getChangeColor(comparisonData.changes.incomeChange), 
-                      fontSize: '12px', 
-                      marginTop: '5px',
-                      fontWeight: 'bold'
-                    }}>
-                      {getChangeIcon(comparisonData.changes.incomeChange)} {Math.abs(comparisonData.changes.incomeChange).toFixed(1)}%
-                    </div>
-                  )}
                 </div>
 
                 {/* This Month */}
                 <div style={{
-                  background: 'rgba(255, 255, 255, 0.15)',
-                  backdropFilter: 'blur(10px)',
-                  border: '1px solid rgba(255, 255, 255, 0.2)',
-                  borderRadius: '15px',
+                  background: 'var(--bg-elevated)',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: 'var(--radius-lg)',
                   padding: '20px',
-                  textAlign: 'center',
-                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px'
                 }}>
-                  <div style={{ fontSize: '32px', marginBottom: '10px' }}>📈</div>
-                  <h3 style={{ color: 'white', margin: '0 0 10px 0' }}>This Month</h3>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <h3 style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '14px', fontWeight: '500' }}>This Month</h3>
+                    <div style={{ background: 'rgba(243, 156, 18, 0.1)', padding: '8px', borderRadius: '8px', color: '#f39c12' }}>
+                      <i className="fas fa-calendar-alt"></i>
+                    </div>
+                  </div>
                   <div 
-                    className="analytics-amount"
                     style={{ 
-                      color: '#f39c12', 
-                      fontSize: '24px', 
-                      fontWeight: 'bold', 
-                      marginBottom: '5px'
+                      color: 'var(--text-primary)', 
+                      fontSize: '28px', 
+                      fontWeight: '700'
                     }}>
                     {formatCurrency(dashboardData.month.totalIncome)}
                   </div>
-                  <div style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '14px' }}>
+                  <div style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
                     {dashboardData.month.totalBills} bills • {dashboardData.month.totalItems} items
                   </div>
                 </div>
 
                 {/* Pending Bills */}
                 <div style={{
-                  background: 'rgba(255, 255, 255, 0.15)',
-                  backdropFilter: 'blur(10px)',
-                  border: '1px solid rgba(255, 255, 255, 0.2)',
-                  borderRadius: '15px',
+                  background: 'var(--bg-elevated)',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: 'var(--radius-lg)',
                   padding: '20px',
-                  textAlign: 'center',
-                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)'
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px'
                 }}>
-                  <div style={{ fontSize: '32px', marginBottom: '10px' }}>⏳</div>
-                  <h3 style={{ color: 'white', margin: '0 0 10px 0' }}>Pending Bills</h3>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <h3 style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '14px', fontWeight: '500' }}>Pending Bills</h3>
+                    <div style={{ background: 'rgba(230, 126, 34, 0.1)', padding: '8px', borderRadius: '8px', color: '#e67e22' }}>
+                      <i className="fas fa-hourglass-half"></i>
+                    </div>
+                  </div>
                   <div 
-                    className="analytics-amount"
                     style={{ 
-                      color: '#e67e22', 
-                      fontSize: '24px', 
-                      fontWeight: 'bold', 
-                      marginBottom: '5px'
+                      color: 'var(--text-primary)', 
+                      fontSize: '28px', 
+                      fontWeight: '700'
                     }}>
                     {dashboardData.pendingCount}
                   </div>
-                  <div style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '14px' }}>
-                    Bills awaiting completion
+                  <div style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
+                    Bills currently awaiting completion
                   </div>
                 </div>
               </div>
 
               {/* Recent Bills and Top Customers */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
                 {/* Recent Bills */}
                 <div style={{
-                  background: 'rgba(255, 255, 255, 0.1)',
-                  borderRadius: '15px',
-                  padding: '20px'
+                  background: 'var(--bg-elevated)',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: 'var(--radius-lg)',
+                  padding: '24px'
                 }}>
-                  <h3 style={{ color: 'white', margin: '0 0 15px 0' }}>🕒 Recent Bills</h3>
-                  <div style={{ maxHeight: '300px', overflow: 'auto' }}>
-                    {dashboardData.recentBills.map((bill) => (
-                      <div key={bill._id} style={{
-                        background: 'rgba(255, 255, 255, 0.1)',
-                        borderRadius: '8px',
-                        padding: '12px',
-                        marginBottom: '8px',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center'
-                      }}>
-                        <div style={{ color: 'white' }}>
-                          <div style={{ fontWeight: 'bold', fontSize: '14px' }}>{bill.billNumber}</div>
-                          <div style={{ fontSize: '12px', opacity: 0.8 }}>
-                            {bill.customerName} • {formatDate(bill.createdAt)}
+                  <h3 style={{ color: 'var(--text-primary)', margin: '0 0 20px 0', fontSize: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <i className="fas fa-history" style={{ color: 'var(--accent)' }}></i> Recent Bills
+                  </h3>
+                  <div style={{ maxHeight: '350px', overflowY: 'auto', paddingRight: '8px' }} className="custom-scrollbar">
+                    {dashboardData.recentBills.length === 0 ? (
+                      <div style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '20px' }}>No recent bills</div>
+                    ) : (
+                      dashboardData.recentBills.map((bill) => (
+                        <div key={bill._id} style={{
+                          background: 'var(--bg-base)',
+                          border: '1px solid var(--border-subtle)',
+                          borderRadius: 'var(--radius-md)',
+                          padding: '16px',
+                          marginBottom: '12px',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          transition: 'all 0.2s'
+                        }}>
+                          <div>
+                            <div style={{ color: 'var(--text-primary)', fontWeight: '600', fontSize: '14px', marginBottom: '4px' }}>
+                              {bill.billNumber}
+                            </div>
+                            <div style={{ color: 'var(--text-secondary)', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <i className="fas fa-user" style={{ fontSize: '10px' }}></i> {bill.customerName}
+                            </div>
+                          </div>
+                          <div style={{ textAlign: 'right' }}>
+                            <div style={{ color: 'var(--text-primary)', fontWeight: 'bold', fontSize: '15px', marginBottom: '6px' }}>
+                              {formatCurrency(bill.grandTotal)}
+                            </div>
+                            <span className={`badge ${
+                              bill.status === 'completed' ? 'badge-success' : 
+                              bill.status === 'delivered' ? 'badge-info' : 
+                              bill.status === 'pending' ? 'badge-warning' : 'badge-danger'
+                            }`}>
+                              {bill.status}
+                            </span>
                           </div>
                         </div>
-                        <div style={{ textAlign: 'right' }}>
-                          <div style={{ color: '#3498db', fontWeight: 'bold' }}>
-                            {formatCurrency(bill.grandTotal)}
-                          </div>
-                          <div style={{
-                            fontSize: '10px',
-                            padding: '2px 6px',
-                            borderRadius: '4px',
-                            background: bill.status === 'completed' ? '#27ae60' : 
-                                       bill.status === 'delivered' ? '#3498db' : '#e67e22',
-                            color: 'white'
-                          }}>
-                            {bill.status.toUpperCase()}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+                      ))
+                    )}
                   </div>
                 </div>
 
                 {/* Top Customers */}
                 <div style={{
-                  background: 'rgba(255, 255, 255, 0.1)',
-                  borderRadius: '15px',
-                  padding: '20px'
+                  background: 'var(--bg-elevated)',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: 'var(--radius-lg)',
+                  padding: '24px'
                 }}>
-                  <h3 style={{ color: 'white', margin: '0 0 15px 0' }}>👑 Top Customers (This Month)</h3>
-                  <div style={{ maxHeight: '300px', overflow: 'auto' }}>
-                    {dashboardData.topCustomers.map((customer, index) => (
-                      <div key={customer._id} style={{
-                        background: 'rgba(255, 255, 255, 0.1)',
-                        borderRadius: '8px',
-                        padding: '12px',
-                        marginBottom: '8px',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center'
-                      }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <div style={{
-                            width: '24px',
-                            height: '24px',
-                            borderRadius: '50%',
-                            background: index === 0 ? '#f39c12' : index === 1 ? '#95a5a6' : index === 2 ? '#cd7f32' : '#3498db',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: '12px',
-                            fontWeight: 'bold',
-                            color: 'white'
-                          }}>
-                            {index + 1}
-                          </div>
-                          <div style={{ color: 'white' }}>
-                            <div style={{ fontWeight: 'bold', fontSize: '14px' }}>{customer._id}</div>
-                            <div style={{ fontSize: '12px', opacity: 0.8 }}>
-                              {customer.totalBills} bills
+                  <h3 style={{ color: 'var(--text-primary)', margin: '0 0 20px 0', fontSize: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <i className="fas fa-crown" style={{ color: '#f1c40f' }}></i> Top Customers (This Month)
+                  </h3>
+                  <div style={{ maxHeight: '350px', overflowY: 'auto', paddingRight: '8px' }} className="custom-scrollbar">
+                    {dashboardData.topCustomers.length === 0 ? (
+                      <div style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '20px' }}>No customer data</div>
+                    ) : (
+                      dashboardData.topCustomers.map((customer, index) => (
+                        <div key={customer._id} style={{
+                          background: 'var(--bg-base)',
+                          border: '1px solid var(--border-subtle)',
+                          borderRadius: 'var(--radius-md)',
+                          padding: '16px',
+                          marginBottom: '12px',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center'
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                            <div style={{
+                              width: '32px',
+                              height: '32px',
+                              borderRadius: '50%',
+                              background: index === 0 ? 'rgba(241, 196, 15, 0.1)' : 
+                                         index === 1 ? 'rgba(189, 195, 199, 0.1)' : 
+                                         index === 2 ? 'rgba(211, 84, 0, 0.1)' : 
+                                         'var(--bg-surface)',
+                              color: index === 0 ? '#f1c40f' : 
+                                     index === 1 ? '#bdc3c7' : 
+                                     index === 2 ? '#d35400' : 
+                                     'var(--text-secondary)',
+                              border: `1px solid ${
+                                index === 0 ? 'rgba(241, 196, 15, 0.3)' : 
+                                index === 1 ? 'rgba(189, 195, 199, 0.3)' : 
+                                index === 2 ? 'rgba(211, 84, 0, 0.3)' : 
+                                'var(--border-subtle)'
+                              }`,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: '14px',
+                              fontWeight: 'bold'
+                            }}>
+                              {index + 1}
+                            </div>
+                            <div>
+                              <div style={{ color: 'var(--text-primary)', fontWeight: '600', fontSize: '14px', marginBottom: '4px' }}>
+                                {customer._id || 'Unknown'}
+                              </div>
+                              <div style={{ color: 'var(--text-secondary)', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <i className="fas fa-receipt" style={{ fontSize: '10px' }}></i> {customer.totalBills} bills
+                              </div>
                             </div>
                           </div>
+                          <div style={{ color: 'var(--accent)', fontWeight: 'bold', fontSize: '15px' }}>
+                            {formatCurrency(customer.totalSpent)}
+                          </div>
                         </div>
-                        <div style={{ color: '#27ae60', fontWeight: 'bold' }}>
-                          {formatCurrency(customer.totalSpent)}
-                        </div>
-                      </div>
-                    ))}
+                      ))
+                    )}
                   </div>
                 </div>
               </div>
@@ -680,51 +640,65 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ onClose }) => {
               {activeView === 'profit' && profitData && (
                 <div>
                   {/* Profit Summary Cards */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '30px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '32px' }}>
                     <div style={{
-                      background: 'rgba(46, 204, 113, 0.2)',
-                      borderRadius: '15px',
-                      padding: '20px',
-                      textAlign: 'center',
-                      border: '2px solid rgba(46, 204, 113, 0.3)'
+                      background: 'rgba(39, 174, 96, 0.05)',
+                      borderRadius: 'var(--radius-lg)',
+                      padding: '24px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '12px',
+                      border: '1px solid rgba(39, 174, 96, 0.2)'
                     }}>
-                      <div style={{ fontSize: '32px', marginBottom: '10px' }}>💰</div>
-                      <h3 style={{ color: '#2ecc71', margin: '0 0 10px 0' }}>Total Income</h3>
-                      <div style={{ color: '#2ecc71', fontSize: '24px', fontWeight: 'bold' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <h3 style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '14px', fontWeight: '500' }}>Total Income</h3>
+                        <div style={{ background: 'rgba(39, 174, 96, 0.1)', padding: '8px', borderRadius: '8px', color: '#27ae60' }}>
+                          <i className="fas fa-hand-holding-usd"></i>
+                        </div>
+                      </div>
+                      <div style={{ color: '#27ae60', fontSize: '28px', fontWeight: 'bold' }}>
                         ₹{profitData.income?.toLocaleString() || 0}
                       </div>
                     </div>
 
                     <div style={{
-                      background: 'rgba(231, 76, 60, 0.2)',
-                      borderRadius: '15px',
-                      padding: '20px',
-                      textAlign: 'center',
-                      border: '2px solid rgba(231, 76, 60, 0.3)'
+                      background: 'rgba(231, 76, 60, 0.05)',
+                      borderRadius: 'var(--radius-lg)',
+                      padding: '24px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '12px',
+                      border: '1px solid rgba(231, 76, 60, 0.2)'
                     }}>
-                      <div style={{ fontSize: '32px', marginBottom: '10px' }}>💸</div>
-                      <h3 style={{ color: '#e74c3c', margin: '0 0 10px 0' }}>Total Expenses</h3>
-                      <div style={{ color: '#e74c3c', fontSize: '24px', fontWeight: 'bold' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <h3 style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '14px', fontWeight: '500' }}>Total Expenses</h3>
+                        <div style={{ background: 'rgba(231, 76, 60, 0.1)', padding: '8px', borderRadius: '8px', color: '#e74c3c' }}>
+                          <i className="fas fa-file-invoice-dollar"></i>
+                        </div>
+                      </div>
+                      <div style={{ color: '#e74c3c', fontSize: '28px', fontWeight: 'bold' }}>
                         ₹{profitData.expenses?.toLocaleString() || 0}
                       </div>
                     </div>
 
                     <div style={{
-                      background: profitData.profit >= 0 ? 'rgba(46, 204, 113, 0.2)' : 'rgba(231, 76, 60, 0.2)',
-                      borderRadius: '15px',
-                      padding: '20px',
-                      textAlign: 'center',
-                      border: `2px solid ${profitData.profit >= 0 ? 'rgba(46, 204, 113, 0.3)' : 'rgba(231, 76, 60, 0.3)'}`
+                      background: profitData.profit >= 0 ? 'rgba(39, 174, 96, 0.05)' : 'rgba(231, 76, 60, 0.05)',
+                      borderRadius: 'var(--radius-lg)',
+                      padding: '24px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '12px',
+                      border: `1px solid ${profitData.profit >= 0 ? 'rgba(39, 174, 96, 0.2)' : 'rgba(231, 76, 60, 0.2)'}`
                     }}>
-                      <div style={{ fontSize: '32px', marginBottom: '10px' }}>
-                        {profitData.profit >= 0 ? '📈' : '📉'}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <h3 style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '14px', fontWeight: '500' }}>Net Profit</h3>
+                        <div style={{ background: profitData.profit >= 0 ? 'rgba(39, 174, 96, 0.1)' : 'rgba(231, 76, 60, 0.1)', padding: '8px', borderRadius: '8px', color: profitData.profit >= 0 ? '#27ae60' : '#e74c3c' }}>
+                          <i className={`fas fa-chart-${profitData.profit >= 0 ? 'line' : 'pie'}`}></i>
+                        </div>
                       </div>
-                      <h3 style={{ color: profitData.profit >= 0 ? '#2ecc71' : '#e74c3c', margin: '0 0 10px 0' }}>
-                        Net Profit
-                      </h3>
                       <div style={{ 
-                        color: profitData.profit >= 0 ? '#2ecc71' : '#e74c3c', 
-                        fontSize: '24px', 
+                        color: profitData.profit >= 0 ? '#27ae60' : '#e74c3c', 
+                        fontSize: '28px', 
                         fontWeight: 'bold' 
                       }}>
                         ₹{profitData.profit?.toLocaleString() || 0}
@@ -732,15 +706,21 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ onClose }) => {
                     </div>
 
                     <div style={{
-                      background: 'rgba(52, 152, 219, 0.2)',
-                      borderRadius: '15px',
-                      padding: '20px',
-                      textAlign: 'center',
-                      border: '2px solid rgba(52, 152, 219, 0.3)'
+                      background: 'rgba(52, 152, 219, 0.05)',
+                      borderRadius: 'var(--radius-lg)',
+                      padding: '24px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '12px',
+                      border: '1px solid rgba(52, 152, 219, 0.2)'
                     }}>
-                      <div style={{ fontSize: '32px', marginBottom: '10px' }}>📊</div>
-                      <h3 style={{ color: '#3498db', margin: '0 0 10px 0' }}>Profit Margin</h3>
-                      <div style={{ color: '#3498db', fontSize: '24px', fontWeight: 'bold' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <h3 style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '14px', fontWeight: '500' }}>Profit Margin</h3>
+                        <div style={{ background: 'rgba(52, 152, 219, 0.1)', padding: '8px', borderRadius: '8px', color: '#3498db' }}>
+                          <i className="fas fa-percentage"></i>
+                        </div>
+                      </div>
+                      <div style={{ color: '#3498db', fontSize: '28px', fontWeight: 'bold' }}>
                         {profitData.profitMargin?.toFixed(1) || 0}%
                       </div>
                     </div>
@@ -749,38 +729,42 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ onClose }) => {
                   {/* Expense Breakdown */}
                   {profitData.expensesByCategory && profitData.expensesByCategory.length > 0 && (
                     <div style={{
-                      background: 'rgba(255, 255, 255, 0.1)',
-                      borderRadius: '15px',
-                      padding: '20px',
-                      marginBottom: '20px'
+                      background: 'var(--bg-elevated)',
+                      border: '1px solid var(--border-subtle)',
+                      borderRadius: 'var(--radius-lg)',
+                      padding: '24px',
+                      marginBottom: '24px'
                     }}>
-                      <h3 style={{ color: 'white', marginBottom: '20px', textAlign: 'center' }}>
-                        💸 Expense Breakdown by Category
+                      <h3 style={{ color: 'var(--text-primary)', margin: '0 0 20px 0', fontSize: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <i className="fas fa-tags" style={{ color: 'var(--accent)' }}></i> Expense Breakdown by Category
                       </h3>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
                         {profitData.expensesByCategory.map((category: any, index: number) => {
                           const categoryColors = [
                             '#e74c3c', '#f39c12', '#3498db', '#9b59b6', 
-                            '#27ae60', '#e67e22', '#95a5a6'
+                            '#27ae60', '#e67e22', '#1abc9c'
                           ];
                           const color = categoryColors[index % categoryColors.length];
                           
                           return (
                             <div key={category._id} style={{
-                              background: 'rgba(255, 255, 255, 0.05)',
-                              borderRadius: '10px',
-                              padding: '15px',
-                              textAlign: 'center',
+                              background: 'var(--bg-base)',
+                              border: '1px solid var(--border-subtle)',
+                              borderRadius: 'var(--radius-md)',
+                              padding: '16px',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '6px',
                               borderLeft: `4px solid ${color}`
                             }}>
-                              <div style={{ color: 'white', fontWeight: 'bold', marginBottom: '5px' }}>
+                              <div style={{ color: 'var(--text-primary)', fontWeight: '600', fontSize: '14px' }}>
                                 {category._id}
                               </div>
-                              <div style={{ color: color, fontSize: '18px', fontWeight: 'bold' }}>
+                              <div style={{ color: color, fontSize: '20px', fontWeight: 'bold' }}>
                                 ₹{category.total?.toLocaleString() || 0}
                               </div>
-                              <div style={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: '12px' }}>
-                                {category.count} expense{category.count !== 1 ? 's' : ''}
+                              <div style={{ color: 'var(--text-secondary)', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <i className="fas fa-receipt"></i> {category.count} transactions
                               </div>
                             </div>
                           );
@@ -791,31 +775,33 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ onClose }) => {
 
                   {/* Profit Analysis Summary */}
                   <div style={{
-                    background: 'rgba(255, 255, 255, 0.1)',
-                    borderRadius: '15px',
-                    padding: '20px',
-                    textAlign: 'center'
+                    background: 'var(--bg-elevated)',
+                    border: '1px solid var(--border-subtle)',
+                    borderRadius: 'var(--radius-lg)',
+                    padding: '24px'
                   }}>
-                    <h3 style={{ color: 'white', marginBottom: '15px' }}>
-                      📈 Profit Analysis Summary ({selectedPeriod.toUpperCase()})
+                    <h3 style={{ color: 'var(--text-primary)', margin: '0 0 20px 0', fontSize: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <i className="fas fa-chart-area" style={{ color: 'var(--accent)' }}></i> Profit Analysis Summary ({selectedPeriod.toUpperCase()})
                     </h3>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '15px' }}>
-                      <div>
-                        <div style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '14px' }}>Total Bills</div>
-                        <div style={{ color: '#3498db', fontSize: '20px', fontWeight: 'bold' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
+                      <div style={{ padding: '16px', background: 'var(--bg-base)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+                        <div style={{ color: 'var(--text-secondary)', fontSize: '13px', marginBottom: '4px' }}>Total Bills Processed</div>
+                        <div style={{ color: 'var(--text-primary)', fontSize: '20px', fontWeight: 'bold' }}>
+                          <i className="fas fa-file-invoice" style={{ color: 'var(--accent)', fontSize: '16px', marginRight: '8px' }}></i>
                           {profitData.totalBills || 0}
                         </div>
                       </div>
-                      <div>
-                        <div style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '14px' }}>Total Expenses</div>
-                        <div style={{ color: '#e74c3c', fontSize: '20px', fontWeight: 'bold' }}>
+                      <div style={{ padding: '16px', background: 'var(--bg-base)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+                        <div style={{ color: 'var(--text-secondary)', fontSize: '13px', marginBottom: '4px' }}>Total Expenses Recorded</div>
+                        <div style={{ color: 'var(--text-primary)', fontSize: '20px', fontWeight: 'bold' }}>
+                          <i className="fas fa-wallet" style={{ color: '#e74c3c', fontSize: '16px', marginRight: '8px' }}></i>
                           {profitData.totalExpenseCount || 0}
                         </div>
                       </div>
-                      <div>
-                        <div style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '14px' }}>Period</div>
-                        <div style={{ color: 'white', fontSize: '20px', fontWeight: 'bold' }}>
-                          {new Date(profitData.dateRange?.start).toLocaleDateString('en-IN')} - {new Date(profitData.dateRange?.end).toLocaleDateString('en-IN')}
+                      <div style={{ padding: '16px', background: 'var(--bg-base)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+                        <div style={{ color: 'var(--text-secondary)', fontSize: '13px', marginBottom: '4px' }}>Date Range</div>
+                        <div style={{ color: 'var(--text-primary)', fontSize: '15px', fontWeight: '600', marginTop: '6px' }}>
+                          {new Date(profitData.dateRange?.start).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })} - {new Date(profitData.dateRange?.end).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })}
                         </div>
                       </div>
                     </div>

@@ -41,14 +41,22 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({ onClose }) => {
     date: new Date().toISOString().split('T')[0]
   });
 
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      maximumFractionDigits: 0
+    }).format(amount);
+  };
+
   const categories = [
-    { value: 'RENT', label: '🏠 Rent', color: '#e74c3c' },
-    { value: 'UTILITIES', label: '⚡ Utilities', color: '#f39c12' },
-    { value: 'SUPPLIES', label: '📦 Supplies', color: '#3498db' },
-    { value: 'MAINTENANCE', label: '🔧 Maintenance', color: '#9b59b6' },
-    { value: 'SALARY', label: '💰 Salary', color: '#27ae60' },
-    { value: 'MARKETING', label: '📢 Marketing', color: '#e67e22' },
-    { value: 'OTHER', label: '📝 Other', color: '#95a5a6' }
+    { value: 'RENT', label: 'Rent', icon: 'fa-home', color: '#e74c3c' },
+    { value: 'UTILITIES', label: 'Utilities', icon: 'fa-bolt', color: '#f39c12' },
+    { value: 'SUPPLIES', label: 'Supplies', icon: 'fa-box', color: '#3498db' },
+    { value: 'MAINTENANCE', label: 'Maintenance', icon: 'fa-wrench', color: '#9b59b6' },
+    { value: 'SALARY', label: 'Salary', icon: 'fa-money-bill-wave', color: '#27ae60' },
+    { value: 'MARKETING', label: 'Marketing', icon: 'fa-bullhorn', color: '#e67e22' },
+    { value: 'OTHER', label: 'Other', icon: 'fa-clipboard-list', color: '#95a5a6' }
   ];
 
   useEffect(() => {
@@ -88,8 +96,9 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({ onClose }) => {
       
       const response = await apiService.getExpenses(params);
       if (response.success && response.data) {
-        setExpenses(response.data.expenses);
-        setTotalPages(response.data.totalPages);
+        const data = response.data as { expenses: Expense[]; totalPages: number };
+        setExpenses(data.expenses);
+        setTotalPages(data.totalPages);
       }
     } catch (error) {
       console.error('Failed to load expenses:', error);
@@ -102,7 +111,7 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({ onClose }) => {
   const loadExpenseSummary = async () => {
     try {
       // Calculate summary based on current filters
-      let period = 'month';
+      let period: 'day' | 'month' | 'year' | 'week' = 'month';
       let startDate, endDate;
       
       if (viewMode === 'day') {
@@ -212,157 +221,195 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({ onClose }) => {
 
   return (
     <div style={{
-      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-      background: 'rgba(0,0,0,0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center',
-      zIndex: 1000, backdropFilter: 'blur(10px)'
+      background: 'transparent', width: '100%',
+      display: 'flex', flexDirection: 'column',
+      animation: 'slideIn 0.3s ease-out'
     }}>
       <div style={{
-        background: 'white', borderRadius: '20px', width: '90%', maxWidth: '1200px',
-        height: '90%', display: 'flex', flexDirection: 'column', overflow: 'hidden',
-        boxShadow: '0 25px 50px rgba(0,0,0,0.3)'
+        background: 'var(--bg-surface)', borderRadius: 'var(--radius-lg)', width: '100%',
+        display: 'flex', flexDirection: 'column', overflow: 'hidden',
+        border: '1px solid var(--border-subtle)'
       }}>
         
         {/* Header */}
         <div style={{
-          background: 'linear-gradient(135deg, #e74c3c, #c0392b)',
-          color: 'white', padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+          background: 'transparent',
+          padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          borderBottom: '1px solid var(--border-subtle)'
         }}>
           <div>
-            <h2 style={{ margin: 0, fontSize: '24px', fontWeight: 'bold' }}>💸 Expense Management</h2>
-            <p style={{ margin: '5px 0 0 0', opacity: 0.9, fontSize: '14px' }}>
+            <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 'bold', color: 'var(--text-primary)' }}>
+              <i className="fas fa-wallet" style={{ marginRight: '8px', color: 'var(--accent)' }}></i>
+              Expense Management
+            </h2>
+            <p style={{ margin: '5px 0 0 0', opacity: 0.9, fontSize: '13px', color: 'var(--text-secondary)' }}>
               Track and manage business expenses
             </p>
           </div>
-          <button onClick={onClose} style={{
-            background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '10px',
-            padding: '10px 15px', color: 'white', cursor: 'pointer', fontSize: '16px'
-          }}>
-            ✕ Close
+          <button className="btn btn-ghost btn-sm" onClick={onClose}>
+            <i className="fas fa-times"></i> Close
           </button>
         </div>
 
         {/* Summary Cards */}
         {expenseSummary && (
-          <div style={{ padding: '20px', background: '#f8f9fa', borderBottom: '1px solid #dee2e6' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px' }}>
+          <div style={{ padding: '24px', borderBottom: '1px solid var(--border-subtle)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px' }}>
+              
               <div style={{
-                background: 'white', padding: '15px', borderRadius: '10px',
-                boxShadow: '0 2px 10px rgba(0,0,0,0.1)', textAlign: 'center'
+                background: 'var(--bg-elevated)', padding: '20px', borderRadius: 'var(--radius-lg)',
+                border: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: '12px'
               }}>
-                <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#e74c3c' }}>
-                  ₹{expenseSummary.totalExpenses?.toLocaleString() || 0}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ fontSize: '14px', color: 'var(--text-secondary)', fontWeight: '500' }}>
+                    Total Expenses ({viewMode === 'day' ? 'Day' : viewMode === 'month' ? 'Month' : 'Year'})
+                  </div>
+                  <div style={{ background: 'rgba(231, 76, 60, 0.1)', padding: '8px', borderRadius: '8px', color: '#e74c3c' }}>
+                    <i className="fas fa-file-invoice-dollar"></i>
+                  </div>
                 </div>
-                <div style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
-                  Total Expenses ({viewMode === 'day' ? 'Day' : viewMode === 'month' ? 'Month' : 'Year'})
+                <div style={{ fontSize: '28px', fontWeight: 'bold', color: 'var(--text-primary)' }}>
+                  {formatCurrency(expenseSummary.totalExpenses || 0)}
                 </div>
               </div>
               
               <div style={{
-                background: 'white', padding: '15px', borderRadius: '10px',
-                boxShadow: '0 2px 10px rgba(0,0,0,0.1)', textAlign: 'center'
+                background: 'var(--bg-elevated)', padding: '20px', borderRadius: 'var(--radius-lg)',
+                border: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: '12px'
               }}>
-                <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#3498db' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ fontSize: '14px', color: 'var(--text-secondary)', fontWeight: '500' }}>
+                    Categories Used
+                  </div>
+                  <div style={{ background: 'rgba(52, 152, 219, 0.1)', padding: '8px', borderRadius: '8px', color: '#3498db' }}>
+                    <i className="fas fa-tags"></i>
+                  </div>
+                </div>
+                <div style={{ fontSize: '28px', fontWeight: 'bold', color: 'var(--text-primary)' }}>
                   {expenseSummary.expensesByCategory?.length || 0}
                 </div>
-                <div style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>Categories Used</div>
               </div>
 
               <div style={{
-                background: 'white', padding: '15px', borderRadius: '10px',
-                boxShadow: '0 2px 10px rgba(0,0,0,0.1)', textAlign: 'center'
+                background: 'var(--bg-elevated)', padding: '20px', borderRadius: 'var(--radius-lg)',
+                border: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: '12px'
               }}>
-                <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#27ae60' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ fontSize: '14px', color: 'var(--text-secondary)', fontWeight: '500' }}>
+                    Total Records
+                  </div>
+                  <div style={{ background: 'rgba(39, 174, 96, 0.1)', padding: '8px', borderRadius: '8px', color: '#27ae60' }}>
+                    <i className="fas fa-receipt"></i>
+                  </div>
+                </div>
+                <div style={{ fontSize: '28px', fontWeight: 'bold', color: 'var(--text-primary)' }}>
                   {expenseSummary.recentExpenses?.length || 0}
                 </div>
-                <div style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>Total Records</div>
               </div>
             </div>
           </div>
         )}
 
         {/* Controls */}
-        <div style={{ padding: '20px', borderBottom: '1px solid #dee2e6' }}>
-          <div style={{ display: 'flex', gap: '15px', alignItems: 'center', flexWrap: 'wrap' }}>
-            <button
-              onClick={() => setShowAddForm(true)}
-              style={{
-                background: 'linear-gradient(135deg, #27ae60, #2ecc71)', color: 'white',
-                border: 'none', borderRadius: '10px', padding: '12px 20px',
-                cursor: 'pointer', fontWeight: 'bold', fontSize: '14px'
-              }}
-            >
-              ➕ Add Expense
-            </button>
+        <div style={{ padding: '24px', borderBottom: '1px solid var(--border-subtle)' }}>
+          <div style={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <button
+                onClick={() => setShowAddForm(true)}
+                className="btn btn-primary"
+                style={{ borderRadius: 'var(--radius-md)' }}
+              >
+                <i className="fas fa-plus"></i> Add Expense
+              </button>
 
-            <select
-              value={selectedCategory}
-              onChange={(e) => {
-                setSelectedCategory(e.target.value);
-                setCurrentPage(1);
-              }}
-              style={{
-                padding: '10px', borderRadius: '8px', border: '2px solid #dee2e6',
-                fontSize: '14px', cursor: 'pointer'
-              }}
-            >
-              <option value="ALL">All Categories</option>
-              {categories.map(cat => (
-                <option key={cat.value} value={cat.value}>{cat.label}</option>
-              ))}
-            </select>
+              <select
+                value={selectedCategory}
+                onChange={(e) => {
+                  setSelectedCategory(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="input-field"
+                style={{
+                  width: 'auto',
+                  border: '1px solid var(--border-subtle)',
+                  background: 'var(--bg-elevated)',
+                  color: 'var(--text-primary)'
+                }}
+              >
+                <option value="ALL">All Categories</option>
+                {categories.map(cat => (
+                  <option key={cat.value} value={cat.value}>{cat.label}</option>
+                ))}
+              </select>
+            </div>
 
-            <div style={{ marginLeft: 'auto', display: 'flex', gap: '10px', alignItems: 'center' }}>
-              <span style={{ fontSize: '14px', fontWeight: '600', color: '#666' }}>📅 View:</span>
-              <button
-                onClick={() => setViewMode('day')}
-                style={{
-                  padding: '8px 16px',
-                  borderRadius: '8px',
-                  border: viewMode === 'day' ? '2px solid #3498db' : '2px solid #dee2e6',
-                  background: viewMode === 'day' ? '#3498db' : 'white',
-                  color: viewMode === 'day' ? 'white' : '#666',
-                  cursor: 'pointer',
-                  fontWeight: viewMode === 'day' ? 'bold' : 'normal',
-                  fontSize: '14px'
-                }}
-              >
-                Daily
-              </button>
-              <button
-                onClick={() => setViewMode('month')}
-                style={{
-                  padding: '8px 16px',
-                  borderRadius: '8px',
-                  border: viewMode === 'month' ? '2px solid #3498db' : '2px solid #dee2e6',
-                  background: viewMode === 'month' ? '#3498db' : 'white',
-                  color: viewMode === 'month' ? 'white' : '#666',
-                  cursor: 'pointer',
-                  fontWeight: viewMode === 'month' ? 'bold' : 'normal',
-                  fontSize: '14px'
-                }}
-              >
-                Monthly
-              </button>
-              <button
-                onClick={() => setViewMode('year')}
-                style={{
-                  padding: '8px 16px',
-                  borderRadius: '8px',
-                  border: viewMode === 'year' ? '2px solid #3498db' : '2px solid #dee2e6',
-                  background: viewMode === 'year' ? '#3498db' : 'white',
-                  color: viewMode === 'year' ? 'white' : '#666',
-                  cursor: 'pointer',
-                  fontWeight: viewMode === 'year' ? 'bold' : 'normal',
-                  fontSize: '14px'
-                }}
-              >
-                Yearly
-              </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ 
+                display: 'inline-flex', 
+                background: 'var(--bg-elevated)', 
+                borderRadius: 'var(--radius-md)', 
+                padding: '4px',
+                border: '1px solid var(--border-subtle)'
+              }}>
+                <button
+                  onClick={() => setViewMode('day')}
+                  style={{
+                    background: viewMode === 'day' ? 'var(--bg-base)' : 'transparent',
+                    border: viewMode === 'day' ? '1px solid var(--border-subtle)' : '1px solid transparent',
+                    borderRadius: 'var(--radius-sm)',
+                    padding: '8px 16px',
+                    color: viewMode === 'day' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                    fontWeight: viewMode === 'day' ? '600' : 'normal',
+                    transition: 'all 0.2s',
+                    boxShadow: viewMode === 'day' ? 'var(--shadow-sm)' : 'none'
+                  }}
+                >
+                  Daily
+                </button>
+                <button
+                  onClick={() => setViewMode('month')}
+                  style={{
+                    background: viewMode === 'month' ? 'var(--bg-base)' : 'transparent',
+                    border: viewMode === 'month' ? '1px solid var(--border-subtle)' : '1px solid transparent',
+                    borderRadius: 'var(--radius-sm)',
+                    padding: '8px 16px',
+                    color: viewMode === 'month' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                    fontWeight: viewMode === 'month' ? '600' : 'normal',
+                    transition: 'all 0.2s',
+                    boxShadow: viewMode === 'month' ? 'var(--shadow-sm)' : 'none'
+                  }}
+                >
+                  Monthly
+                </button>
+                <button
+                  onClick={() => setViewMode('year')}
+                  style={{
+                    background: viewMode === 'year' ? 'var(--bg-base)' : 'transparent',
+                    border: viewMode === 'year' ? '1px solid var(--border-subtle)' : '1px solid transparent',
+                    borderRadius: 'var(--radius-sm)',
+                    padding: '8px 16px',
+                    color: viewMode === 'year' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                    fontWeight: viewMode === 'year' ? '600' : 'normal',
+                    transition: 'all 0.2s',
+                    boxShadow: viewMode === 'year' ? 'var(--shadow-sm)' : 'none'
+                  }}
+                >
+                  Yearly
+                </button>
+              </div>
             </div>
           </div>
 
           {/* Date Selection Controls */}
-          <div style={{ marginTop: '15px', display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <div style={{ marginTop: '20px', display: 'flex', gap: '12px', alignItems: 'center', background: 'var(--bg-elevated)', padding: '16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+            <i className="fas fa-calendar-alt" style={{ color: 'var(--accent)', fontSize: '18px' }}></i>
+            
             {viewMode === 'day' && (
               <input
                 type="date"
@@ -371,13 +418,8 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({ onClose }) => {
                   setSelectedDate(e.target.value);
                   setCurrentPage(1);
                 }}
-                style={{
-                  padding: '10px',
-                  borderRadius: '8px',
-                  border: '2px solid #3498db',
-                  fontSize: '14px',
-                  fontWeight: '600'
-                }}
+                className="input-field"
+                style={{ width: 'auto', background: 'var(--bg-base)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
               />
             )}
 
@@ -389,14 +431,8 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({ onClose }) => {
                     setSelectedYear(parseInt(e.target.value));
                     setCurrentPage(1);
                   }}
-                  style={{
-                    padding: '10px',
-                    borderRadius: '8px',
-                    border: '2px solid #3498db',
-                    fontSize: '14px',
-                    fontWeight: '600',
-                    cursor: 'pointer'
-                  }}
+                  className="input-field"
+                  style={{ width: 'auto', background: 'var(--bg-base)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
                 >
                   {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - i).map(year => (
                     <option key={year} value={year}>{year}</option>
@@ -408,14 +444,8 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({ onClose }) => {
                     setSelectedMonth(parseInt(e.target.value));
                     setCurrentPage(1);
                   }}
-                  style={{
-                    padding: '10px',
-                    borderRadius: '8px',
-                    border: '2px solid #3498db',
-                    fontSize: '14px',
-                    fontWeight: '600',
-                    cursor: 'pointer'
-                  }}
+                  className="input-field"
+                  style={{ width: 'auto', background: 'var(--bg-base)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
                 >
                   {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map((month, index) => (
                     <option key={index + 1} value={index + 1}>{month}</option>
@@ -431,14 +461,8 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({ onClose }) => {
                   setSelectedYear(parseInt(e.target.value));
                   setCurrentPage(1);
                 }}
-                style={{
-                  padding: '10px',
-                  borderRadius: '8px',
-                  border: '2px solid #3498db',
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  cursor: 'pointer'
-                }}
+                className="input-field"
+                style={{ width: 'auto', background: 'var(--bg-base)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)' }}
               >
                 {Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - i).map(year => (
                   <option key={year} value={year}>{year}</option>
@@ -446,7 +470,7 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({ onClose }) => {
               </select>
             )}
 
-            <span style={{ fontSize: '14px', color: '#666', marginLeft: '10px' }}>
+            <span style={{ fontSize: '13px', color: 'var(--text-secondary)', marginLeft: '8px' }}>
               {viewMode === 'day' && `Showing expenses for ${new Date(selectedDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}`}
               {viewMode === 'month' && `Showing expenses for ${['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][selectedMonth - 1]} ${selectedYear}`}
               {viewMode === 'year' && `Showing expenses for ${selectedYear}`}
@@ -456,17 +480,18 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({ onClose }) => {
 
         {/* Add/Edit Form */}
         {showAddForm && (
-          <div style={{ padding: '20px', background: '#f8f9fa', borderBottom: '1px solid #dee2e6' }}>
-            <h3 style={{ margin: '0 0 15px 0', color: '#2c3e50' }}>
-              {editingExpense ? '✏️ Edit Expense' : '➕ Add New Expense'}
+          <div style={{ padding: '24px', background: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-subtle)' }}>
+            <h3 style={{ margin: '0 0 20px 0', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '16px' }}>
+              <i className={`fas ${editingExpense ? 'fa-edit' : 'fa-plus-circle'}`} style={{ color: 'var(--accent)' }}></i>
+              {editingExpense ? 'Edit Expense' : 'Add New Expense'}
             </h3>
-            <form onSubmit={handleSubmit} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px' }}>
+            <form onSubmit={handleSubmit} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
               <input
                 type="text"
                 placeholder="Expense Title *"
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                style={{ padding: '10px', borderRadius: '8px', border: '2px solid #dee2e6', fontSize: '14px' }}
+                className="input-field"
                 required
               />
               
@@ -475,7 +500,7 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({ onClose }) => {
                 placeholder="Amount (₹) *"
                 value={formData.amount}
                 onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                style={{ padding: '10px', borderRadius: '8px', border: '2px solid #dee2e6', fontSize: '14px' }}
+                className="input-field"
                 required
                 min="0"
                 step="0.01"
@@ -484,7 +509,8 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({ onClose }) => {
               <select
                 value={formData.category}
                 onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                style={{ padding: '10px', borderRadius: '8px', border: '2px solid #dee2e6', fontSize: '14px' }}
+                className="input-field"
+                style={{ width: '100%', background: 'var(--bg-base)' }}
               >
                 {categories.map(cat => (
                   <option key={cat.value} value={cat.value}>{cat.label}</option>
@@ -495,7 +521,8 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({ onClose }) => {
                 type="date"
                 value={formData.date}
                 onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                style={{ padding: '10px', borderRadius: '8px', border: '2px solid #dee2e6', fontSize: '14px' }}
+                className="input-field"
+                style={{ width: '100%', background: 'var(--bg-base)' }}
               />
 
               <input
@@ -503,29 +530,15 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({ onClose }) => {
                 placeholder="Description (optional)"
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                style={{ padding: '10px', borderRadius: '8px', border: '2px solid #dee2e6', fontSize: '14px', gridColumn: 'span 2' }}
+                className="input-field"
+                style={{ gridColumn: 'span 2' }}
               />
 
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <button
-                  type="submit"
-                  style={{
-                    background: 'linear-gradient(135deg, #27ae60, #2ecc71)', color: 'white',
-                    border: 'none', borderRadius: '8px', padding: '10px 20px',
-                    cursor: 'pointer', fontWeight: 'bold'
-                  }}
-                >
-                  {editingExpense ? 'Update' : 'Add'} Expense
+              <div style={{ display: 'flex', gap: '12px', gridColumn: '1 / -1' }}>
+                <button type="submit" className="btn btn-primary" style={{ borderRadius: 'var(--radius-md)' }}>
+                  <i className="fas fa-save"></i> {editingExpense ? 'Update' : 'Save'} Expense
                 </button>
-                <button
-                  type="button"
-                  onClick={resetForm}
-                  style={{
-                    background: '#95a5a6', color: 'white',
-                    border: 'none', borderRadius: '8px', padding: '10px 20px',
-                    cursor: 'pointer'
-                  }}
-                >
+                <button type="button" onClick={resetForm} className="btn btn-ghost" style={{ borderRadius: 'var(--radius-md)' }}>
                   Cancel
                 </button>
               </div>
@@ -534,76 +547,86 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({ onClose }) => {
         )}
 
         {/* Expenses List */}
-        <div style={{ flex: 1, overflow: 'auto', padding: '20px' }}>
+        <div style={{ flex: 1, overflow: 'auto', padding: '24px' }}>
           {loading ? (
-            <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
-              <div style={{ fontSize: '40px', marginBottom: '10px' }}>⏳</div>
-              Loading expenses...
+            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>
+              <i className="fas fa-circle-notch fa-spin fa-2x" style={{ color: 'var(--accent)', marginBottom: '16px' }}></i>
+              <div>Loading expenses...</div>
             </div>
           ) : expenses.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
-              <div style={{ fontSize: '60px', marginBottom: '15px' }}>💸</div>
-              <h3>No expenses found</h3>
-              <p>Add your first expense to start tracking</p>
+            <div style={{ textAlign: 'center', padding: '60px 40px', color: 'var(--text-secondary)', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', border: '1px dashed var(--border-subtle)' }}>
+              <i className="fas fa-file-invoice-dollar fa-3x" style={{ opacity: 0.5, marginBottom: '20px' }}></i>
+              <h3 style={{ color: 'var(--text-primary)', margin: '0 0 8px 0' }}>No expenses found</h3>
+              <p style={{ margin: 0 }}>Add your first expense to start tracking</p>
             </div>
           ) : (
-            <div style={{ display: 'grid', gap: '15px' }}>
+            <div style={{ display: 'grid', gap: '16px' }}>
               {expenses.map((expense) => {
                 const categoryInfo = getCategoryInfo(expense.category);
                 return (
                   <div key={expense._id} style={{
-                    background: 'white', borderRadius: '10px', padding: '20px',
-                    boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    borderLeft: `4px solid ${categoryInfo.color}`
+                    background: 'var(--bg-elevated)', 
+                    borderRadius: 'var(--radius-md)', 
+                    padding: '20px',
+                    border: '1px solid var(--border-subtle)',
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center',
+                    borderLeft: `4px solid ${categoryInfo.color}`,
+                    transition: 'all 0.2s',
                   }}>
                     <div style={{ flex: 1 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-                        <h4 style={{ margin: 0, fontSize: '16px', fontWeight: 'bold', color: '#2c3e50' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+                        <h4 style={{ margin: 0, fontSize: '15px', fontWeight: '600', color: 'var(--text-primary)' }}>
                           {expense.title}
                         </h4>
                         <span style={{
-                          background: categoryInfo.color, color: 'white',
-                          padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 'bold'
+                          background: `${categoryInfo.color}20`, 
+                          color: categoryInfo.color,
+                          padding: '4px 10px', 
+                          borderRadius: 'var(--radius-sm)', 
+                          fontSize: '11px', 
+                          fontWeight: 'bold',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px'
                         }}>
-                          {categoryInfo.label}
+                          <i className={`fas ${categoryInfo.icon}`}></i> {categoryInfo.label}
                         </span>
                       </div>
                       {expense.description && (
-                        <p style={{ margin: '0 0 8px 0', color: '#666', fontSize: '14px' }}>
+                        <p style={{ margin: '0 0 10px 0', color: 'var(--text-secondary)', fontSize: '13px' }}>
                           {expense.description}
                         </p>
                       )}
-                      <div style={{ fontSize: '12px', color: '#999' }}>
-                        📅 {new Date(expense.date).toLocaleDateString('en-IN')}
+                      <div style={{ fontSize: '12px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <i className="far fa-calendar-alt"></i> {new Date(expense.date).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' })}
                       </div>
                     </div>
                     
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
                       <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#e74c3c' }}>
-                          ₹{expense.amount.toLocaleString()}
+                        <div style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--error)' }}>
+                          -{formatCurrency(expense.amount)}
                         </div>
                       </div>
                       
                       <div style={{ display: 'flex', gap: '8px' }}>
                         <button
                           onClick={() => handleEdit(expense)}
-                          style={{
-                            background: '#3498db', color: 'white', border: 'none',
-                            borderRadius: '6px', padding: '6px 10px', cursor: 'pointer', fontSize: '12px'
-                          }}
+                          className="btn btn-ghost"
+                          style={{ padding: '8px', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                          title="Edit"
                         >
-                          ✏️ Edit
+                          <i className="fas fa-pen"></i>
                         </button>
                         <button
                           onClick={() => handleDelete(expense._id)}
-                          style={{
-                            background: '#e74c3c', color: 'white', border: 'none',
-                            borderRadius: '6px', padding: '6px 10px', cursor: 'pointer', fontSize: '12px'
-                          }}
+                          className="btn btn-ghost"
+                          style={{ padding: '8px', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--error)' }}
+                          title="Delete"
                         >
-                          🗑️ Delete
+                          <i className="fas fa-trash"></i>
                         </button>
                       </div>
                     </div>
@@ -616,34 +639,34 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({ onClose }) => {
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div style={{ padding: '20px', borderTop: '1px solid #dee2e6', textAlign: 'center' }}>
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '10px' }}>
+          <div style={{ padding: '24px', borderTop: '1px solid var(--border-subtle)', textAlign: 'center' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', alignItems: 'center' }}>
               <button
                 onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                 disabled={currentPage === 1}
+                className="btn btn-ghost"
                 style={{
-                  padding: '8px 15px', borderRadius: '6px', border: 'none',
-                  background: currentPage === 1 ? '#bdc3c7' : '#3498db',
-                  color: 'white', cursor: currentPage === 1 ? 'not-allowed' : 'pointer'
+                  padding: '8px 16px', borderRadius: 'var(--radius-md)', 
+                  opacity: currentPage === 1 ? 0.5 : 1, cursor: currentPage === 1 ? 'not-allowed' : 'pointer'
                 }}
               >
-                ← Previous
+                <i className="fas fa-chevron-left" style={{ marginRight: '6px' }}></i> Previous
               </button>
               
-              <span style={{ padding: '8px 15px', color: '#666' }}>
+              <span style={{ padding: '8px 16px', color: 'var(--text-secondary)', fontSize: '14px', fontWeight: '500', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
                 Page {currentPage} of {totalPages}
               </span>
               
               <button
                 onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                 disabled={currentPage === totalPages}
+                className="btn btn-primary"
                 style={{
-                  padding: '8px 15px', borderRadius: '6px', border: 'none',
-                  background: currentPage === totalPages ? '#bdc3c7' : '#3498db',
-                  color: 'white', cursor: currentPage === totalPages ? 'not-allowed' : 'pointer'
+                  padding: '8px 16px', borderRadius: 'var(--radius-md)',
+                  opacity: currentPage === totalPages ? 0.5 : 1, cursor: currentPage === totalPages ? 'not-allowed' : 'pointer'
                 }}
               >
-                Next →
+                Next <i className="fas fa-chevron-right" style={{ marginLeft: '6px' }}></i>
               </button>
             </div>
           </div>

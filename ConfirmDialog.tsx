@@ -11,6 +11,33 @@ interface ConfirmDialogProps {
   type?: 'danger' | 'warning' | 'info';
 }
 
+const getIconClass = (type: string) => {
+  switch (type) {
+    case 'danger': return 'fas fa-trash';
+    case 'warning': return 'fas fa-exclamation-triangle';
+    case 'info': return 'fas fa-info-circle';
+    default: return 'fas fa-question-circle';
+  }
+};
+
+const getIconBgClass = (type: string) => {
+  switch (type) {
+    case 'danger': return 'alert-icon alert-icon-error';
+    case 'warning': return 'alert-icon alert-icon-warning';
+    case 'info': return 'alert-icon alert-icon-info';
+    default: return 'alert-icon alert-icon-info';
+  }
+};
+
+const getBtnClass = (type: string) => {
+  switch (type) {
+    case 'danger': return 'btn btn-danger';
+    case 'warning': return 'btn btn-warning';
+    case 'info': return 'btn btn-primary';
+    default: return 'btn btn-primary';
+  }
+};
+
 const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   isOpen,
   title,
@@ -23,87 +50,45 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
 }) => {
   if (!isOpen) return null;
 
-  const getTypeStyles = () => {
-    switch (type) {
-      case 'danger':
-        return {
-          icon: '🗑️',
-          iconBg: 'bg-red-100',
-          iconColor: 'text-red-600',
-          confirmBg: 'bg-red-600 hover:bg-red-700',
-          borderColor: 'border-red-200'
-        };
-      case 'warning':
-        return {
-          icon: '⚠️',
-          iconBg: 'bg-yellow-100',
-          iconColor: 'text-yellow-600',
-          confirmBg: 'bg-yellow-600 hover:bg-yellow-700',
-          borderColor: 'border-yellow-200'
-        };
-      case 'info':
-        return {
-          icon: 'ℹ️',
-          iconBg: 'bg-blue-100',
-          iconColor: 'text-blue-600',
-          confirmBg: 'bg-blue-600 hover:bg-blue-700',
-          borderColor: 'border-blue-200'
-        };
-    }
-  };
-
-  const styles = getTypeStyles();
-
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[9999]">
-      <div className="bg-white rounded-lg shadow-2xl max-w-md w-full animate-scale-in">
+    <div className="modal-overlay">
+      <div className="modal-card">
         {/* Header */}
-        <div className={`flex items-center gap-4 p-6 border-b ${styles.borderColor}`}>
-          <div className={`${styles.iconBg} ${styles.iconColor} w-12 h-12 rounded-full flex items-center justify-center text-2xl flex-shrink-0`}>
-            {styles.icon}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '16px' }}>
+          <div className={getIconBgClass(type)}>
+            <i className={getIconClass(type)}></i>
           </div>
-          <h3 className="text-xl font-bold text-gray-900">{title}</h3>
+          <h3 style={{ fontSize: '18px', fontWeight: '600', color: 'var(--text-primary)', margin: 0 }}>
+            {title}
+          </h3>
         </div>
 
-        {/* Content */}
-        <div className="p-6">
-          <p className="text-gray-700 leading-relaxed whitespace-pre-line">
-            {message}
-          </p>
-        </div>
+        {/* Message */}
+        <p style={{
+          color: 'var(--text-secondary)',
+          fontSize: '14px',
+          lineHeight: '1.6',
+          margin: '0 0 24px 0',
+          whiteSpace: 'pre-line'
+        }}>
+          {message}
+        </p>
 
         {/* Actions */}
-        <div className="flex gap-3 p-6 bg-gray-50 rounded-b-lg">
-          <button
-            onClick={onCancel}
-            className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-100 transition-colors"
-          >
+        <div style={{
+          display: 'flex',
+          gap: '10px',
+          paddingTop: '16px',
+          borderTop: '1px solid var(--border-subtle)'
+        }}>
+          <button className="btn btn-ghost" onClick={onCancel} style={{ flex: 1 }}>
             {cancelText}
           </button>
-          <button
-            onClick={onConfirm}
-            className={`flex-1 px-4 py-2.5 ${styles.confirmBg} text-white rounded-lg font-medium transition-colors`}
-          >
+          <button className={getBtnClass(type)} onClick={onConfirm} style={{ flex: 1 }}>
             {confirmText}
           </button>
         </div>
       </div>
-
-      <style>{`
-        @keyframes scale-in {
-          from {
-            opacity: 0;
-            transform: scale(0.9);
-          }
-          to {
-            opacity: 1;
-            transform: scale(1);
-          }
-        }
-        .animate-scale-in {
-          animation: scale-in 0.2s ease-out;
-        }
-      `}</style>
     </div>
   );
 };
