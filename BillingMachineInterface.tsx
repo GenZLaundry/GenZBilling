@@ -466,8 +466,8 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
     const totalTags = orderItems.reduce((sum, item) => sum + item.quantity, 0);
     const currentDate = new Date().toLocaleDateString('en-GB', {
       day: '2-digit',
-      month: 'short',
-      year: '2-digit'
+      month: '2-digit',
+      year: 'numeric'
     });
 
     orderItems.forEach(item => {
@@ -514,75 +514,60 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
   <title>Clothing Tags</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    @page { size: 48mm auto; margin: 0 !important; }
+    @page { size: 20mm auto; margin: 0 !important; }
     @media print {
-      html, body { width: 48mm !important; margin: 0 !important; padding: 0 !important; }
+      html, body { width: 20mm !important; margin: 0 !important; padding: 0 !important; }
       .tag { page-break-after: avoid; }
-      .tag-separator { page-break-after: avoid; }
     }
     body { 
       font-family: 'Arial', sans-serif; 
       margin: 0; 
       padding: 0; 
       background: white; 
-      width: 48mm;
+      width: 20mm;
     }
     .tag { 
-      width: 46mm;
-      margin: 0 auto; 
-      padding: 1mm 1mm 1.5mm 1mm; 
+      width: 19mm;
+      margin: 1.5mm auto; 
+      padding: 0.8mm; 
       background: white; 
       display: flex;
       flex-direction: column;
       justify-content: space-between;
       box-sizing: border-box; 
       overflow: hidden;
-      border-top: 1px solid #000;
-      border-bottom: 1px solid #000;
+      border: 0.5px solid #000;
     }
-    .tag-separator {
-      height: 8mm;
-      width: 100%;
-      margin: 0;
-      position: relative;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+    .top-header {
+      text-align: center;
+      padding-bottom: 0.3mm;
+      border-bottom: 0.3px solid #000;
+      line-height: 1.15;
     }
-    .tag-separator::before {
-      content: '';
-      position: absolute;
-      left: 2mm;
-      right: 2mm;
-      top: 50%;
-      border-top: 1px dotted #666;
-      z-index: 1;
+    .brand-line1 {
+      font-size: 4px;
+      font-weight: 900;
+      display: block;
     }
-    .tag-separator::after {
-      content: '✂';
-      position: relative;
-      font-size: 12px;
-      color: #666;
-      background: white;
-      padding: 0 3px;
-      z-index: 2;
+    .brand-line2 {
+      font-size: 3px;
+      font-weight: 700;
+      display: block;
     }
-    .top-row { 
-      display: flex; 
-      justify-content: space-between; 
-      align-items: center; 
-      font-size: 6px; 
+    .tag-date {
+      font-size: 3.5px;
       font-weight: bold;
-      padding-bottom: 0.8mm;
-      border-bottom: 0.5px solid #000;
+      text-align: center;
+      margin-top: 0.8mm;
+      line-height: 1;
     }
     .customer-name { 
       text-align: center; 
-      font-size: 11px; 
+      font-size: 6px; 
       font-weight: 900; 
       text-transform: uppercase;
-      letter-spacing: 0.2px;
-      margin: 1.2mm 0;
+      letter-spacing: 0;
+      margin: 0.5mm 0;
       line-height: 1.1;
       word-wrap: break-word;
       overflow-wrap: break-word;
@@ -592,27 +577,25 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
       display: flex;
       justify-content: space-between;
       align-items: center;
-      font-size: 9px; 
+      font-size: 4.5px; 
       font-weight: bold; 
-      letter-spacing: 0.2px; 
+      letter-spacing: 0; 
       font-family: 'Courier New', monospace;
-      margin: 0.8mm 0;
+      margin: 0.3mm 0;
     }
     .tag-number { 
-      font-size: 8px; 
+      font-size: 4.5px; 
       font-weight: 900;
-      border: 1px solid #000;
-      padding: 1px 3px;
-      border-radius: 2px;
-      background: white;
+      border: 0.5px solid #000;
+      padding: 0px 1px;
     }
     .website { 
       text-align: center;
-      font-size: 5.5px; 
+      font-size: 3px; 
       font-weight: bold;
-      margin-top: 0.8mm;
-      padding-top: 0.8mm;
-      border-top: 0.5px solid #000;
+      margin-top: 0.3mm;
+      padding-top: 0.3mm;
+      border-top: 0.3px solid #000;
     }
   </style>
 </head>
@@ -620,10 +603,11 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
   
   ${tags.map((tag, index) => `
     <div class="tag">
-      <div class="top-row">
-        <span>${tag.businessName}</span>
-        <span>${tag.date}</span>
+      <div class="top-header">
+        <span class="brand-line1">Gen-Z Laundry</span>
+        <span class="brand-line2">& Dry Cleaners</span>
       </div>
+      <div class="tag-date">${tag.date}</div>
       
       <div class="customer-name">${tag.customerName}</div>
       
@@ -634,7 +618,6 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
       
       <div class="website">www.genzlaundry.com</div>
     </div>
-    ${index < tags.length - 1 ? '<div class="tag-separator"></div>' : ''}
   `).join('')}
   
   <script>
