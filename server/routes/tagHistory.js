@@ -131,13 +131,23 @@ router.post('/', async (req, res) => {
       });
     }
 
+    // Prevent duplicates: delete existing tags for this bill before inserting
+    const billNumber = tags[0]?.billNumber;
+    if (billNumber) {
+      const existing = await TagHistory.countDocuments({ billNumber });
+      if (existing > 0) {
+        console.log(`🔄 Replacing ${existing} existing tags for bill ${billNumber}`);
+        await TagHistory.deleteMany({ billNumber });
+      }
+    }
+
     const tagHistories = tags.map(tag => ({
       ...tag,
-      status: 'created',
+      status: 'printed',
       events: [{
-        status: 'created',
+        status: 'printed',
         timestamp: new Date(),
-        note: 'Tag created'
+        note: 'Tag printed'
       }]
     }));
 
@@ -392,6 +402,57 @@ router.patch('/:id', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to update tag',
+      error: error.message
+    });
+  }
+});
+
+// Cleanup duplicate tags in the database
+router.post('/cleanup-duplicates', async (req, res) => {
+  try {
+    console.log('🧹 Starting tag deduplication...');
+    
+    // Find all unique bill numbers
+    const billNumbers = await TagHistory.distinct('billNumber');
+    let totalDeleted = 0;
+    let billsCleaned = 0;
+
+    for (const billNumber of billNumbers) {
+      const tags = await TagHistory.find({ billNumber }).sort({ createdAt: 1 });
+      
+      // Group by tagIndex - keep only the first occurrence of each tagIndex
+      const seen = new Map();
+      const toDelete = [];
+
+      for (const tag of tags) {
+        const key = `${tag.tagIndex}`;
+        if (seen.has(key)) {
+          toDelete.push(tag._id);
+        } else {
+          seen.set(key, tag._id);
+        }
+      }
+
+      if (toDelete.length > 0) {
+        await TagHistory.deleteMany({ _id: { $in: toDelete } });
+        totalDeleted += toDelete.length;
+        billsCleaned++;
+        console.log(`  ✅ Bill ${billNumber}: removed ${toDelete.length} duplicates (kept ${seen.size} unique tags)`);
+      }
+    }
+
+    console.log(`🧹 Deduplication complete: ${totalDeleted} duplicates removed from ${billsCleaned} bills`);
+
+    res.json({
+      success: true,
+      message: `Cleaned ${totalDeleted} duplicate tags from ${billsCleaned} bills`,
+      data: { totalDeleted, billsCleaned, totalBills: billNumbers.length }
+    });
+  } catch (error) {
+    console.error('Error during deduplication:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to cleanup duplicates',
       error: error.message
     });
   }

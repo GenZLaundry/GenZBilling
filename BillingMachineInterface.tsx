@@ -513,9 +513,10 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
 <head>
   <title>Clothing Tags</title>
   <style>
-    @page { size: 2in auto; margin: 0; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    @page { size: 48mm auto; margin: 0 !important; }
     @media print {
-      body { margin: 0; padding: 0; }
+      html, body { width: 48mm !important; margin: 0 !important; padding: 0 !important; }
       .tag { page-break-after: avoid; }
       .tag-separator { page-break-after: avoid; }
     }
@@ -524,23 +525,23 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
       margin: 0; 
       padding: 0; 
       background: white; 
-      width: 2in;
+      width: 48mm;
     }
     .tag { 
-      width: 44mm;
-      height: 35mm;
-      border: 1.5px solid #000; 
+      width: 46mm;
       margin: 0 auto; 
-      padding: 1.5mm; 
+      padding: 1mm 1mm 1.5mm 1mm; 
       background: white; 
       display: flex;
       flex-direction: column;
       justify-content: space-between;
       box-sizing: border-box; 
       overflow: hidden;
+      border-top: 1px solid #000;
+      border-bottom: 1px solid #000;
     }
     .tag-separator {
-      height: 10mm;
+      height: 8mm;
       width: 100%;
       margin: 0;
       position: relative;
@@ -551,8 +552,8 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
     .tag-separator::before {
       content: '';
       position: absolute;
-      left: 0;
-      right: 0;
+      left: 2mm;
+      right: 2mm;
       top: 50%;
       border-top: 1px dotted #666;
       z-index: 1;
@@ -560,10 +561,10 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
     .tag-separator::after {
       content: '✂';
       position: relative;
-      font-size: 14px;
+      font-size: 12px;
       color: #666;
       background: white;
-      padding: 0 5px;
+      padding: 0 3px;
       z-index: 2;
     }
     .top-row { 
@@ -572,16 +573,16 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
       align-items: center; 
       font-size: 6px; 
       font-weight: bold;
-      padding-bottom: 1mm;
-      border-bottom: 1px solid #000;
+      padding-bottom: 0.8mm;
+      border-bottom: 0.5px solid #000;
     }
     .customer-name { 
       text-align: center; 
-      font-size: 12px; 
+      font-size: 11px; 
       font-weight: 900; 
       text-transform: uppercase;
       letter-spacing: 0.2px;
-      margin: 1.5mm 0;
+      margin: 1.2mm 0;
       line-height: 1.1;
       word-wrap: break-word;
       overflow-wrap: break-word;
@@ -591,27 +592,27 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
       display: flex;
       justify-content: space-between;
       align-items: center;
-      font-size: 10px; 
+      font-size: 9px; 
       font-weight: bold; 
-      letter-spacing: 0.3px; 
+      letter-spacing: 0.2px; 
       font-family: 'Courier New', monospace;
-      margin: 1mm 0;
+      margin: 0.8mm 0;
     }
     .tag-number { 
-      font-size: 9px; 
+      font-size: 8px; 
       font-weight: 900;
-      border: 1.5px solid #000;
-      padding: 1px 4px;
+      border: 1px solid #000;
+      padding: 1px 3px;
       border-radius: 2px;
       background: white;
     }
     .website { 
       text-align: center;
-      font-size: 6px; 
+      font-size: 5.5px; 
       font-weight: bold;
-      margin-top: 1mm;
-      padding-top: 1mm;
-      border-top: 1px solid #000;
+      margin-top: 0.8mm;
+      padding-top: 0.8mm;
+      border-top: 0.5px solid #000;
     }
   </style>
 </head>
@@ -652,21 +653,6 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
 
     printWindow.document.write(tagHTML);
     printWindow.document.close();
-
-    // Update tag status to "printed" after printing
-    setTimeout(async () => {
-      try {
-        const response = await apiService.patch(`/tag-history/bill/${billNumber}/status`, {
-          status: 'printed',
-          note: `${tags.length} tags printed successfully`
-        });
-        if (response.success) {
-          console.log('✅ Tag status updated to printed');
-        }
-      } catch (error) {
-        console.error('❌ Failed to update tag status:', error);
-      }
-    }, 2000); // Wait 2 seconds for print dialog
   };
 
   const clearOrder = () => {
