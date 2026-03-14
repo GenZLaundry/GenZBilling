@@ -55,21 +55,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
   const [showTagHistory, setShowTagHistory] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
 
-  // Password change states
-  const [passwordChange, setPasswordChange] = useState({
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: ''
+  // System Preferences states
+  const [systemPrefs, setSystemPrefs] = useState({
+    autoPrint: true,
+    soundAlerts: true,
+    thankYouMessage: 'Thank you for choosing us!',
+    termsAndConditions: '1. Not responsible for color bleeding.\n2. Collect within 15 days.'
   });
-  const [showPasswordSection, setShowPasswordSection] = useState(false);
-
-  // PIN change states
-  const [pinChange, setPinChange] = useState({
-    currentPin: '',
-    newPin: '',
-    confirmPin: ''
-  });
-  const [showPinSection, setShowPinSection] = useState(false);
 
   // Update time every second
   useEffect(() => {
@@ -636,85 +628,21 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
     }
   };
 
-  // Change admin password
-  const changeAdminPassword = () => {
-    // Get current stored credentials
-    const storedUsername = localStorage.getItem('adminUsername') || 'admin';
-    const storedPassword = localStorage.getItem('adminPassword') || 'admin123';
-
-    // Validate current password
-    if (passwordChange.currentPassword !== storedPassword) {
-      showAlert({ message: 'Current password is incorrect!', type: 'error' });
-      return;
+  // Load System Preferences
+  useEffect(() => {
+    const savedPrefs = localStorage.getItem('genz_system_prefs');
+    if (savedPrefs) {
+      try {
+        setSystemPrefs(JSON.parse(savedPrefs));
+      } catch (e) {
+        console.error('Failed to parse system prefs', e);
+      }
     }
+  }, []);
 
-    // Validate new password
-    if (passwordChange.newPassword.length < 6) {
-      showAlert({ message: 'New password must be at least 6 characters long!', type: 'error' });
-      return;
-    }
-
-    // Validate password confirmation
-    if (passwordChange.newPassword !== passwordChange.confirmPassword) {
-      showAlert({ message: 'New passwords do not match!', type: 'error' });
-      return;
-    }
-
-    // Save new password
-    localStorage.setItem('adminPassword', passwordChange.newPassword);
-
-    // Clear form
-    setPasswordChange({
-      currentPassword: '',
-      newPassword: '',
-      confirmPassword: ''
-    });
-
-    setShowPasswordSection(false);
-    showAlert({ message: 'Password changed successfully! Please remember your new password.', type: 'success' });
-  };
-
-  // Change admin PIN
-  const changeAdminPin = () => {
-    // Get current stored PIN
-    const storedPin = localStorage.getItem('adminPin') || '1234';
-
-    // Validate current PIN
-    if (pinChange.currentPin !== storedPin) {
-      showAlert({ message: 'Current PIN is incorrect!', type: 'error' });
-      return;
-    }
-
-    // Validate new PIN
-    if (pinChange.newPin.length < 4 || pinChange.newPin.length > 6) {
-      showAlert({ message: 'New PIN must be 4-6 digits!', type: 'error' });
-      return;
-    }
-
-    // Validate PIN is numeric
-    if (!/^\d+$/.test(pinChange.newPin)) {
-      showAlert({ message: 'PIN must contain only numbers!', type: 'error' });
-      return;
-    }
-
-    // Validate PIN confirmation
-    if (pinChange.newPin !== pinChange.confirmPin) {
-      showAlert({ message: 'New PINs do not match!', type: 'error' });
-      return;
-    }
-
-    // Save new PIN
-    localStorage.setItem('adminPin', pinChange.newPin);
-
-    // Clear form
-    setPinChange({
-      currentPin: '',
-      newPin: '',
-      confirmPin: ''
-    });
-
-    setShowPinSection(false);
-    showAlert({ message: 'PIN changed successfully! Use this PIN to access admin panel.', type: 'success' });
+  const saveSystemPrefs = () => {
+    localStorage.setItem('genz_system_prefs', JSON.stringify(systemPrefs));
+    showAlert({ message: 'System preferences saved successfully!', type: 'success' });
   };
 
   const loadPendingBills = async () => {
@@ -876,7 +804,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
       discount: bill.discount,
       deliveryCharge: bill.deliveryCharge,
       grandTotal: bill.grandTotal,
-      thankYouMessage: 'Thank you for choosing us!'
+      thankYouMessage: systemPrefs.thankYouMessage,
+      termsAndConditions: systemPrefs.termsAndConditions
     };
 
     printThermalBill(billData, (message) => showAlert({ message, type: 'error' }));
@@ -1181,7 +1110,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
                             customerName: 'Test Customer',
                             items: [{ name: 'Test Item', quantity: 1, rate: 100, amount: 100 }],
                             subtotal: 100,
-                            grandTotal: 100
+                            grandTotal: 100,
+                            thankYouMessage: systemPrefs.thankYouMessage,
+                            termsAndConditions: systemPrefs.termsAndConditions
                           };
                           printThermalBill(testBill);
                         }
@@ -1693,272 +1624,81 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
                   </div>
                 </div>
 
-                {/* Password Change Section */}
-                <div style={{
-                  background: 'rgba(255, 255, 255, 0.1)',
-                  borderRadius: '12px',
-                  padding: '25px'
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                    <h3 style={{ color: 'white', margin: 0, fontSize: '18px' }}>🔐 Admin Password</h3>
-                    <button
-                      onClick={() => setShowPasswordSection(!showPasswordSection)}
-                      style={{
-                        background: showPasswordSection ? 'rgba(231, 76, 60, 0.8)' : 'linear-gradient(45deg, #667eea, #764ba2)',
-                        border: 'none',
-                        borderRadius: '8px',
-                        padding: '10px 20px',
-                        color: 'white',
-                        cursor: 'pointer',
-                        fontSize: '14px',
-                        fontWeight: 'bold'
-                      }}
-                    >
-                      {showPasswordSection ? '✕ Cancel' : '🔑 Change Password'}
-                    </button>
-                  </div>
-
-                  {showPasswordSection && (
-                    <div style={{ display: 'grid', gap: '15px', maxWidth: '500px' }}>
-                      <div>
-                        <label style={{ color: 'white', display: 'block', marginBottom: '8px', fontWeight: '500' }}>
-                          Current Password
-                        </label>
-                        <input
-                          type="password"
-                          value={passwordChange.currentPassword}
-                          onChange={(e) => setPasswordChange({ ...passwordChange, currentPassword: e.target.value })}
-                          placeholder="Enter current password"
-                          style={{
-                            width: '100%',
-                            padding: '12px',
-                            borderRadius: '8px',
-                            border: 'none',
-                            background: 'rgba(255, 255, 255, 0.9)',
-                            fontSize: '16px'
-                          }}
-                        />
-                      </div>
-
-                      <div>
-                        <label style={{ color: 'white', display: 'block', marginBottom: '8px', fontWeight: '500' }}>
-                          New Password
-                        </label>
-                        <input
-                          type="password"
-                          value={passwordChange.newPassword}
-                          onChange={(e) => setPasswordChange({ ...passwordChange, newPassword: e.target.value })}
-                          placeholder="Enter new password (min 6 characters)"
-                          style={{
-                            width: '100%',
-                            padding: '12px',
-                            borderRadius: '8px',
-                            border: 'none',
-                            background: 'rgba(255, 255, 255, 0.9)',
-                            fontSize: '16px'
-                          }}
-                        />
-                      </div>
-
-                      <div>
-                        <label style={{ color: 'white', display: 'block', marginBottom: '8px', fontWeight: '500' }}>
-                          Confirm New Password
-                        </label>
-                        <input
-                          type="password"
-                          value={passwordChange.confirmPassword}
-                          onChange={(e) => setPasswordChange({ ...passwordChange, confirmPassword: e.target.value })}
-                          placeholder="Re-enter new password"
-                          style={{
-                            width: '100%',
-                            padding: '12px',
-                            borderRadius: '8px',
-                            border: 'none',
-                            background: 'rgba(255, 255, 255, 0.9)',
-                            fontSize: '16px'
-                          }}
-                        />
-                      </div>
-
-                      <div style={{
-                        background: 'rgba(255, 193, 7, 0.2)',
-                        border: '1px solid rgba(255, 193, 7, 0.5)',
-                        borderRadius: '8px',
-                        padding: '12px',
-                        color: '#ffc107',
-                        fontSize: '13px'
-                      }}>
-                        ⚠️ <strong>Important:</strong> Make sure to remember your new password. You'll need it to login next time.
-                      </div>
-
-                      <button
-                        onClick={changeAdminPassword}
-                        disabled={!passwordChange.currentPassword || !passwordChange.newPassword || !passwordChange.confirmPassword}
-                        style={{
-                          background: (!passwordChange.currentPassword || !passwordChange.newPassword || !passwordChange.confirmPassword)
-                            ? 'rgba(189, 195, 199, 0.5)'
-                            : 'linear-gradient(45deg, #e74c3c, #c0392b)',
-                          border: 'none',
-                          borderRadius: '8px',
-                          padding: '15px 30px',
-                          color: 'white',
-                          cursor: (!passwordChange.currentPassword || !passwordChange.newPassword || !passwordChange.confirmPassword)
-                            ? 'not-allowed'
-                            : 'pointer',
-                          fontSize: '16px',
-                          fontWeight: 'bold',
-                          marginTop: '10px'
-                        }}
-                      >
-                        🔒 Update Password
-                      </button>
-                    </div>
-                  )}
-
-                  {!showPasswordSection && (
-                    <p style={{ color: 'rgba(255,255,255,0.7)', margin: 0, fontSize: '14px' }}>
-                      Click "Change Password" to update your admin login credentials
-                    </p>
-                  )}
-                </div>
-
-                {/* PIN Change Section */}
+                {/* System Preferences Section */}
                 <div style={{
                   background: 'rgba(255, 255, 255, 0.1)',
                   borderRadius: '12px',
                   padding: '25px',
                   marginTop: '20px'
                 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                    <h3 style={{ color: 'white', margin: 0, fontSize: '18px' }}>🔢 Admin Panel PIN</h3>
+                  <h3 style={{ color: 'white', marginBottom: '20px', fontSize: '18px' }}>⚙️ System Preferences</h3>
+                  <div style={{ display: 'grid', gap: '15px', maxWidth: '500px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(255, 255, 255, 0.05)', padding: '15px', borderRadius: '8px' }}>
+                      <div>
+                        <div style={{ color: 'white', fontWeight: '500' }}>Auto-print Receipts</div>
+                        <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '12px' }}>Automatically print receipt when a new bill is created</div>
+                      </div>
+                      <label style={{ position: 'relative', display: 'inline-block', width: '50px', height: '26px' }}>
+                        <input type="checkbox" checked={systemPrefs.autoPrint} onChange={(e) => setSystemPrefs({ ...systemPrefs, autoPrint: e.target.checked })} style={{ opacity: 0, width: 0, height: 0 }} />
+                        <span style={{ position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: systemPrefs.autoPrint ? '#4CAF50' : '#ccc', transition: '.4s', borderRadius: '34px' }}>
+                          <span style={{ position: 'absolute', content: '""', height: '18px', width: '18px', left: systemPrefs.autoPrint ? '28px' : '4px', bottom: '4px', backgroundColor: 'white', transition: '.4s', borderRadius: '50%' }}></span>
+                        </span>
+                      </label>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(255, 255, 255, 0.05)', padding: '15px', borderRadius: '8px' }}>
+                      <div>
+                        <div style={{ color: 'white', fontWeight: '500' }}>Sound Alerts</div>
+                        <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '12px' }}>Play a sound when a new bill or notification arrives</div>
+                      </div>
+                      <label style={{ position: 'relative', display: 'inline-block', width: '50px', height: '26px' }}>
+                        <input type="checkbox" checked={systemPrefs.soundAlerts} onChange={(e) => setSystemPrefs({ ...systemPrefs, soundAlerts: e.target.checked })} style={{ opacity: 0, width: 0, height: 0 }} />
+                        <span style={{ position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: systemPrefs.soundAlerts ? '#4CAF50' : '#ccc', transition: '.4s', borderRadius: '34px' }}>
+                          <span style={{ position: 'absolute', content: '""', height: '18px', width: '18px', left: systemPrefs.soundAlerts ? '28px' : '4px', bottom: '4px', backgroundColor: 'white', transition: '.4s', borderRadius: '50%' }}></span>
+                        </span>
+                      </label>
+                    </div>
+
+                    <div>
+                      <label style={{ color: 'white', display: 'block', marginBottom: '8px', fontWeight: '500' }}>
+                        Thank You Message (Receipt)
+                      </label>
+                      <input
+                        type="text"
+                        value={systemPrefs.thankYouMessage}
+                        onChange={(e) => setSystemPrefs({ ...systemPrefs, thankYouMessage: e.target.value })}
+                        style={{ width: '100%', padding: '12px', borderRadius: '8px', border: 'none', background: 'rgba(255, 255, 255, 0.9)', fontSize: '16px' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ color: 'white', display: 'block', marginBottom: '8px', fontWeight: '500' }}>
+                        Terms & Conditions (Receipt)
+                      </label>
+                      <textarea
+                        value={systemPrefs.termsAndConditions}
+                        onChange={(e) => setSystemPrefs({ ...systemPrefs, termsAndConditions: e.target.value })}
+                        style={{ width: '100%', padding: '12px', borderRadius: '8px', border: 'none', background: 'rgba(255, 255, 255, 0.9)', fontSize: '16px', minHeight: '80px', resize: 'vertical' }}
+                      />
+                    </div>
+
                     <button
-                      onClick={() => setShowPinSection(!showPinSection)}
+                      onClick={saveSystemPrefs}
                       style={{
-                        background: showPinSection ? 'rgba(231, 76, 60, 0.8)' : 'linear-gradient(45deg, #10b981, #059669)',
+                        background: 'linear-gradient(45deg, #4CAF50, #45a049)',
                         border: 'none',
                         borderRadius: '8px',
-                        padding: '10px 20px',
+                        padding: '15px 30px',
                         color: 'white',
                         cursor: 'pointer',
-                        fontSize: '14px',
-                        fontWeight: 'bold'
+                        fontSize: '16px',
+                        fontWeight: 'bold',
+                        marginTop: '10px'
                       }}
                     >
-                      {showPinSection ? '✕ Cancel' : '🔢 Change PIN'}
+                      💾 Save Preferences
                     </button>
                   </div>
-
-                  {showPinSection && (
-                    <div style={{ display: 'grid', gap: '15px', maxWidth: '500px' }}>
-                      <div>
-                        <label style={{ color: 'white', display: 'block', marginBottom: '8px', fontWeight: '500' }}>
-                          Current PIN
-                        </label>
-                        <input
-                          type="password"
-                          inputMode="numeric"
-                          maxLength={6}
-                          value={pinChange.currentPin}
-                          onChange={(e) => setPinChange({ ...pinChange, currentPin: e.target.value.replace(/\D/g, '') })}
-                          placeholder="Enter current PIN"
-                          style={{
-                            width: '100%',
-                            padding: '12px',
-                            borderRadius: '8px',
-                            border: 'none',
-                            background: 'rgba(255, 255, 255, 0.9)',
-                            fontSize: '16px',
-                            letterSpacing: '4px'
-                          }}
-                        />
-                      </div>
-
-                      <div>
-                        <label style={{ color: 'white', display: 'block', marginBottom: '8px', fontWeight: '500' }}>
-                          New PIN (4-6 digits)
-                        </label>
-                        <input
-                          type="password"
-                          inputMode="numeric"
-                          maxLength={6}
-                          value={pinChange.newPin}
-                          onChange={(e) => setPinChange({ ...pinChange, newPin: e.target.value.replace(/\D/g, '') })}
-                          placeholder="Enter new PIN"
-                          style={{
-                            width: '100%',
-                            padding: '12px',
-                            borderRadius: '8px',
-                            border: 'none',
-                            background: 'rgba(255, 255, 255, 0.9)',
-                            fontSize: '16px',
-                            letterSpacing: '4px'
-                          }}
-                        />
-                      </div>
-
-                      <div>
-                        <label style={{ color: 'white', display: 'block', marginBottom: '8px', fontWeight: '500' }}>
-                          Confirm New PIN
-                        </label>
-                        <input
-                          type="password"
-                          inputMode="numeric"
-                          maxLength={6}
-                          value={pinChange.confirmPin}
-                          onChange={(e) => setPinChange({ ...pinChange, confirmPin: e.target.value.replace(/\D/g, '') })}
-                          placeholder="Re-enter new PIN"
-                          style={{
-                            width: '100%',
-                            padding: '12px',
-                            borderRadius: '8px',
-                            border: 'none',
-                            background: 'rgba(255, 255, 255, 0.9)',
-                            fontSize: '16px',
-                            letterSpacing: '4px'
-                          }}
-                        />
-                      </div>
-
-                      <div style={{
-                        background: 'rgba(59, 130, 246, 0.2)',
-                        border: '1px solid rgba(59, 130, 246, 0.5)',
-                        borderRadius: '8px',
-                        padding: '12px',
-                        color: '#3b82f6',
-                        fontSize: '13px'
-                      }}>
-                        ℹ️ <strong>Info:</strong> This PIN is required when clicking "Admin Panel" button from billing screen.
-                      </div>
-
-                      <button
-                        onClick={changeAdminPin}
-                        disabled={!pinChange.currentPin || !pinChange.newPin || !pinChange.confirmPin}
-                        style={{
-                          background: (!pinChange.currentPin || !pinChange.newPin || !pinChange.confirmPin)
-                            ? 'rgba(189, 195, 199, 0.5)'
-                            : 'linear-gradient(45deg, #10b981, #059669)',
-                          border: 'none',
-                          borderRadius: '8px',
-                          padding: '15px 30px',
-                          color: 'white',
-                          cursor: (!pinChange.currentPin || !pinChange.newPin || !pinChange.confirmPin)
-                            ? 'not-allowed'
-                            : 'pointer',
-                          fontSize: '16px',
-                          fontWeight: 'bold',
-                          marginTop: '10px'
-                        }}
-                      >
-                        🔢 Update PIN
-                      </button>
-                    </div>
-                  )}
-
-                  {!showPinSection && (
-                    <p style={{ color: 'rgba(255,255,255,0.7)', margin: 0, fontSize: '14px' }}>
-                      Click "Change PIN" to update your admin panel access PIN (Default: 1234)
-                    </p>
-                  )}
                 </div>
               </div>
             )}

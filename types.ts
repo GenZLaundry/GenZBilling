@@ -111,6 +111,7 @@ export interface BillData {
   previousBalance?: number;
   grandTotal: number;
   thankYouMessage?: string;
+  termsAndConditions?: string;
   status?: 'pending' | 'completed' | 'delivered';
   createdAt?: string;
   deliveredAt?: string;

@@ -34,6 +34,7 @@ export interface BillData {
   grandTotal: number;
   status?: string;
   thankYouMessage?: string;
+  termsAndConditions?: string;
 }
 
 // Method 1: Pure Thermal Window Print (No A4 behavior)
@@ -295,8 +296,16 @@ export const printThermalBill = (billData: BillData, onError?: (message: string)
       <div class="small" style="margin-top: 1mm; font-size: 9pt;">UPI ID: ${upiConfig.upiId || 'Not configured'}</div>
     </div>
     
+    <!-- Terms and Conditions -->
+    ${billData.termsAndConditions ? `
+    <div class="left small spacer" style="margin-top: 2mm; font-size: 8pt; line-height: 1.2;">
+      <div class="bold">Terms & Conditions:</div>
+      <div style="white-space: pre-wrap;">${billData.termsAndConditions}</div>
+    </div>
+    ` : ''}
+    
     <!-- Thank You -->
-    <div class="center small spacer" style="font-style:italic;">
+    <div class="center small spacer" style="font-style:italic; margin-top: 3mm;">
       ${billData.thankYouMessage || 'Thank you for your business!'}
     </div>
   </div>
@@ -433,7 +442,15 @@ export const generateThermalESCPOS = (billData: BillData): string => {
   commands += 'PhonePe | UPI | Cards\n';
   commands += '\n';
   
+  // Terms and Conditions (Left aligned)
+  if (billData.termsAndConditions) {
+    commands += ESC + 'a' + '\x00'; // Left align
+    commands += 'Terms & Conditions:\n';
+    commands += billData.termsAndConditions + '\n\n';
+  }
+
   // Thank You (Center aligned)
+  commands += ESC + 'a' + '\x01'; // Center align
   commands += (billData.thankYouMessage || 'Thank you for your business!') + '\n';
   commands += '\n';
   
