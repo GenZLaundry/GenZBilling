@@ -32,6 +32,11 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({ onClose }) => {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  
+  // Search and filter states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [allExpenses, setAllExpenses] = useState<Expense[]>([]); // Store all expenses for reports
 
   const [formData, setFormData] = useState({
     title: '',
@@ -62,6 +67,7 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({ onClose }) => {
   useEffect(() => {
     loadExpenses();
     loadExpenseSummary();
+    loadAllExpenses(); // Load all expenses for search and reports
   }, [currentPage, selectedCategory, viewMode, selectedDate, selectedMonth, selectedYear]);
 
   const showCustomAlert = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
@@ -105,6 +111,41 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({ onClose }) => {
       showCustomAlert('Failed to load expenses. Please try again.', 'error');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadAllExpenses = async () => {
+    try {
+      const params: any = { page: 1, limit: 10000 }; // Get all expenses
+      if (selectedCategory !== 'ALL') {
+        params.category = selectedCategory;
+      }
+      
+      // Add date filtering based on view mode
+      if (viewMode === 'day') {
+        params.startDate = selectedDate;
+        params.endDate = selectedDate;
+      } else if (viewMode === 'month') {
+        const year = selectedYear;
+        const month = selectedMonth;
+        const startDate = new Date(year, month - 1, 1);
+        const endDate = new Date(year, month, 0);
+        params.startDate = startDate.toISOString().split('T')[0];
+        params.endDate = endDate.toISOString().split('T')[0];
+      } else if (viewMode === 'year') {
+        const startDate = new Date(selectedYear, 0, 1);
+        const endDate = new Date(selectedYear, 11, 31);
+        params.startDate = startDate.toISOString().split('T')[0];
+        params.endDate = endDate.toISOString().split('T')[0];
+      }
+      
+      const response = await apiService.getExpenses(params);
+      if (response.success && response.data) {
+        const data = response.data as { expenses: Expense[] };
+        setAllExpenses(data.expenses);
+      }
+    } catch (error) {
+      console.error('Failed to load all expenses:', error);
     }
   };
 
@@ -219,6 +260,283 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({ onClose }) => {
     return categories.find(cat => cat.value === category) || categories[categories.length - 1];
   };
 
+  const generatePDFReport = () => {
+    const printWindow = window.open('', '_blank', 'width=800,height=600');
+    if (!printWindow) {
+      showCustomAlert('Please allow popups to download the report', 'error');
+      return;
+    }
+
+    const filteredExpenses = allExpenses.filter(exp => 
+      searchQuery ? exp.title.toLowerCase().includes(searchQuery.toLowerCase()) : true
+    );
+
+    const totalAmount = filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+    const periodText = viewMode === 'day' 
+      ? new Date(selectedDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
+      : viewMode === 'month'
+      ? `${['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][selectedMonth - 1]} ${selectedYear}`
+      : `${selectedYear}`;
+
+    const reportHTML = `
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Expense Report - ${periodText}</title>
+  <style>
+    @page { size: A4; margin: 20mm; }
+    @media print {
+      body { margin: 0; padding: 0; }
+      .no-print { display: none; }
+    }
+    body {
+      font-family: 'Arial', sans-serif;
+      padding: 40px;
+      background: white;
+      color: #333;
+    }
+    .header {
+      text-align: center;
+      border-bottom: 3px solid #e74c3c;
+      padding-bottom: 20px;
+      margin-bottom: 30px;
+    }
+    .header h1 {
+      margin: 0;
+      color: #e74c3c;
+      font-size: 28px;
+      font-weight: bold;
+    }
+    .header p {
+      margin: 5px 0;
+      color: #666;
+      font-size: 14px;
+    }
+    .summary {
+      background: #f8f9fa;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 30px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+    }
+    .summary-item {
+      text-align: center;
+    }
+    .summary-item .label {
+      font-size: 12px;
+      color: #666;
+      text-transform: uppercase;
+      margin-bottom: 5px;
+    }
+    .summary-item .value {
+      font-size: 24px;
+      font-weight: bold;
+      color: #e74c3c;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 30px;
+    }
+    thead {
+      background: #e74c3c;
+      color: white;
+    }
+    th {
+      padding: 12px;
+      text-align: left;
+      font-weight: bold;
+      font-size: 13px;
+    }
+    td {
+      padding: 10px 12px;
+      border-bottom: 1px solid #dee2e6;
+      font-size: 13px;
+    }
+    tbody tr:hover {
+      background: #f8f9fa;
+    }
+    .category-badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: bold;
+      color: white;
+    }
+    .amount {
+      font-weight: bold;
+      color: #e74c3c;
+      text-align: right;
+    }
+    .footer {
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 2px solid #dee2e6;
+      text-align: center;
+      color: #666;
+      font-size: 12px;
+    }
+    .total-row {
+      background: #f8f9fa;
+      font-weight: bold;
+      font-size: 16px;
+    }
+    .no-print {
+      text-align: center;
+      margin: 20px 0;
+    }
+    .print-btn {
+      background: #27ae60;
+      color: white;
+      border: none;
+      padding: 12px 30px;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .print-btn:hover {
+      background: #229954;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>💸 EXPENSE REPORT</h1>
+    <p><strong>GenZ Laundry</strong></p>
+    <p>Period: ${periodText}</p>
+    ${searchQuery ? `<p>Filter: "${searchQuery}"</p>` : ''}
+    <p>Generated on: ${new Date().toLocaleString('en-IN')}</p>
+  </div>
+
+  <div class="summary">
+    <div class="summary-item">
+      <div class="label">Total Expenses</div>
+      <div class="value">₹${totalAmount.toLocaleString('en-IN')}</div>
+    </div>
+    <div class="summary-item">
+      <div class="label">Total Records</div>
+      <div class="value">${filteredExpenses.length}</div>
+    </div>
+    <div class="summary-item">
+      <div class="label">Average Amount</div>
+      <div class="value">₹${filteredExpenses.length > 0 ? (totalAmount / filteredExpenses.length).toFixed(2) : 0}</div>
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 5%;">S.No</th>
+        <th style="width: 15%;">Date</th>
+        <th style="width: 25%;">Title</th>
+        <th style="width: 30%;">Description</th>
+        <th style="width: 10%;">Category</th>
+        <th style="width: 15%;">Amount</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${filteredExpenses.map((expense, index) => {
+        const categoryInfo = getCategoryInfo(expense.category);
+        return `
+          <tr>
+            <td>${index + 1}</td>
+            <td>${new Date(expense.date).toLocaleDateString('en-IN')}</td>
+            <td><strong>${expense.title}</strong></td>
+            <td>${expense.description || '-'}</td>
+            <td>
+              <span class="category-badge" style="background: ${categoryInfo.color};">
+                ${categoryInfo.label}
+              </span>
+            </td>
+            <td class="amount">₹${expense.amount.toLocaleString('en-IN')}</td>
+          </tr>
+        `;
+      }).join('')}
+      <tr class="total-row">
+        <td colspan="5" style="text-align: right; padding-right: 20px;">TOTAL:</td>
+        <td class="amount">₹${totalAmount.toLocaleString('en-IN')}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="footer">
+    <p><strong>GenZ Laundry Management System</strong></p>
+    <p>This is a computer-generated report. No signature required.</p>
+  </div>
+
+  <div class="no-print">
+    <button class="print-btn" onclick="window.print()">🖨️ Print / Save as PDF</button>
+  </div>
+
+  <script>
+    // Auto print after a short delay
+    setTimeout(() => {
+      // Uncomment to auto-print
+      // window.print();
+    }, 500);
+  </script>
+</body>
+</html>
+    `;
+
+    printWindow.document.write(reportHTML);
+    printWindow.document.close();
+  };
+
+  const downloadExcelReport = () => {
+    const filteredExpenses = allExpenses.filter(exp => 
+      searchQuery ? exp.title.toLowerCase().includes(searchQuery.toLowerCase()) : true
+    );
+
+    const totalAmount = filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+    const periodText = viewMode === 'day' 
+      ? new Date(selectedDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
+      : viewMode === 'month'
+      ? `${['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][selectedMonth - 1]} ${selectedYear}`
+      : `${selectedYear}`;
+
+    // Create CSV content
+    let csvContent = `Expense Report - ${periodText}\n`;
+    csvContent += `Generated on: ${new Date().toLocaleString('en-IN')}\n`;
+    if (searchQuery) csvContent += `Filter: "${searchQuery}"\n`;
+    csvContent += `\n`;
+    csvContent += `Total Expenses:,₹${totalAmount.toLocaleString('en-IN')}\n`;
+    csvContent += `Total Records:,${filteredExpenses.length}\n`;
+    csvContent += `Average Amount:,₹${filteredExpenses.length > 0 ? (totalAmount / filteredExpenses.length).toFixed(2) : 0}\n`;
+    csvContent += `\n`;
+    csvContent += `S.No,Date,Title,Description,Category,Amount\n`;
+
+    filteredExpenses.forEach((expense, index) => {
+      const categoryInfo = getCategoryInfo(expense.category);
+      csvContent += `${index + 1},`;
+      csvContent += `${new Date(expense.date).toLocaleDateString('en-IN')},`;
+      csvContent += `"${expense.title.replace(/"/g, '""')}",`;
+      csvContent += `"${(expense.description || '-').replace(/"/g, '""')}",`;
+      csvContent += `${categoryInfo.label},`;
+      csvContent += `₹${expense.amount.toLocaleString('en-IN')}\n`;
+    });
+
+    csvContent += `\n`;
+    csvContent += `TOTAL:,,,,,₹${totalAmount.toLocaleString('en-IN')}\n`;
+
+    // Create download link
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `Expense_Report_${periodText.replace(/\s+/g, '_')}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    showCustomAlert('Excel report downloaded successfully!', 'success');
+  };
+
   return (
     <div style={{
       background: 'transparent', width: '100%',
@@ -322,6 +640,23 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({ onClose }) => {
                 <i className="fas fa-plus"></i> Add Expense
               </button>
 
+              <input
+                type="text"
+                placeholder="🔍 Search by title..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                style={{
+                  padding: '10px 15px',
+                  borderRadius: '8px',
+                  border: '2px solid #dee2e6',
+                  fontSize: '14px',
+                  minWidth: '250px',
+                  outline: 'none'
+                }}
+                onFocus={(e) => e.currentTarget.style.borderColor = '#3498db'}
+                onBlur={(e) => e.currentTarget.style.borderColor = '#dee2e6'}
+              />
+
               <select
                 value={selectedCategory}
                 onChange={(e) => {
@@ -341,6 +676,38 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({ onClose }) => {
                   <option key={cat.value} value={cat.value}>{cat.label}</option>
                 ))}
               </select>
+
+              <button
+                onClick={generatePDFReport}
+                style={{
+                  background: 'linear-gradient(135deg, #e74c3c, #c0392b)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '10px',
+                  padding: '10px 18px',
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                  fontSize: '14px'
+                }}
+              >
+                📄 PDF Report
+              </button>
+
+              <button
+                onClick={downloadExcelReport}
+                style={{
+                  background: 'linear-gradient(135deg, #27ae60, #229954)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '10px',
+                  padding: '10px 18px',
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                  fontSize: '14px'
+                }}
+              >
+                📊 Excel Report
+              </button>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -548,20 +915,59 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({ onClose }) => {
 
         {/* Expenses List */}
         <div style={{ flex: 1, overflow: 'auto', padding: '24px' }}>
+          {/* Search Results Summary */}
+          {searchQuery && (
+            <div style={{
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              color: 'white',
+              padding: '16px 20px',
+              borderRadius: '12px',
+              marginBottom: '20px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)'
+            }}>
+              <div>
+                <div style={{ fontSize: '14px', opacity: 0.9, marginBottom: '4px' }}>
+                  🔍 Search Results for "{searchQuery}"
+                </div>
+                <div style={{ fontSize: '20px', fontWeight: 'bold' }}>
+                  {allExpenses.filter(exp => exp.title.toLowerCase().includes(searchQuery.toLowerCase())).length} expenses found
+                </div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: '14px', opacity: 0.9, marginBottom: '4px' }}>Total Amount</div>
+                <div style={{ fontSize: '24px', fontWeight: 'bold' }}>
+                  ₹{allExpenses
+                    .filter(exp => exp.title.toLowerCase().includes(searchQuery.toLowerCase()))
+                    .reduce((sum, exp) => sum + exp.amount, 0)
+                    .toLocaleString('en-IN')}
+                </div>
+              </div>
+            </div>
+          )}
+
           {loading ? (
             <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>
               <i className="fas fa-circle-notch fa-spin fa-2x" style={{ color: 'var(--accent)', marginBottom: '16px' }}></i>
               <div>Loading expenses...</div>
             </div>
-          ) : expenses.length === 0 ? (
+          ) : (searchQuery ? allExpenses.filter(exp => exp.title.toLowerCase().includes(searchQuery.toLowerCase())) : expenses).length === 0 ? (
             <div style={{ textAlign: 'center', padding: '60px 40px', color: 'var(--text-secondary)', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', border: '1px dashed var(--border-subtle)' }}>
               <i className="fas fa-file-invoice-dollar fa-3x" style={{ opacity: 0.5, marginBottom: '20px' }}></i>
-              <h3 style={{ color: 'var(--text-primary)', margin: '0 0 8px 0' }}>No expenses found</h3>
-              <p style={{ margin: 0 }}>Add your first expense to start tracking</p>
+              <h3 style={{ color: 'var(--text-primary)', margin: '0 0 8px 0' }}>
+                {searchQuery ? `No expenses found for "${searchQuery}"` : 'No expenses found'}
+              </h3>
+              <p style={{ margin: 0 }}>
+                {searchQuery ? 'Try a different search term' : 'Add your first expense to start tracking'}
+              </p>
             </div>
           ) : (
             <div style={{ display: 'grid', gap: '16px' }}>
-              {expenses.map((expense) => {
+              {(searchQuery ? allExpenses : expenses)
+                .filter(exp => searchQuery ? exp.title.toLowerCase().includes(searchQuery.toLowerCase()) : true)
+                .map((expense) => {
                 const categoryInfo = getCategoryInfo(expense.category);
                 return (
                   <div key={expense._id} style={{
@@ -638,7 +1044,7 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({ onClose }) => {
         </div>
 
         {/* Pagination */}
-        {totalPages > 1 && (
+        {!searchQuery && totalPages > 1 && (
           <div style={{ padding: '24px', borderTop: '1px solid var(--border-subtle)', textAlign: 'center' }}>
             <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', alignItems: 'center' }}>
               <button
