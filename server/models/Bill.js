@@ -28,6 +28,10 @@ const billSchema = new mongoose.Schema({
     required: true,
     unique: true
   },
+  billDate: {
+    type: String,
+    default: ''
+  },
   businessName: {
     type: String,
     required: true
@@ -84,6 +88,21 @@ const billSchema = new mongoose.Schema({
     enum: ['paid', 'unpaid', 'partial'],
     default: 'paid'
   },
+  amountPaid: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  amountDue: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  paymentHistory: [{
+    amount: { type: Number, required: true },
+    date: { type: Date, default: Date.now },
+    note: { type: String, default: '' }
+  }],
   thankYouMessage: {
     type: String,
     default: 'Thank you for choosing us!'

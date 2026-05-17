@@ -287,6 +287,17 @@ router.post('/', async (req, res) => {
       billData.billNumber = `GZ${(lastNumber + 1).toString().padStart(6, '0')}`;
     }
 
+    // Check if bill with same number already exists (duplicate prevention)
+    const existing = await Bill.findOne({ billNumber: billData.billNumber });
+    if (existing) {
+      // Return the existing bill as success (idempotent)
+      return res.status(200).json({
+        success: true,
+        message: 'Bill already exists (duplicate prevented)',
+        data: existing
+      });
+    }
+
     const bill = new Bill(billData);
     await bill.save();
 
@@ -297,6 +308,17 @@ router.post('/', async (req, res) => {
     });
   } catch (error) {
     if (error.code === 11000) {
+      // Race condition duplicate — fetch and return existing
+      try {
+        const existing = await Bill.findOne({ billNumber: req.body.billNumber });
+        if (existing) {
+          return res.status(200).json({
+            success: true,
+            message: 'Bill already exists',
+            data: existing
+          });
+        }
+      } catch (e) { /* ignore */ }
       res.status(400).json({
         success: false,
         message: 'Bill number already exists',
@@ -351,6 +373,126 @@ router.patch('/:id/status', async (req, res) => {
       message: 'Error updating bill status',
       error: error.message
     });
+  }
+});
+
+// Add partial payment to a bill - uses billNumber for reliable lookup
+router.patch('/payment/:billNumber', async (req, res) => {
+  try {
+    const { billNumber } = req.params;
+    const { amount, note } = req.body;
+
+    console.log('💰 Payment request - billNumber:', billNumber, 'amount:', amount);
+
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ success: false, message: 'Invalid payment amount' });
+    }
+
+    let bill = await Bill.findOne({ billNumber: billNumber });
+    if (!bill) {
+      return res.status(404).json({ success: false, message: `Bill not found with billNumber: ${billNumber}` });
+    }
+
+    if (!bill.paymentHistory) bill.paymentHistory = [];
+    bill.paymentHistory.push({ amount: Number(amount), note: note || '', date: new Date() });
+
+    const totalPaid = (bill.amountPaid || 0) + Number(amount);
+    bill.amountPaid = totalPaid;
+    bill.amountDue = Math.max(0, bill.grandTotal - totalPaid);
+    bill.paymentStatus = bill.amountDue === 0 ? 'paid' : totalPaid > 0 ? 'partial' : 'unpaid';
+
+    // Auto-complete bill when fully paid
+    if (bill.amountDue === 0 && bill.status === 'pending') {
+      bill.status = 'completed';
+      bill.completedAt = new Date();
+      console.log('✅ Bill auto-completed as fully paid');
+    }
+
+    await bill.save();
+    console.log('✅ Payment saved. amountPaid:', bill.amountPaid, 'amountDue:', bill.amountDue);
+
+    res.json({ success: true, message: 'Payment recorded successfully', data: bill });
+  } catch (error) {
+    console.error('❌ Payment route error:', error);
+    res.status(500).json({ success: false, message: 'Error recording payment', error: error.message });
+  }
+});
+
+// Delete/undo a specific payment entry by index
+router.delete('/payment/:billNumber/:paymentIndex', async (req, res) => {
+  try {
+    const { billNumber, paymentIndex } = req.params;
+    const index = parseInt(paymentIndex);
+
+    const bill = await Bill.findOne({ billNumber });
+    if (!bill) {
+      return res.status(404).json({ success: false, message: `Bill not found: ${billNumber}` });
+    }
+
+    if (!bill.paymentHistory || index < 0 || index >= bill.paymentHistory.length) {
+      return res.status(400).json({ success: false, message: 'Invalid payment index' });
+    }
+
+    // Remove the payment entry
+    const removedPayment = bill.paymentHistory[index];
+    bill.paymentHistory.splice(index, 1);
+
+    // Recalculate totals from remaining payment history
+    const totalPaid = bill.paymentHistory.reduce((sum, p) => sum + Number(p.amount), 0);
+    bill.amountPaid = totalPaid;
+    bill.amountDue = Math.max(0, bill.grandTotal - totalPaid);
+    bill.paymentStatus = bill.amountDue === 0 ? 'paid' : totalPaid > 0 ? 'partial' : 'unpaid';
+
+    await bill.save();
+    console.log('✅ Payment removed. Removed amount:', removedPayment.amount, 'New amountPaid:', bill.amountPaid);
+
+    res.json({ success: true, message: `Payment of ₹${removedPayment.amount} removed`, data: bill });
+  } catch (error) {
+    console.error('❌ Delete payment error:', error);
+    res.status(500).json({ success: false, message: 'Error removing payment', error: error.message });
+  }
+});
+
+// Add partial payment to a bill (legacy - by MongoDB ID)
+router.patch('/:id/payment', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { amount, note, billNumber } = req.body;
+
+    console.log('💰 Payment request (legacy) - id:', id, 'billNumber:', billNumber, 'amount:', amount);
+
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ success: false, message: 'Invalid payment amount' });
+    }
+
+    let bill = null;
+    if (id && id.match(/^[a-fA-F0-9]{24}$/)) {
+      bill = await Bill.findById(id);
+    }
+    if (!bill && billNumber) {
+      bill = await Bill.findOne({ billNumber });
+    }
+    if (!bill) {
+      bill = await Bill.findOne({ billNumber: id });
+    }
+
+    if (!bill) {
+      return res.status(404).json({ success: false, message: `Bill not found. id: ${id}` });
+    }
+
+    if (!bill.paymentHistory) bill.paymentHistory = [];
+    bill.paymentHistory.push({ amount: Number(amount), note: note || '', date: new Date() });
+
+    const totalPaid = (bill.amountPaid || 0) + Number(amount);
+    bill.amountPaid = totalPaid;
+    bill.amountDue = Math.max(0, bill.grandTotal - totalPaid);
+    bill.paymentStatus = bill.amountDue === 0 ? 'paid' : totalPaid > 0 ? 'partial' : 'unpaid';
+
+    await bill.save();
+
+    res.json({ success: true, message: 'Payment recorded successfully', data: bill });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Error recording payment', error: error.message });
   }
 });
 
