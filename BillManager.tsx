@@ -332,85 +332,127 @@ const BillManager: React.FC<BillManagerProps> = ({ onClose, initialEditBill }) =
           </select>
         </div>
 
-        {/* Edit Form */}
+        {/* Edit Form - Fixed Modal Overlay */}
         {showEditForm && editingBill && (
-          <div style={{ padding: '16px 20px', background: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-subtle)' }}>
-            <h3 style={{ margin: '0 0 12px 0', color: 'var(--text-primary)', fontSize: '16px' }}>
-              <i className="fas fa-pen" style={{ marginRight: '6px' }}></i>Edit Bill: {editingBill.billNumber}
-            </h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
-              <input
-                type="text"
-                placeholder="Customer Name"
-                value={editFormData.customerName}
-                onChange={(e) => setEditFormData({ ...editFormData, customerName: e.target.value })}
-                style={{ padding: '10px' }}
-              />
-              
-              <input
-                type="tel"
-                placeholder="Customer Phone"
-                value={editFormData.customerPhone}
-                onChange={(e) => setEditFormData({ ...editFormData, customerPhone: e.target.value })}
-                style={{ padding: '10px' }}
-              />
+          <div style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            background: 'rgba(0,0,0,0.7)', zIndex: 9999,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '20px'
+          }}>
+            <div style={{
+              background: 'var(--bg-surface)', borderRadius: 'var(--radius-lg)',
+              border: '1px solid var(--border-subtle)', width: '100%', maxWidth: '560px',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.5)', overflow: 'hidden'
+            }}>
+              {/* Modal Header */}
+              <div style={{
+                padding: '16px 20px', borderBottom: '1px solid var(--border-subtle)',
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                background: 'var(--bg-elevated)'
+              }}>
+                <h3 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '16px', fontWeight: '700' }}>
+                  <i className="fas fa-pen" style={{ marginRight: '8px', color: 'var(--accent)' }}></i>
+                  Edit Bill: {editingBill.billNumber}
+                </h3>
+                <button onClick={resetForm} className="btn btn-ghost btn-sm">
+                  <i className="fas fa-times"></i>
+                </button>
+              </div>
 
-              <input
-                type="number"
-                placeholder="Discount (₹)"
-                value={editFormData.discount}
-                onChange={(e) => setEditFormData({ ...editFormData, discount: parseFloat(e.target.value) || 0 })}
-                style={{ padding: '10px' }}
-                min="0"
-                step="0.01"
-              />
+              {/* Modal Body */}
+              <div style={{ padding: '20px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                  <div>
+                    <label style={{ fontSize: '12px', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Customer Name</label>
+                    <input
+                      type="text"
+                      placeholder="Customer Name"
+                      value={editFormData.customerName}
+                      onChange={(e) => setEditFormData({ ...editFormData, customerName: e.target.value })}
+                      style={{ width: '100%', padding: '10px', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '12px', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Customer Phone</label>
+                    <input
+                      type="tel"
+                      placeholder="Customer Phone"
+                      value={editFormData.customerPhone}
+                      onChange={(e) => setEditFormData({ ...editFormData, customerPhone: e.target.value })}
+                      style={{ width: '100%', padding: '10px', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '12px', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Discount (₹)</label>
+                    <input
+                      type="number"
+                      placeholder="Discount (₹)"
+                      value={editFormData.discount}
+                      onChange={(e) => setEditFormData({ ...editFormData, discount: parseFloat(e.target.value) || 0 })}
+                      style={{ width: '100%', padding: '10px', boxSizing: 'border-box' }}
+                      min="0" step="0.01"
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '12px', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Delivery Charge (₹)</label>
+                    <input
+                      type="number"
+                      placeholder="Delivery Charge (₹)"
+                      value={editFormData.deliveryCharge}
+                      onChange={(e) => setEditFormData({ ...editFormData, deliveryCharge: parseFloat(e.target.value) || 0 })}
+                      style={{ width: '100%', padding: '10px', boxSizing: 'border-box' }}
+                      min="0" step="0.01"
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '12px', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Previous Due (₹)</label>
+                    <input
+                      type="number"
+                      placeholder="Previous Due (₹)"
+                      value={editFormData.previousBalance}
+                      onChange={(e) => setEditFormData({ ...editFormData, previousBalance: parseFloat(e.target.value) || 0 })}
+                      style={{ width: '100%', padding: '10px', boxSizing: 'border-box' }}
+                      min="0" step="0.01"
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '12px', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Status</label>
+                    <select
+                      value={editFormData.status}
+                      onChange={(e) => setEditFormData({ ...editFormData, status: e.target.value })}
+                      style={{ width: '100%', padding: '10px', boxSizing: 'border-box' }}
+                    >
+                      <option value="completed">Completed</option>
+                      <option value="pending">Pending</option>
+                      <option value="delivered">Delivered</option>
+                      <option value="cancelled">Cancelled</option>
+                    </select>
+                  </div>
+                </div>
 
-              <input
-                type="number"
-                placeholder="Delivery Charge (₹)"
-                value={editFormData.deliveryCharge}
-                onChange={(e) => setEditFormData({ ...editFormData, deliveryCharge: parseFloat(e.target.value) || 0 })}
-                style={{ padding: '10px' }}
-                min="0"
-                step="0.01"
-              />
+                {/* New Total Preview */}
+                <div style={{
+                  padding: '10px 14px', background: 'var(--accent-muted)',
+                  borderRadius: 'var(--radius-md)', fontSize: '13px',
+                  color: 'var(--text-primary)', marginBottom: '16px'
+                }}>
+                  <strong>New Total: ₹{(editingBill.subtotal - editFormData.discount + editFormData.deliveryCharge).toLocaleString()}</strong>
+                  <span style={{ marginLeft: '12px', color: 'var(--text-secondary)', fontSize: '12px' }}>
+                    Subtotal ₹{editingBill.subtotal} − Discount ₹{editFormData.discount} + Delivery ₹{editFormData.deliveryCharge}
+                  </span>
+                </div>
 
-              <input
-                type="number"
-                placeholder="Previous Due (₹)"
-                value={editFormData.previousBalance}
-                onChange={(e) => setEditFormData({ ...editFormData, previousBalance: parseFloat(e.target.value) || 0 })}
-                style={{ padding: '10px' }}
-                min="0"
-                step="0.01"
-              />
-
-              <select
-                value={editFormData.status}
-                onChange={(e) => setEditFormData({ ...editFormData, status: e.target.value })}
-                style={{ padding: '10px' }}
-              >
-                <option value="completed">Completed</option>
-                <option value="pending">Pending</option>
-                <option value="delivered">Delivered</option>
-                <option value="cancelled">Cancelled</option>
-              </select>
-            </div>
-
-            <div style={{ marginTop: '12px', display: 'flex', gap: '8px' }}>
-              <button onClick={handleSaveEdit} className="btn btn-success btn-sm">
-                <i className="fas fa-save"></i> Save Changes
-              </button>
-              <button onClick={resetForm} className="btn btn-ghost btn-sm">
-                Cancel
-              </button>
-            </div>
-
-            <div style={{ marginTop: '8px', padding: '8px 12px', background: 'var(--accent-muted)', borderRadius: 'var(--radius-md)', fontSize: '13px', color: 'var(--text-primary)' }}>
-              <strong>New Total: ₹{(editingBill.subtotal - editFormData.discount + editFormData.deliveryCharge).toLocaleString()}</strong>
-              <span style={{ marginLeft: '12px', color: 'var(--text-secondary)' }}>
-                (Subtotal: ₹{editingBill.subtotal} - Discount: ₹{editFormData.discount} + Delivery: ₹{editFormData.deliveryCharge})
-              </span>
+                {/* Action Buttons */}
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button onClick={handleSaveEdit} className="btn btn-success" style={{ flex: 1 }}>
+                    <i className="fas fa-save" style={{ marginRight: '6px' }}></i>Save Changes
+                  </button>
+                  <button onClick={resetForm} className="btn btn-ghost">
+                    Cancel
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         )}

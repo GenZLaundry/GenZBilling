@@ -40,6 +40,8 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
   const [currentPrice, setCurrentPrice] = useState('');
   const [currentWashType, setCurrentWashType] = useState<'WASH' | 'IRON' | 'WASH+IRON' | 'DRY CLEAN'>('WASH');
   const [currentQuantity, setCurrentQuantity] = useState(1);
+  const [currentUnit, setCurrentUnit] = useState<'qty' | 'kg'>('qty');
+  const [currentKg, setCurrentKg] = useState('');
   const [discount, setDiscount] = useState(0);
   const [deliveryCharge, setDeliveryCharge] = useState(0);
   const [previousBalance, setPreviousBalance] = useState(0);
@@ -61,12 +63,19 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
   const [customerHistory, setCustomerHistory] = useState<any[]>([]);
   const [showQuickDiscount, setShowQuickDiscount] = useState(false);
   const [lastBillTotal, setLastBillTotal] = useState(0);
+  const [customerSuggestions, setCustomerSuggestions] = useState<Array<{name: string, phone: string, lastBill?: string}>>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [lastGeneratedBill, setLastGeneratedBill] = useState<ShareableBillData | null>(null);
 
   const itemInputRef = useRef<HTMLInputElement>(null);
   const priceInputRef = useRef<HTMLInputElement>(null);
 
   const quickItems = [
+    { name: 'Dress Price', price: 30, washTypes: ['WASH', 'IRON'], icon: 'fa-shirt' },
+    { name: 'Only Iron', price: 20, washTypes: ['WASH', 'IRON'], icon: 'fa-shirt' },
+    { name: 'white Shirt (kadap)', price: 80, washTypes: ['WASH', 'IRON'], icon: 'fa-shirt' },
+    { name: 'white Shirt', price: 50, washTypes: ['WASH', 'IRON'], icon: 'fa-shirt' },
+    { name: 'white Kurta(kadap)', price: 100, washTypes: ['WASH', 'IRON'], icon: 'fa-shirt' },
     { name: 'T-Shirt', price: 20, washTypes: ['WASH', 'IRON'], icon: 'fa-shirt' },
     { name: 'Shirt', price: 20, washTypes: ['WASH', 'IRON'], icon: 'fa-shirt' },
     { name: 'Kurti', price: 20, washTypes: ['WASH', 'IRON'], icon: 'fa-vest' },
@@ -140,6 +149,46 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
     }
   };
 
+  const searchCustomers = (query: string) => {
+    if (!query || query.length < 3) {
+      setCustomerSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+    const localHistory = JSON.parse(localStorage.getItem('laundry_bill_history') || '[]');
+    const q = query.toLowerCase();
+    const customerMap = new Map<string, { name: string; phone: string; lastBill?: string; count: number }>();
+    localHistory.forEach((bill: any) => {
+      const name = bill.customerName || '';
+      if (name.toLowerCase().includes(q)) {
+        const key = name.toLowerCase();
+        if (!customerMap.has(key)) {
+          customerMap.set(key, { name, phone: bill.customerPhone || '', lastBill: bill.createdAt, count: 1 });
+        } else {
+          const existing = customerMap.get(key)!;
+          existing.count++;
+          if (bill.createdAt > (existing.lastBill || '')) {
+            existing.lastBill = bill.createdAt;
+            existing.phone = bill.customerPhone || existing.phone;
+          }
+        }
+      }
+    });
+    const suggestions = Array.from(customerMap.values())
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 6)
+      .map(c => ({ name: c.name, phone: c.phone, lastBill: c.lastBill }));
+    setCustomerSuggestions(suggestions);
+    setShowSuggestions(suggestions.length > 0);
+  };
+
+  const selectCustomerSuggestion = (suggestion: { name: string; phone: string; lastBill?: string }) => {
+    setCustomer({ name: suggestion.name, phone: suggestion.phone });
+    setShowSuggestions(false);
+    setCustomerSuggestions([]);
+    if (suggestion.phone) loadCustomerHistory(suggestion.phone);
+  };
+
   const addFromHistory = (historyBill: any) => {
     const newItems = historyBill.items.map((item: any) => ({
       id: `${Date.now()}-${Math.random()}`,
@@ -204,24 +253,42 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
       return;
     }
 
-    if (currentQuantity < 0) {
-      showAlert({ message: 'Quantity cannot be negative', type: 'warning' });
-      return;
+    if (currentUnit === 'kg') {
+      const kg = parseFloat(currentKg);
+      if (isNaN(kg) || kg <= 0) {
+        showAlert({ message: 'Please enter a valid weight in kg', type: 'warning' });
+        return;
+      }
+      const total = parseFloat((price * kg).toFixed(2));
+      const newItem: OrderItem = {
+        id: `${Date.now()}-${Math.random()}`,
+        name: `${currentItem} (${kg} kg)`,
+        quantity: 1,
+        price: total,
+        washType: currentWashType,
+        total
+      };
+      setOrderItems([...orderItems, newItem]);
+    } else {
+      if (currentQuantity < 1) {
+        showAlert({ message: 'Quantity must be at least 1', type: 'warning' });
+        return;
+      }
+      const newItem: OrderItem = {
+        id: `${Date.now()}-${Math.random()}`,
+        name: currentItem,
+        quantity: currentQuantity,
+        price: price,
+        washType: currentWashType,
+        total: price * currentQuantity
+      };
+      setOrderItems([...orderItems, newItem]);
     }
 
-    const newItem: OrderItem = {
-      id: `${Date.now()}-${Math.random()}`,
-      name: currentItem,
-      quantity: currentQuantity,
-      price: price,
-      washType: currentWashType,
-      total: price * currentQuantity
-    };
-
-    setOrderItems([...orderItems, newItem]);
     setCurrentItem('');
     setCurrentPrice('');
     setCurrentQuantity(1);
+    setCurrentKg('');
     if (itemInputRef.current) {
       itemInputRef.current.focus();
     }
@@ -351,62 +418,49 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
 
       console.log('🧾 Processing bill:', billData);
 
-      // Try to save bill to database (graceful fallback if API is down)
-      let databaseSaveSuccess = false;
-      try {
-        console.log('💾 Saving bill to database...');
-        console.log('📡 API URL:', 'http://localhost:8000/api/bills');
-        console.log('📦 Bill data being sent:', JSON.stringify(billData, null, 2));
-
-        const response = await apiService.createBill(billData);
-        console.log('📨 API Response:', response);
-
-        if (response.success) {
-          console.log('✅ Bill saved to database:', response.data);
-          databaseSaveSuccess = true;
-        } else {
-          console.warn('⚠️ Database save failed:', response.message);
-          console.warn('⚠️ Full response:', response);
-        }
-      } catch (apiError) {
-        console.error('❌ Database API error:', apiError);
-        console.warn('⚠️ Database unavailable, continuing with local operation:', apiError);
-        // Continue without database - this is not a critical error
-      }
-
-      // Also save to localStorage as backup for bill history
+      // Save to localStorage FIRST (always, before DB attempt)
       let localStorageSaveSuccess = false;
       try {
-        console.log('💾 Saving bill to localStorage...');
         const existingHistory = JSON.parse(localStorage.getItem('laundry_bill_history') || '[]');
-        console.log('📚 Existing history count:', existingHistory.length);
-
         const billForHistory = {
           ...billData,
           id: `local_${Date.now()}`,
-          _id: databaseSaveSuccess ? `db_${Date.now()}` : `local_${Date.now()}`,
+          _id: `local_${Date.now()}`,
           createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
+          updatedAt: new Date().toISOString(),
+          _syncedToDb: false
         };
-
-        existingHistory.unshift(billForHistory); // Add to beginning
-        // Keep only last 100 bills in localStorage
-        if (existingHistory.length > 100) {
-          existingHistory.splice(100);
-        }
+        existingHistory.unshift(billForHistory);
+        if (existingHistory.length > 500) existingHistory.splice(500);
         localStorage.setItem('laundry_bill_history', JSON.stringify(existingHistory));
-        console.log('✅ Bill saved to localStorage backup');
-        console.log('📚 New history count:', existingHistory.length);
         localStorageSaveSuccess = true;
+        console.log('✅ Bill saved to localStorage first');
       } catch (localError) {
         console.error('❌ localStorage save error:', localError);
-        console.warn('⚠️ Could not save to localStorage:', localError);
       }
 
-      // Log save status
-      console.log('💾 Save Status Summary:');
-      console.log('  - Database:', databaseSaveSuccess ? '✅ Success' : '❌ Failed');
-      console.log('  - localStorage:', localStorageSaveSuccess ? '✅ Success' : '❌ Failed');
+      // Then try to save to database
+      let databaseSaveSuccess = false;
+      try {
+        console.log('💾 Saving bill to database...');
+        const response = await apiService.createBill(billData);
+        if (response.success) {
+          console.log('✅ Bill saved to database:', response.data);
+          databaseSaveSuccess = true;
+          // Mark local copy as synced
+          try {
+            const existing = JSON.parse(localStorage.getItem('laundry_bill_history') || '[]');
+            const updated = existing.map((b: any) => b.billNumber === billData.billNumber ? { ...b, _syncedToDb: true, _id: response.data?._id || b._id } : b);
+            localStorage.setItem('laundry_bill_history', JSON.stringify(updated));
+          } catch (e) { /* ignore */ }
+        } else {
+          console.warn('⚠️ Database save failed:', response.message);
+        }
+      } catch (apiError) {
+        console.warn('⚠️ Database unavailable, bill saved locally and will sync later:', apiError);
+      }
+
+      console.log('💾 Save Status — DB:', databaseSaveSuccess ? '✅' : '❌ (saved locally)', '| Local:', localStorageSaveSuccess ? '✅' : '❌');
 
       // Remove selected pending bills from storage (they're now completed)
       if (selectedPendingBills.length > 0) {
@@ -770,7 +824,7 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 160px 90px', gap: '16px' }}>
-              {/* Customer Name Input */}
+              {/* Customer Name Input with Autocomplete */}
               <div style={{ position: 'relative' }}>
                 <label style={{
                   position: 'absolute',
@@ -802,17 +856,73 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
                     type="text"
                     placeholder="Enter customer name"
                     value={customer.name}
-                    onChange={(e) => setCustomer({ ...customer, name: e.target.value })}
+                    onChange={(e) => {
+                      setCustomer({ ...customer, name: e.target.value });
+                      searchCustomers(e.target.value);
+                    }}
+                    onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                    onFocus={() => customer.name.length >= 3 && searchCustomers(customer.name)}
                     className="professional-input"
                     style={{
                       width: '100%',
                       padding: '12px 16px 12px 40px',
-                      borderRadius: '8px',
+                      borderRadius: showSuggestions ? '8px 8px 0 0' : '8px',
                       fontSize: '14px',
                       fontWeight: '500',
                       transition: 'all 0.2s ease'
                     }}
                   />
+                  {/* Autocomplete Dropdown */}
+                  {showSuggestions && customerSuggestions.length > 0 && (
+                    <div style={{
+                      position: 'absolute',
+                      top: '100%',
+                      left: 0,
+                      right: 0,
+                      background: '#1f2937',
+                      border: '1px solid #3b82f6',
+                      borderTop: 'none',
+                      borderRadius: '0 0 8px 8px',
+                      zIndex: 1000,
+                      boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+                      overflow: 'hidden'
+                    }}>
+                      {customerSuggestions.map((s, i) => (
+                        <div
+                          key={i}
+                          onMouseDown={() => selectCustomerSuggestion(s)}
+                          style={{
+                            padding: '10px 14px',
+                            cursor: 'pointer',
+                            borderBottom: i < customerSuggestions.length - 1 ? '1px solid #374151' : 'none',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            transition: 'background 0.15s'
+                          }}
+                          onMouseEnter={e => (e.currentTarget.style.background = '#374151')}
+                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                        >
+                          <div>
+                            <div style={{ color: '#f9fafb', fontWeight: '600', fontSize: '14px' }}>
+                              👤 {s.name}
+                            </div>
+                            {s.phone && (
+                              <div style={{ color: '#9ca3af', fontSize: '11px', marginTop: '2px' }}>
+                                📱 {s.phone}
+                              </div>
+                            )}
+                          </div>
+                          {s.lastBill && (
+                            <div style={{ color: '#6b7280', fontSize: '10px', textAlign: 'right' }}>
+                              Last visit<br/>
+                              {new Date(s.lastBill).toLocaleDateString('en-IN')}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1073,50 +1183,108 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
                 </div>
               </div>
 
-              {/* Quantity Input */}
+              {/* Quantity / KG Input with Toggle */}
               <div style={{ position: 'relative' }}>
-                <label style={{
-                  position: 'absolute',
-                  top: '-8px',
-                  left: '12px',
-                  background: '#374151',
-                  padding: '2px 8px',
-                  fontSize: '12px',
-                  fontWeight: '500',
-                  color: '#d1d5db',
-                  borderRadius: '4px',
-                  zIndex: 1
+                {/* Unit Toggle on top */}
+                <div style={{
+                  display: 'flex',
+                  background: '#1f2937',
+                  borderRadius: '8px 8px 0 0',
+                  border: '1px solid #4b5563',
+                  borderBottom: 'none',
+                  overflow: 'hidden'
                 }}>
-                  Quantity
-                </label>
-                <div style={{ position: 'relative' }}>
-                  <div style={{
-                    position: 'absolute',
-                    left: '12px',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    color: '#9ca3af',
-                    fontSize: '16px',
-                    pointerEvents: 'none'
-                  }}>
-                    #
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setCurrentUnit('qty')}
+                    style={{
+                      flex: 1,
+                      padding: '6px 0',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontSize: '12px',
+                      fontWeight: 'bold',
+                      background: currentUnit === 'qty' ? '#3b82f6' : 'transparent',
+                      color: currentUnit === 'qty' ? 'white' : '#9ca3af',
+                      transition: 'all 0.2s'
+                    }}
+                  ># QTY</button>
+                  <button
+                    type="button"
+                    onClick={() => setCurrentUnit('kg')}
+                    style={{
+                      flex: 1,
+                      padding: '6px 0',
+                      border: 'none',
+                      borderLeft: '1px solid #4b5563',
+                      cursor: 'pointer',
+                      fontSize: '12px',
+                      fontWeight: 'bold',
+                      background: currentUnit === 'kg' ? '#10b981' : 'transparent',
+                      color: currentUnit === 'kg' ? 'white' : '#9ca3af',
+                      transition: 'all 0.2s'
+                    }}
+                  >⚖ KG</button>
+                </div>
+
+                {/* Number Input below */}
+                {currentUnit === 'qty' ? (
                   <input
                     type="number"
                     value={currentQuantity}
-                    onChange={(e) => setCurrentQuantity(parseInt(e.target.value) || 0)}
-                    min="0"
+                    onChange={(e) => setCurrentQuantity(parseInt(e.target.value) || 1)}
+                    min="1"
                     className="professional-input"
                     style={{
                       width: '100%',
-                      padding: '12px 16px 12px 40px',
-                      borderRadius: '8px',
-                      fontSize: '14px',
-                      fontWeight: '500',
-                      transition: 'all 0.2s ease'
+                      padding: '10px 12px',
+                      borderRadius: '0 0 8px 8px',
+                      fontSize: '16px',
+                      fontWeight: '600',
+                      textAlign: 'center',
+                      border: '1px solid #4b5563',
+                      borderTop: '1px solid #3b82f6',
+                      boxSizing: 'border-box'
                     }}
                   />
-                </div>
+                ) : (
+                  <div>
+                    <input
+                      type="number"
+                      value={currentKg}
+                      onChange={(e) => setCurrentKg(e.target.value)}
+                      placeholder="0.00"
+                      step="0.1"
+                      min="0"
+                      className="professional-input"
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px',
+                        borderRadius: '0 0 8px 8px',
+                        fontSize: '16px',
+                        fontWeight: '600',
+                        textAlign: 'center',
+                        border: '1px solid #4b5563',
+                        borderTop: '1px solid #10b981',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                    {/* Live total preview */}
+                    {currentKg && currentPrice && (
+                      <div style={{
+                        position: 'absolute',
+                        bottom: '-20px',
+                        left: 0, right: 0,
+                        fontSize: '11px',
+                        color: '#10b981',
+                        fontWeight: '700',
+                        textAlign: 'center'
+                      }}>
+                        = ₹{(parseFloat(currentPrice) * parseFloat(currentKg) || 0).toFixed(2)}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Wash Type Select */}

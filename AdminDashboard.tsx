@@ -50,8 +50,28 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
   const [selectedBills, setSelectedBills] = useState<string[]>([]);
   const [showCustomerManager, setShowCustomerManager] = useState(false);
   const [showReportsGenerator, setShowReportsGenerator] = useState(false);
+  const [recentActivity, setRecentActivity] = useState<Array<{
+    id: number;
+    action: string;
+    billNumber: string;
+    customerName: string;
+    detail: string;
+    time: Date;
+    type: 'payment' | 'status' | 'edit' | 'delete' | 'undo';
+  }>>([]);
+
+  const logActivity = (action: string, billNumber: string, customerName: string, detail: string, type: 'payment' | 'status' | 'edit' | 'delete' | 'undo') => {
+    setRecentActivity(prev => [{
+      id: Date.now(),
+      action, billNumber, customerName, detail, time: new Date(), type
+    }, ...prev].slice(0, 20)); // Keep last 20 actions
+  };
   const [dateFilteredRevenue, setDateFilteredRevenue] = useState(0);
   const [dateFilteredBillCount, setDateFilteredBillCount] = useState(0);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [selectedBillForPayment, setSelectedBillForPayment] = useState<any>(null);
+  const [paymentAmount, setPaymentAmount] = useState('');
+  const [paymentNote, setPaymentNote] = useState('');
   const [showTagHistory, setShowTagHistory] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
 
@@ -676,35 +696,56 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
   const loadBillHistory = async () => {
     try {
       console.log('📚 Loading ALL bills for history...');
-      // Load ALL bills, not just completed/delivered
       const response = await apiService.getBills({
-        limit: 1000, // Get more bills
+        limit: 1000,
         sortBy: 'createdAt',
         sortOrder: 'desc'
       });
 
       if (response.success && response.data) {
-        console.log(`✅ Loaded ${response.data.length || 0} bills from database`);
-        // Handle both array and paginated response
-        const bills = Array.isArray(response.data) ? response.data : response.data.bills || response.data;
-        setBillHistory(bills);
+        const dbBills = Array.isArray(response.data) ? response.data : response.data.bills || response.data;
+        console.log(`✅ Loaded ${dbBills.length} bills from database`);
 
-        // Also save to localStorage as backup
-        localStorage.setItem('laundry_bill_history', JSON.stringify(bills));
+        // MERGE: combine DB bills with any local-only bills not yet synced
+        const localRaw = localStorage.getItem('laundry_bill_history');
+        const localBills: any[] = localRaw ? JSON.parse(localRaw) : [];
+
+        // Find local bills that are NOT in DB (unsynced offline bills)
+        const dbBillNumbers = new Set(dbBills.map((b: any) => b.billNumber));
+        const unsyncedLocal = localBills.filter((b: any) => !dbBillNumbers.has(b.billNumber));
+
+        if (unsyncedLocal.length > 0) {
+          console.log(`🔄 Found ${unsyncedLocal.length} unsynced local bills — attempting to sync to DB...`);
+          for (const bill of unsyncedLocal) {
+            try {
+              await apiService.createBill(bill);
+              console.log(`✅ Synced bill ${bill.billNumber} to DB`);
+            } catch (e) {
+              console.warn(`⚠️ Could not sync bill ${bill.billNumber}:`, e);
+            }
+          }
+        }
+
+        // Merge: DB bills first, then any still-unsynced local bills
+        const merged = [...dbBills, ...unsyncedLocal.filter((b: any) => !dbBillNumbers.has(b.billNumber))];
+        merged.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+        setBillHistory(merged);
+        // Save merged result back to localStorage
+        localStorage.setItem('laundry_bill_history', JSON.stringify(merged));
       } else {
-        console.warn('⚠️ No bills data in response, trying localStorage');
+        console.warn('⚠️ No bills data in response, using localStorage');
         throw new Error('No data from API');
       }
     } catch (error) {
       console.error('❌ Error loading bills from database:', error);
-      // Fallback to localStorage
+      // Fallback to localStorage — do NOT clear it
       const saved = localStorage.getItem('laundry_bill_history');
       if (saved) {
         const localBills = JSON.parse(saved);
         console.log(`📱 Loaded ${localBills.length} bills from localStorage`);
         setBillHistory(localBills);
       } else {
-        console.log('📭 No bills found in localStorage either');
         setBillHistory([]);
       }
     }
@@ -722,32 +763,24 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
 
   const markBillAsCompleted = async (billId: string) => {
     try {
-      console.log('🔄 Marking bill as completed:', billId);
+      const bill = pendingBills.find(b => (b.id || b._id) === billId) || billHistory.find(b => (b.id || b._id) === billId);
       const response = await apiService.updateBillStatus(billId, 'completed');
-      console.log('📊 Update response:', response);
-
       if (response.success) {
-        console.log('✅ Bill status updated successfully');
+        if (bill) logActivity('Marked Complete', bill.billNumber, bill.customerName, `Status → Completed`, 'status');
         loadPendingBills();
         loadBillHistory();
       } else {
-        console.error('❌ API error:', response.message);
         showAlert({ message: 'Error updating bill status: ' + response.message, type: 'error' });
       }
     } catch (error) {
-      console.error('❌ Error updating bill status:', error);
-      // Fallback to localStorage logic
       const bill = pendingBills.find(b => (b.id || b._id) === billId);
       if (bill) {
-        console.log('📱 Using localStorage fallback for bill:', bill.billNumber);
         const updatedBill = { ...bill, status: 'completed' as const };
         const remainingPending = pendingBills.filter(b => (b.id || b._id) !== billId);
-        const updatedHistory = [...billHistory, updatedBill];
-
         savePendingBills(remainingPending);
-        saveBillHistory(updatedHistory);
+        saveBillHistory([...billHistory, updatedBill]);
+        logActivity('Marked Complete', bill.billNumber, bill.customerName, 'Status → Completed (offline)', 'status');
       } else {
-        console.error('❌ Bill not found in pending bills:', billId);
         showAlert({ message: 'Error: Bill not found', type: 'error' });
       }
     }
@@ -755,12 +788,14 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
 
   const markBillAsDelivered = async (billId: string) => {
     try {
+      const bill = pendingBills.find(b => (b.id || b._id) === billId) || billHistory.find(b => (b.id || b._id) === billId);
       console.log('🚚 Marking bill as delivered:', billId);
       const response = await apiService.updateBillStatus(billId, 'delivered');
       console.log('📊 Update response:', response);
 
       if (response.success) {
         console.log('✅ Bill status updated to delivered');
+        if (bill) logActivity('Marked Delivered', bill.billNumber, bill.customerName, 'Status → Delivered', 'status');
         loadPendingBills();
         loadBillHistory();
       } else {
@@ -799,16 +834,153 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
       phone: shopConfig.contact,
       billNumber: bill.billNumber,
       customerName: bill.customerName,
+      customerPhone: bill.customerPhone,
       items: bill.items,
       subtotal: bill.subtotal,
       discount: bill.discount,
       deliveryCharge: bill.deliveryCharge,
       grandTotal: bill.grandTotal,
-      thankYouMessage: systemPrefs.thankYouMessage,
-      termsAndConditions: systemPrefs.termsAndConditions
+      amountPaid: bill.amountPaid || 0,
+      amountDue: bill.amountDue !== undefined ? bill.amountDue : (bill.grandTotal - (bill.amountPaid || 0)),
+      paymentStatus: bill.paymentStatus || (bill.amountPaid ? 'partial' : 'unpaid'),
+      paymentHistory: bill.paymentHistory || [],
+      thankYouMessage: systemPrefs?.thankYouMessage || 'Thank you for choosing us!',
+      termsAndConditions: systemPrefs?.termsAndConditions
     };
 
-    printThermalBill(billData, (message) => showAlert({ message, type: 'error' }));
+    import('./CleanThermalPrint').then(({ printCleanThermalBill }) => {
+      printCleanThermalBill(billData, (message) => showAlert({ message, type: 'error' }));
+    });
+  };
+
+  const removePayment = async (paymentIndex: number) => {
+    if (!selectedBillForPayment) return;
+    showConfirm(
+      `Remove this payment entry? This will update the due amount.`,
+      async () => {
+        // Calculate updated values immediately
+        const updatedHistory = [...(selectedBillForPayment.paymentHistory || [])];
+        updatedHistory.splice(paymentIndex, 1);
+        const totalPaid = updatedHistory.reduce((sum: number, p: any) => sum + Number(p.amount), 0);
+        const amountDue = Math.max(0, selectedBillForPayment.grandTotal - totalPaid);
+        const updatedBillData = {
+          ...selectedBillForPayment,
+          paymentHistory: updatedHistory,
+          amountPaid: totalPaid,
+          amountDue,
+          paymentStatus: amountDue === 0 ? 'paid' : totalPaid > 0 ? 'partial' : 'unpaid' as any
+        };
+
+        // Update React state and localStorage immediately
+        setSelectedBillForPayment(updatedBillData);
+
+        const updateStore = (bills: any[], key: string) => {
+          const updated = bills.map((b: any) =>
+            b.billNumber === selectedBillForPayment.billNumber ? { ...b, ...updatedBillData } : b
+          );
+          localStorage.setItem(key, JSON.stringify(updated));
+          return updated;
+        };
+
+        const localPending = JSON.parse(localStorage.getItem('laundry_pending_bills') || '[]');
+        setPendingBills(updateStore(localPending, 'laundry_pending_bills'));
+
+        const localHistory = JSON.parse(localStorage.getItem('laundry_bill_history') || '[]');
+        setBillHistory(updateStore(localHistory, 'laundry_bill_history'));
+
+        // Try DB
+        try {
+          setLoading(true);
+          const response = await apiService.removePayment(selectedBillForPayment.billNumber, paymentIndex);
+          if (response.success) {
+            showAlert({ message: 'Payment removed. Revenue updated.', type: 'success' });
+            logActivity('Payment Removed', selectedBillForPayment.billNumber, selectedBillForPayment.customerName, `Payment of ₹${(selectedBillForPayment.paymentHistory || [])[paymentIndex]?.amount || ''} removed. New paid: ₹${totalPaid}`, 'undo');
+            loadPendingBills();
+            loadBillHistory();
+          } else {
+            showAlert({ message: 'Payment removed locally. Revenue updated.', type: 'warning' });
+          }
+        } catch (error) {
+          showAlert({ message: 'Payment removed locally. Revenue updated.', type: 'warning' });
+        } finally {
+          setLoading(false);
+        }
+      }
+    );
+  };
+
+  const addPartialPayment = async () => {
+    if (!selectedBillForPayment || !paymentAmount || Number(paymentAmount) <= 0) {
+      showAlert({ message: 'Please enter a valid payment amount', type: 'warning' });
+      return;
+    }
+    setLoading(true);
+    const billId = selectedBillForPayment.id || selectedBillForPayment._id;
+    const newPayment = { amount: Number(paymentAmount), note: paymentNote, date: new Date().toISOString() };
+    const totalPaid = (selectedBillForPayment.amountPaid || 0) + Number(paymentAmount);
+    const amountDue = Math.max(0, selectedBillForPayment.grandTotal - totalPaid);
+    const newPaymentStatus = amountDue === 0 ? 'paid' : 'partial';
+
+    // Always update localStorage immediately so it persists
+    const updateLocalStorage = (bills: any[], key: string) => {
+      const updated = bills.map((b: any) => {
+        const id = b.id || b._id || b.billNumber;
+        const targetId = billId || selectedBillForPayment.billNumber;
+        if (id === targetId || b.billNumber === selectedBillForPayment.billNumber) {
+          return {
+            ...b,
+            amountPaid: totalPaid,
+            amountDue,
+            paymentStatus: newPaymentStatus,
+            paymentHistory: [...(b.paymentHistory || []), newPayment]
+          };
+        }
+        return b;
+      });
+      localStorage.setItem(key, JSON.stringify(updated));
+      return updated;
+    };
+
+    // Update pending bills in localStorage AND React state immediately
+    const localPending = JSON.parse(localStorage.getItem('laundry_pending_bills') || '[]');
+    const updatedPending = updateLocalStorage(localPending, 'laundry_pending_bills');
+    setPendingBills(updatedPending);
+
+    // Update bill history in localStorage AND React state immediately
+    const localHistory = JSON.parse(localStorage.getItem('laundry_bill_history') || '[]');
+    const updatedHistory = updateLocalStorage(localHistory, 'laundry_bill_history');
+    setBillHistory(updatedHistory);
+
+    // Try to save to DB
+    try {
+      console.log('💾 Saving payment to DB - billId:', billId, 'billNumber:', selectedBillForPayment.billNumber);
+      const response = await apiService.addPartialPayment(
+        billId, 
+        Number(paymentAmount), 
+        paymentNote,
+        selectedBillForPayment.billNumber
+      );
+      console.log('📨 Payment API response:', response);
+      if (response.success) {
+        showAlert({ message: `₹${paymentAmount} payment recorded. Due: ₹${amountDue}`, type: 'success' });
+        logActivity('Payment Added', selectedBillForPayment.billNumber, selectedBillForPayment.customerName, `₹${paymentAmount} paid${paymentNote ? ' — ' + paymentNote : ''}. Due: ₹${amountDue}`, 'payment');
+        // Reload from DB to get latest data
+        loadPendingBills();
+        loadBillHistory();
+      } else {
+        console.error('❌ DB payment failed:', response.message);
+        showAlert({ message: `Payment saved locally. DB: ${response.message}`, type: 'warning' });
+      }
+    } catch (error: any) {
+      console.error('❌ Payment API exception:', error);
+      showAlert({ message: `Payment saved locally (offline). Revenue updated.`, type: 'warning' });
+    } finally {
+      setLoading(false);
+      setShowPaymentModal(false);
+      setPaymentAmount('');
+      setPaymentNote('');
+      setSelectedBillForPayment(null);
+    }
   };
 
   const filteredPendingBills = pendingBills.filter(bill =>
@@ -863,7 +1035,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
         return matches;
       });
 
-      const revenue = filtered.reduce((sum, bill) => sum + (bill.grandTotal || 0), 0);
+      const revenue = filtered.reduce((sum, bill) => {
+        // Use amountPaid if partial payment exists, otherwise grandTotal for completed bills
+        if (bill.amountPaid && bill.amountPaid > 0) return sum + bill.amountPaid;
+        if (bill.status === 'completed' || bill.status === 'delivered') return sum + (bill.grandTotal || 0);
+        return sum;
+      }, 0);
       setDateFilteredRevenue(revenue);
       setDateFilteredBillCount(filtered.length);
     } else {
@@ -994,81 +1171,272 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
                   </div>
                 </div>
 
-                {/* Stats Grid */}
+                {/* Stats Grid - Only Total Bills and Pending on front */}
                 <div style={{
                   display: 'grid',
                   gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
                   gap: '12px',
-                  marginBottom: '28px'
+                  marginBottom: '20px'
                 }}>
-                  {[
-                    {
-                      title: 'Total Revenue',
-                      value: dashboardData?.month?.revenue
-                        ? `₹${dashboardData.month.revenue.toLocaleString()}`
-                        : `₹${(pendingBills.reduce((sum, bill) => sum + bill.grandTotal, 0) + billHistory.reduce((sum, bill) => sum + bill.grandTotal, 0)).toLocaleString()}`,
-                      icon: 'fa-rupee-sign',
-                      subtitle: dashboardData ? 'This month' : 'Local data'
-                    },
-                    {
-                      title: 'Today Revenue',
-                      value: dashboardData?.today?.revenue
-                        ? `₹${dashboardData.today.revenue.toLocaleString()}`
-                        : `₹${[...pendingBills, ...billHistory]
-                          .filter(bill => new Date(bill.createdAt).toDateString() === new Date().toDateString())
-                          .reduce((sum, bill) => sum + bill.grandTotal, 0).toLocaleString()}`,
-                      icon: 'fa-calendar-day',
-                      subtitle: dashboardData ? 'From database' : 'Local data'
-                    },
+                  {(() => {
+                    // Calculate revenue from local state (always up-to-date)
+                    const calcRevenue = (bills: any[]) => bills.reduce((sum, bill) => {
+                      if (bill.amountPaid && bill.amountPaid > 0) return sum + bill.amountPaid;
+                      if (bill.status === 'completed' || bill.status === 'delivered') return sum + (bill.grandTotal || 0);
+                      return sum;
+                    }, 0);
+
+                    const calcPendingDue = (bills: any[]) => bills.reduce((sum, bill) => {
+                      const due = bill.amountDue !== undefined ? bill.amountDue : bill.grandTotal;
+                      return sum + (due || 0);
+                    }, 0);
+
+                    const totalRevenue = calcRevenue([...pendingBills, ...billHistory]);
+                    const pendingDue = calcPendingDue(pendingBills);
+                    const totalBills = pendingBills.length + billHistory.length;
+
+                    return [
                     {
                       title: 'Total Bills',
-                      value: dashboardData?.month?.bills
-                        ? dashboardData.month.bills.toString()
-                        : (pendingBills.length + billHistory.length).toString(),
+                      value: totalBills.toString(),
                       icon: 'fa-file-invoice',
-                      subtitle: dashboardData ? 'This month' : 'Local data'
+                      subtitle: 'All bills',
+                      color: '#3b82f6'
                     },
                     {
-                      title: 'Pending',
-                      value: dashboardData?.pendingBills !== undefined
-                        ? dashboardData.pendingBills.toString()
-                        : pendingBills.length.toString(),
+                      title: 'Pending Bills',
+                      value: pendingBills.length.toString(),
                       icon: 'fa-clock',
-                      subtitle: pendingBills.length > 5 ? 'Needs attention' : 'On track'
+                      subtitle: pendingBills.length > 5 ? '⚠️ Needs attention' : '✅ On track',
+                      color: '#f59e0b'
                     },
                     {
-                      title: 'Today Profit',
-                      value: dashboardData?.today?.profit !== undefined
-                        ? `₹${dashboardData.today.profit.toLocaleString()}`
-                        : 'N/A',
-                      icon: 'fa-chart-pie',
-                      subtitle: dashboardData ? 'Revenue − Expenses' : 'Connect DB'
+                      title: 'Pending Amount',
+                      value: `₹${pendingDue.toLocaleString()}`,
+                      icon: 'fa-rupee-sign',
+                      subtitle: 'Remaining to collect',
+                      color: '#ef4444'
+                    },
+                    {
+                      title: 'Total Revenue',
+                      value: `₹${totalRevenue.toLocaleString()}`,
+                      icon: 'fa-chart-line',
+                      subtitle: 'Actual collected amount',
+                      color: '#10b981'
                     }
-                  ].map((stat, index) => (
+                  ];})().map((stat, index) => (
                     <div key={index} style={{
                       background: 'var(--bg-elevated)',
-                      border: '1px solid var(--border-subtle)',
+                      border: `1px solid ${stat.color}40`,
+                      borderLeft: `4px solid ${stat.color}`,
                       borderRadius: 'var(--radius-md)',
                       padding: '16px'
                     }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
                         <div style={{
                           width: '32px', height: '32px', borderRadius: '8px',
-                          background: 'var(--accent-muted)',
+                          background: `${stat.color}20`,
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          color: 'var(--accent)', fontSize: '14px'
+                          color: stat.color, fontSize: '14px'
                         }}>
                           <i className={`fas ${stat.icon}`}></i>
                         </div>
                         <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: '500' }}>{stat.title}</span>
                       </div>
-                      <div style={{ fontSize: '22px', fontWeight: '700', color: 'var(--text-primary)', marginBottom: '4px' }}>
+                      <div style={{ fontSize: '22px', fontWeight: '700', color: stat.color, marginBottom: '4px' }}>
                         {stat.value}
                       </div>
                       <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{stat.subtitle}</div>
                     </div>
                   ))}
                 </div>
+
+                {/* Revenue Details - Collapsible */}
+                <details style={{ marginBottom: '20px' }}>
+                  <summary style={{
+                    cursor: 'pointer',
+                    padding: '12px 16px',
+                    background: 'var(--bg-elevated)',
+                    border: '1px solid var(--border-subtle)',
+                    borderRadius: 'var(--radius-md)',
+                    color: 'var(--text-primary)',
+                    fontWeight: '600',
+                    fontSize: '14px',
+                    listStyle: 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}>
+                    <i className="fas fa-chart-bar" style={{ color: '#10b981' }}></i>
+                    📊 Revenue Details (Today & This Month)
+                    <span style={{ marginLeft: 'auto', fontSize: '12px', color: 'var(--text-muted)' }}>Click to expand ▼</span>
+                  </summary>
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                    gap: '12px',
+                    marginTop: '12px',
+                    padding: '16px',
+                    background: 'var(--bg-elevated)',
+                    border: '1px solid var(--border-subtle)',
+                    borderRadius: 'var(--radius-md)'
+                  }}>
+                    {[
+                      {
+                        title: 'Today Revenue',
+                        value: dashboardData?.today?.revenue
+                          ? `₹${dashboardData.today.revenue.toLocaleString()}`
+                          : `₹${[...pendingBills, ...billHistory]
+                            .filter(bill => new Date(bill.createdAt).toDateString() === new Date().toDateString())
+                            .reduce((sum, bill) => {
+                              if (bill.amountPaid && bill.amountPaid > 0) return sum + bill.amountPaid;
+                              if (bill.status === 'completed' || bill.status === 'delivered') return sum + (bill.grandTotal || 0);
+                              return sum;
+                            }, 0).toLocaleString()}`,
+                        icon: 'fa-calendar-day',
+                        subtitle: 'Actual collected today',
+                        color: '#3b82f6'
+                      },
+                      {
+                        title: 'Today Pending',
+                        value: `₹${[...pendingBills]
+                          .filter(bill => new Date(bill.createdAt).toDateString() === new Date().toDateString())
+                          .reduce((sum, bill) => {
+                            const due = bill.amountDue !== undefined ? bill.amountDue : bill.grandTotal;
+                            return sum + (due || 0);
+                          }, 0).toLocaleString()}`,
+                        icon: 'fa-hourglass-half',
+                        subtitle: 'Due amount today',
+                        color: '#f59e0b'
+                      },
+                      {
+                        title: 'This Month Revenue',
+                        value: dashboardData?.month?.revenue
+                          ? `₹${dashboardData.month.revenue.toLocaleString()}`
+                          : `₹${[...pendingBills, ...billHistory]
+                            .filter(bill => {
+                              const d = new Date(bill.createdAt);
+                              const n = new Date();
+                              return d.getMonth() === n.getMonth() && d.getFullYear() === n.getFullYear();
+                            })
+                            .reduce((sum, bill) => {
+                              if (bill.amountPaid && bill.amountPaid > 0) return sum + bill.amountPaid;
+                              if (bill.status === 'completed' || bill.status === 'delivered') return sum + (bill.grandTotal || 0);
+                              return sum;
+                            }, 0).toLocaleString()}`,
+                        icon: 'fa-calendar-alt',
+                        subtitle: 'Actual collected this month',
+                        color: '#10b981'
+                      },
+                      {
+                        title: 'Today Profit',
+                        value: dashboardData?.today?.profit !== undefined
+                          ? `₹${dashboardData.today.profit.toLocaleString()}`
+                          : 'N/A',
+                        icon: 'fa-chart-pie',
+                        subtitle: 'Revenue − Expenses',
+                        color: '#8b5cf6'
+                      }
+                    ].map((stat, index) => (
+                      <div key={index} style={{
+                        background: 'var(--bg-base)',
+                        border: `1px solid ${stat.color}30`,
+                        borderLeft: `3px solid ${stat.color}`,
+                        borderRadius: 'var(--radius-sm)',
+                        padding: '14px'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                          <div style={{
+                            width: '28px', height: '28px', borderRadius: '6px',
+                            background: `${stat.color}20`,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            color: stat.color, fontSize: '12px'
+                          }}>
+                            <i className={`fas ${stat.icon}`}></i>
+                          </div>
+                          <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '500' }}>{stat.title}</span>
+                        </div>
+                        <div style={{ fontSize: '20px', fontWeight: '700', color: stat.color, marginBottom: '3px' }}>
+                          {stat.value}
+                        </div>
+                        <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{stat.subtitle}</div>
+                      </div>
+                    ))}
+                  </div>
+                </details>
+
+                {/* Recent Activity Log */}
+                {recentActivity.length > 0 && (
+                  <div style={{ marginBottom: '24px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                      <h3 style={{ color: 'var(--text-primary)', margin: 0, fontSize: '15px', fontWeight: '600' }}>
+                        <i className="fas fa-history" style={{ marginRight: '6px', color: '#f59e0b' }}></i>
+                        Recent Activity
+                      </h3>
+                      <button
+                        onClick={() => setRecentActivity([])}
+                        style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '12px' }}
+                      >
+                        Clear
+                      </button>
+                    </div>
+                    <div style={{
+                      background: 'var(--bg-elevated)',
+                      borderRadius: 'var(--radius-md)',
+                      border: '1px solid var(--border-subtle)',
+                      overflow: 'hidden'
+                    }}>
+                      {recentActivity.slice(0, 8).map((activity, i) => (
+                        <div key={activity.id} style={{
+                          display: 'flex', alignItems: 'center', gap: '12px',
+                          padding: '10px 14px',
+                          borderBottom: i < Math.min(recentActivity.length, 8) - 1 ? '1px solid var(--border-subtle)' : 'none',
+                          background: i === 0 ? 'rgba(59,130,246,0.08)' : 'transparent'
+                        }}>
+                          {/* Icon */}
+                          <div style={{
+                            width: '32px', height: '32px', borderRadius: '8px', flexShrink: 0,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px',
+                            background: activity.type === 'payment' ? 'rgba(16,185,129,0.15)' :
+                                        activity.type === 'undo' ? 'rgba(239,68,68,0.15)' :
+                                        activity.type === 'status' ? 'rgba(59,130,246,0.15)' : 'rgba(107,114,128,0.15)'
+                          }}>
+                            {activity.type === 'payment' ? '💰' :
+                             activity.type === 'undo' ? '↩️' :
+                             activity.type === 'status' ? '✅' : '✏️'}
+                          </div>
+                          {/* Info */}
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)' }}>
+                                {activity.customerName}
+                              </span>
+                              <span style={{
+                                fontSize: '10px', padding: '1px 6px', borderRadius: '4px',
+                                background: 'var(--bg-base)', color: 'var(--text-muted)',
+                                fontFamily: 'monospace'
+                              }}>
+                                {activity.billNumber}
+                              </span>
+                              {i === 0 && (
+                                <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '4px', background: '#3b82f6', color: 'white', fontWeight: 'bold' }}>
+                                  LATEST
+                                </span>
+                              )}
+                            </div>
+                            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                              {activity.action} — {activity.detail}
+                            </div>
+                          </div>
+                          {/* Time */}
+                          <div style={{ fontSize: '11px', color: 'var(--text-muted)', flexShrink: 0, textAlign: 'right' }}>
+                            {activity.time.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Quick Actions */}
                 <div style={{ marginBottom: '24px' }}>
@@ -1761,71 +2129,77 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
                   </div>
                 ) : (
                   <div style={{ display: 'grid', gap: '8px' }}>
-                    {filteredPendingBills.map(bill => (
-                      <div key={bill.id} style={{
+                    {filteredPendingBills.map(bill => {
+                      const amountPaid = bill.amountPaid || 0;
+                      const amountDue = bill.amountDue !== undefined ? bill.amountDue : bill.grandTotal;
+                      const paymentStatus = bill.paymentStatus || 'unpaid';
+                      const paymentPercent = bill.grandTotal > 0 ? Math.min(100, (amountPaid / bill.grandTotal) * 100) : 0;
+                      // Only show badge for partial payments - paid/unpaid are not useful in pending view
+                      const showPartialBadge = paymentStatus === 'partial' && amountPaid > 0;
+
+                      return (
+                      <div key={bill.id || bill._id} style={{
                         background: 'rgba(255, 255, 255, 0.1)',
                         borderRadius: '8px',
                         padding: '12px',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center'
+                        border: showPartialBadge ? '1px solid #f59e0b' : '1px solid rgba(255,255,255,0.1)'
                       }}>
-                        <div style={{ color: 'white' }}>
-                          <h4 style={{ margin: '0 0 3px 0', fontSize: '14px' }}>{bill.customerName}</h4>
-                          <p style={{ margin: '0 0 2px 0', opacity: 0.8, fontSize: '11px' }}>Bill: {bill.billNumber}</p>
-                          <p style={{ margin: '0 0 2px 0', opacity: 0.8, fontSize: '11px' }}>
-                            Items: {bill.items.length} | Total: ₹{bill.grandTotal}
-                          </p>
-                          <p style={{ margin: 0, opacity: 0.6, fontSize: '10px' }}>
-                            Created: {new Date(bill.createdAt).toLocaleDateString()}
-                          </p>
-                        </div>
-                        <div style={{ display: 'flex', gap: '10px' }}>
-                          <button
-                            onClick={() => reprintBill(bill)}
-                            style={{
-                              background: 'rgba(0, 123, 255, 0.8)',
-                              border: 'none',
-                              borderRadius: '6px',
-                              padding: '8px 15px',
-                              color: 'white',
-                              cursor: 'pointer',
-                              fontSize: '12px'
-                            }}
-                          >
-                            🖨️ Reprint
-                          </button>
-                          <button
-                            onClick={() => markBillAsCompleted(bill.id || bill._id)}
-                            style={{
-                              background: 'rgba(40, 167, 69, 0.8)',
-                              border: 'none',
-                              borderRadius: '6px',
-                              padding: '8px 15px',
-                              color: 'white',
-                              cursor: 'pointer',
-                              fontSize: '12px'
-                            }}
-                          >
-                            ✅ Complete
-                          </button>
-                          <button
-                            onClick={() => markBillAsDelivered(bill.id || bill._id)}
-                            style={{
-                              background: 'rgba(255, 193, 7, 0.8)',
-                              border: 'none',
-                              borderRadius: '6px',
-                              padding: '8px 15px',
-                              color: 'white',
-                              cursor: 'pointer',
-                              fontSize: '12px'
-                            }}
-                          >
-                            🚚 Deliver
-                          </button>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                          <div style={{ color: 'white', flex: 1 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '3px' }}>
+                              <h4 style={{ margin: 0, fontSize: '14px' }}>{bill.customerName}</h4>
+                              {/* Only show badge for partial payments */}
+                              {showPartialBadge && (
+                                <span style={{
+                                  fontSize: '10px', fontWeight: 'bold', padding: '2px 8px', borderRadius: '10px',
+                                  background: '#f59e0b', color: 'white'
+                                }}>
+                                  ⚡ PARTIAL
+                                </span>
+                              )}
+                            </div>
+                            <p style={{ margin: '0 0 2px 0', opacity: 0.8, fontSize: '11px' }}>Bill: {bill.billNumber}</p>
+                            <p style={{ margin: '0 0 4px 0', opacity: 0.8, fontSize: '11px' }}>
+                              Items: {bill.items?.length || 0} | Total: ₹{bill.grandTotal}
+                            </p>
+                            {/* Payment progress - only show when partial payment exists */}
+                            {amountPaid > 0 && (
+                              <div style={{ marginBottom: '4px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '3px' }}>
+                                  <span style={{ color: '#10b981' }}>Paid: ₹{amountPaid}</span>
+                                  <span style={{ color: '#ef4444' }}>Due: ₹{amountDue}</span>
+                                </div>
+                                <div style={{ background: 'rgba(255,255,255,0.2)', borderRadius: '4px', height: '6px', overflow: 'hidden' }}>
+                                  <div style={{ width: `${paymentPercent}%`, height: '100%', background: '#10b981', borderRadius: '4px', transition: 'width 0.3s' }} />
+                                </div>
+                              </div>
+                            )}
+                            <p style={{ margin: 0, opacity: 0.6, fontSize: '10px' }}>
+                              {new Date(bill.createdAt).toLocaleDateString()}
+                            </p>
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginLeft: '10px' }}>
+                            <button
+                              onClick={() => reprintBill(bill)}
+                              style={{ background: 'rgba(0,123,255,0.8)', border: 'none', borderRadius: '6px', padding: '6px 12px', color: 'white', cursor: 'pointer', fontSize: '11px' }}
+                            >🖨️ Reprint</button>
+                            <button
+                              onClick={() => { setSelectedBillForPayment(bill); setShowPaymentModal(true); }}
+                              style={{ background: 'rgba(245,158,11,0.9)', border: 'none', borderRadius: '6px', padding: '6px 12px', color: 'white', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}
+                            >💰 Payment</button>
+                            <button
+                              onClick={() => markBillAsCompleted(bill.id || bill._id)}
+                              style={{ background: 'rgba(40,167,69,0.8)', border: 'none', borderRadius: '6px', padding: '6px 12px', color: 'white', cursor: 'pointer', fontSize: '11px' }}
+                            >✅ Complete</button>
+                            <button
+                              onClick={() => markBillAsDelivered(bill.id || bill._id)}
+                              style={{ background: 'rgba(255,193,7,0.8)', border: 'none', borderRadius: '6px', padding: '6px 12px', color: 'white', cursor: 'pointer', fontSize: '11px' }}
+                            >🚚 Deliver</button>
+                          </div>
                         </div>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -2139,17 +2513,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
                             </button>
                           )}
 
-                          <button
-                            onClick={() => {
-                              // We can pass the bill to edit specifically
-                              setEditBillToPass(bill);
-                              setShowBillManager(true);
-                            }}
-                            className="btn btn-ghost"
-                            style={{ borderRadius: 'var(--radius-md)', width: '100%', justifyContent: 'flex-start' }}
-                          >
-                            <i className="fas fa-edit" style={{ width: '20px' }}></i> Edit Bill
-                          </button>
                         </div>
                       </div>
                     ))}
@@ -2234,6 +2597,149 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
                 setActiveTab('pending');
               }}
             />
+          )}
+
+          {/* Partial Payment Modal */}
+          {showPaymentModal && selectedBillForPayment && (
+            <div style={{
+              position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+              background: 'rgba(0,0,0,0.7)', display: 'flex',
+              justifyContent: 'center', alignItems: 'center', zIndex: 9999
+            }}>
+              <div style={{
+                background: '#1f2937', borderRadius: '16px', padding: '28px',
+                width: '420px', maxWidth: '95vw', border: '1px solid #374151',
+                boxShadow: '0 20px 60px rgba(0,0,0,0.5)'
+              }}>
+                <h3 style={{ color: 'white', margin: '0 0 20px 0', fontSize: '18px', fontWeight: 'bold' }}>
+                  💰 Record Payment
+                </h3>
+
+                {/* Bill Summary */}
+                <div style={{ background: '#374151', borderRadius: '10px', padding: '14px', marginBottom: '20px' }}>
+                  <div style={{ color: 'white', fontSize: '14px', fontWeight: 'bold', marginBottom: '6px' }}>
+                    {selectedBillForPayment.customerName}
+                  </div>
+                  <div style={{ color: '#9ca3af', fontSize: '12px', marginBottom: '8px' }}>
+                    Bill: {selectedBillForPayment.billNumber}
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', textAlign: 'center' }}>
+                    <div style={{ background: '#4b5563', borderRadius: '8px', padding: '8px' }}>
+                      <div style={{ color: '#9ca3af', fontSize: '10px' }}>Total</div>
+                      <div style={{ color: 'white', fontWeight: 'bold', fontSize: '14px' }}>₹{selectedBillForPayment.grandTotal}</div>
+                    </div>
+                    <div style={{ background: '#4b5563', borderRadius: '8px', padding: '8px' }}>
+                      <div style={{ color: '#9ca3af', fontSize: '10px' }}>Paid</div>
+                      <div style={{ color: '#10b981', fontWeight: 'bold', fontSize: '14px' }}>₹{selectedBillForPayment.amountPaid || 0}</div>
+                    </div>
+                    <div style={{ background: '#4b5563', borderRadius: '8px', padding: '8px' }}>
+                      <div style={{ color: '#9ca3af', fontSize: '10px' }}>Due</div>
+                      <div style={{ color: '#ef4444', fontWeight: 'bold', fontSize: '14px' }}>
+                        ₹{selectedBillForPayment.amountDue !== undefined
+                          ? selectedBillForPayment.amountDue
+                          : selectedBillForPayment.grandTotal - (selectedBillForPayment.amountPaid || 0)}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Payment history */}
+                  {selectedBillForPayment.paymentHistory && selectedBillForPayment.paymentHistory.length > 0 && (
+                    <div style={{ marginTop: '10px' }}>
+                      <div style={{ color: '#9ca3af', fontSize: '11px', marginBottom: '4px' }}>Payment History:</div>
+                      {selectedBillForPayment.paymentHistory.map((p: any, i: number) => (
+                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', color: '#d1d5db', padding: '4px 0', borderBottom: '1px solid #4b5563' }}>
+                          <span>₹{p.amount} {p.note ? `— ${p.note}` : ''}</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ color: '#6b7280' }}>{new Date(p.date).toLocaleDateString()}</span>
+                            <button
+                              onClick={() => removePayment(i)}
+                              title="Remove this payment"
+                              style={{
+                                background: '#ef4444', border: 'none', borderRadius: '4px',
+                                color: 'white', cursor: 'pointer', fontSize: '10px',
+                                padding: '2px 6px', fontWeight: 'bold'
+                              }}
+                            >✕ Undo</button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Quick amount buttons */}
+                <div style={{ marginBottom: '14px' }}>
+                  <label style={{ color: '#9ca3af', fontSize: '12px', display: 'block', marginBottom: '8px' }}>Quick Amount</label>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    {[50, 100, 200, 500].map(amt => (
+                      <button key={amt} onClick={() => setPaymentAmount(amt.toString())}
+                        style={{ background: '#374151', border: '1px solid #4b5563', borderRadius: '8px', padding: '6px 14px', color: 'white', cursor: 'pointer', fontSize: '13px' }}>
+                        ₹{amt}
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => {
+                        const due = selectedBillForPayment.amountDue !== undefined
+                          ? selectedBillForPayment.amountDue
+                          : selectedBillForPayment.grandTotal - (selectedBillForPayment.amountPaid || 0);
+                        setPaymentAmount(due.toString());
+                      }}
+                      style={{ background: '#10b981', border: 'none', borderRadius: '8px', padding: '6px 14px', color: 'white', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' }}>
+                      Full Due
+                    </button>
+                  </div>
+                </div>
+
+                {/* Amount input */}
+                <div style={{ marginBottom: '14px' }}>
+                  <label style={{ color: '#9ca3af', fontSize: '12px', display: 'block', marginBottom: '6px' }}>Amount Received (₹) *</label>
+                  <input
+                    type="number"
+                    value={paymentAmount}
+                    onChange={(e) => setPaymentAmount(e.target.value)}
+                    placeholder="Enter amount..."
+                    style={{
+                      width: '100%', padding: '12px', borderRadius: '8px',
+                      border: '1px solid #4b5563', background: '#374151',
+                      color: 'white', fontSize: '16px', fontWeight: 'bold', boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+
+                {/* Note input */}
+                <div style={{ marginBottom: '20px' }}>
+                  <label style={{ color: '#9ca3af', fontSize: '12px', display: 'block', marginBottom: '6px' }}>Note (optional)</label>
+                  <input
+                    type="text"
+                    value={paymentNote}
+                    onChange={(e) => setPaymentNote(e.target.value)}
+                    placeholder="e.g. Cash, UPI, advance..."
+                    style={{
+                      width: '100%', padding: '10px', borderRadius: '8px',
+                      border: '1px solid #4b5563', background: '#374151',
+                      color: 'white', fontSize: '13px', boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+
+                {/* Buttons */}
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button
+                    onClick={() => { setShowPaymentModal(false); setPaymentAmount(''); setPaymentNote(''); setSelectedBillForPayment(null); }}
+                    style={{ flex: 1, padding: '12px', borderRadius: '8px', border: '1px solid #4b5563', background: 'transparent', color: 'white', cursor: 'pointer', fontSize: '14px' }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={addPartialPayment}
+                    disabled={loading || !paymentAmount}
+                    style={{ flex: 2, padding: '12px', borderRadius: '8px', border: 'none', background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white', cursor: 'pointer', fontSize: '14px', fontWeight: 'bold', opacity: loading || !paymentAmount ? 0.6 : 1 }}
+                  >
+                    {loading ? '⏳ Saving...' : '✅ Record Payment'}
+                  </button>
+                </div>
+              </div>
+            </div>
           )}
 
           {/* Bulk Operations Modal */}

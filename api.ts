@@ -138,6 +138,22 @@ class ApiService {
     });
   }
 
+  async addPartialPayment(billId: string, amount: number, note: string = '', billNumber: string = '') {
+    // Always use billNumber for the payment endpoint - most reliable
+    const idToUse = billNumber || billId;
+    console.log('💰 addPartialPayment - idToUse:', idToUse, 'billNumber:', billNumber, 'billId:', billId);
+    return this.request(`/bills/payment/${idToUse}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ amount, note, billNumber: idToUse }),
+    });
+  }
+
+  async removePayment(billNumber: string, paymentIndex: number) {
+    return this.request(`/bills/payment/${billNumber}/${paymentIndex}`, {
+      method: 'DELETE',
+    });
+  }
+
   async bulkUpdateBillStatus(billIds: string[], status: string) {
     return this.request('/bills/bulk-status', {
       method: 'PATCH',

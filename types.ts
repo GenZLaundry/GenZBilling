@@ -69,8 +69,14 @@ export interface ShopConfig {
 
 export interface PendingBill extends BillData {
   id: string;
+  _id?: string;
   status: 'pending' | 'completed' | 'delivered';
+  paymentStatus?: 'paid' | 'unpaid' | 'partial';
+  amountPaid?: number;
+  amountDue?: number;
+  paymentHistory?: Array<{ amount: number; date: string; note: string }>;
   createdAt: string;
+  updatedAt?: string;
   deliveredAt?: string;
 }
 
