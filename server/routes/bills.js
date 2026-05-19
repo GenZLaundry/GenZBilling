@@ -30,13 +30,29 @@ router.get('/', async (req, res) => {
       query.customerName = { $regex: customerName, $options: 'i' };
     }
     
-    // Global search across multiple fields
+    // Global search across multiple fields - Optimized to use indexes
     if (search) {
-      query.$or = [
-        { customerName: { $regex: search, $options: 'i' } },
-        { billNumber: { $regex: search, $options: 'i' } },
-        { customerPhone: { $regex: search, $options: 'i' } }
-      ];
+      const safeSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // Escape regex chars
+      
+      if (/^\d+$/.test(search)) {
+        // If searching a phone number, use prefix match (uses index)
+        query.$or = [
+          { customerPhone: { $regex: `^${safeSearch}` } },
+          { billNumber: { $regex: safeSearch, $options: 'i' } }
+        ];
+      } else if (search.toLowerCase().startsWith('gz')) {
+        // If searching a bill number explicitly
+        query.$or = [
+          { billNumber: { $regex: `^${safeSearch}`, $options: 'i' } }
+        ];
+      } else {
+        // General search (name or partial bill)
+        query.$or = [
+          { customerName: { $regex: `^${safeSearch}`, $options: 'i' } },
+          { customerName: { $regex: safeSearch, $options: 'i' } }, // Fallback for mid-word matches
+          { billNumber: { $regex: safeSearch, $options: 'i' } }
+        ];
+      }
     }
     
     // Filter by date range
@@ -114,11 +130,24 @@ router.get('/completed', async (req, res) => {
     };
     
     if (search) {
-      query.$or = [
-        { customerName: { $regex: search, $options: 'i' } },
-        { billNumber: { $regex: search, $options: 'i' } },
-        { customerPhone: { $regex: search, $options: 'i' } }
-      ];
+      const safeSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      
+      if (/^\d+$/.test(search)) {
+        query.$or = [
+          { customerPhone: { $regex: `^${safeSearch}` } },
+          { billNumber: { $regex: safeSearch, $options: 'i' } }
+        ];
+      } else if (search.toLowerCase().startsWith('gz')) {
+        query.$or = [
+          { billNumber: { $regex: `^${safeSearch}`, $options: 'i' } }
+        ];
+      } else {
+        query.$or = [
+          { customerName: { $regex: `^${safeSearch}`, $options: 'i' } },
+          { customerName: { $regex: safeSearch, $options: 'i' } },
+          { billNumber: { $regex: safeSearch, $options: 'i' } }
+        ];
+      }
     }
 
     const bills = await Bill.find(query)

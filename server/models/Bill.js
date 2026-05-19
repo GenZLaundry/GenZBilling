@@ -73,6 +73,16 @@ const billSchema = new mongoose.Schema({
     default: 0,
     min: 0
   },
+  previousBills: [{
+    billNumber: { type: String },
+    items: [{
+      name: { type: String },
+      quantity: { type: Number },
+      rate: { type: Number },
+      amount: { type: Number }
+    }],
+    total: { type: Number }
+  }],
   grandTotal: {
     type: Number,
     required: true,
@@ -122,6 +132,7 @@ const billSchema = new mongoose.Schema({
 });
 
 // Index for faster queries
+billSchema.index({ customerPhone: 1 });
 billSchema.index({ customerName: 1 });
 billSchema.index({ status: 1 });
 billSchema.index({ createdAt: -1 });

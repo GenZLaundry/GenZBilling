@@ -294,14 +294,29 @@ export const printCleanThermalBill = (billData: BillData, onError?: (message: st
       <div class="item-total">TOTAL</div>
     </div>
     
-    ${billData.items.map(item => `
+    ${billData.items.map(item => {
+      // Check if item is a KG item (contains "@ ₹X/kg" pattern)
+      const kgMatch = item.name.match(/^(.+?)\s*\((\d+\.?\d*)\s*kg\s*@\s*₹(\d+\.?\d*)\/kg\)$/);
+      if (kgMatch) {
+        const itemName = kgMatch[1];
+        const kg = kgMatch[2];
+        const ratePerKg = kgMatch[3];
+        return `
+    <div class="item-table-row">
+      <div class="item-name">${itemName}</div>
+      <div class="item-qty">${kg}kg</div>
+      <div class="item-price">₹${ratePerKg}/kg</div>
+      <div class="item-total">₹${item.amount}</div>
+    </div>`;
+      }
+      return `
     <div class="item-table-row">
       <div class="item-name">${item.name}</div>
       <div class="item-qty">${item.quantity}</div>
       <div class="item-price">₹${item.rate}</div>
       <div class="item-total">₹${item.amount}</div>
-    </div>
-    `).join('')}
+    </div>`;
+    }).join('')}
   </div>
   ` : ''}
 
@@ -400,8 +415,8 @@ export const printCleanThermalBill = (billData: BillData, onError?: (message: st
       <span>₹${p.amount}</span>
     </div>`).join('') : ''}
     <div style="border-top: 2px solid #000; margin-top: 2mm; padding-top: 2mm; display: flex; justify-content: space-between; font-size: 12pt; font-weight: bold;">
-      <span>${(billData.amountDue || 0) <= 0 ? '✓ FULLY PAID' : 'BALANCE DUE:'}</span>
-      <span>${(billData.amountDue || 0) <= 0 ? '' : '₹' + (billData.amountDue || (billData.grandTotal - (billData.amountPaid || 0)))}</span>
+      <span>BALANCE DUE:</span>
+      <span>₹${billData.amountDue !== undefined && billData.amountDue !== null ? billData.amountDue : (billData.grandTotal - (billData.amountPaid || 0))}</span>
     </div>
   </div>
   ` : ''}
@@ -422,13 +437,7 @@ export const printCleanThermalBill = (billData: BillData, onError?: (message: st
       UPI: ${upiConfig.upiId || '6367493127@ybl'}
     </div>
   </div>
-  ` : `
-  <div class="payment-box">
-    <div style="font-size: 18pt; font-weight: bold; margin: 3mm 0;">✅ FULLY PAID</div>
-    <div style="font-size: 11pt; margin-bottom: 2mm;">Amount Paid: ₹${amountPaid}</div>
-    <div style="font-size: 9pt; color: #333;">Thank you for the payment!</div>
-  </div>
-  `}
+  ` : ''}
   
   <!-- FOOTER -->
   <div class="footer-box">

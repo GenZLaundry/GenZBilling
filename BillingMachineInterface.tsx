@@ -11,6 +11,7 @@ import apiService from './api';
 import { useAlert } from './GlobalAlert';
 import BillShareButton from './BillShareButton';
 import { ShareableBillData } from './BillShareUtils';
+import { sendBillGeneratedWA } from './whatsappNotify';
 
 interface OrderItem {
   id: string;
@@ -61,6 +62,7 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
   const [showItemListManager, setShowItemListManager] = useState(false);
   const [showCustomerHistory, setShowCustomerHistory] = useState(false);
   const [customerHistory, setCustomerHistory] = useState<any[]>([]);
+  const [customerPendingDue, setCustomerPendingDue] = useState<{amount: number, count: number, bills: PendingBill[]}>({amount: 0, count: 0, bills: []});
   const [showQuickDiscount, setShowQuickDiscount] = useState(false);
   const [lastBillTotal, setLastBillTotal] = useState(0);
   const [customerSuggestions, setCustomerSuggestions] = useState<Array<{name: string, phone: string, lastBill?: string}>>([]);
@@ -71,7 +73,7 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
   const priceInputRef = useRef<HTMLInputElement>(null);
 
   const quickItems = [
-    { name: 'Dress Price', price: 30, washTypes: ['WASH', 'IRON'], icon: 'fa-shirt' },
+    { name: 'Dress Pieces', price: 30, washTypes: ['WASH', 'IRON'], icon: 'fa-shirt' },
     { name: 'Only Iron', price: 20, washTypes: ['WASH', 'IRON'], icon: 'fa-shirt' },
     { name: 'white Shirt (kadap)', price: 80, washTypes: ['WASH', 'IRON'], icon: 'fa-shirt' },
     { name: 'white Shirt', price: 50, washTypes: ['WASH', 'IRON'], icon: 'fa-shirt' },
@@ -131,12 +133,17 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
   };
 
   const loadCustomerHistory = async (phone: string) => {
-    if (!phone || phone.length < 10) return;
+    if (!phone || phone.length < 10) {
+      setCustomerPendingDue({ amount: 0, count: 0, bills: [] });
+      return;
+    }
 
     try {
       const response = await apiService.getBillsByCustomer(phone);
       if (response.success && response.data) {
-        setCustomerHistory(response.data.slice(0, 5)); // Last 5 bills
+        const data = Array.isArray(response.data) ? response.data : (response.data as any).bills || [];
+        setCustomerHistory(data.slice(0, 5)); // Last 5 bills
+        calculatePendingDue(data);
       }
     } catch (error) {
       console.log('Could not load customer history:', error);
@@ -144,9 +151,32 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
       const localHistory = JSON.parse(localStorage.getItem('laundry_bill_history') || '[]');
       const customerBills = localHistory.filter((bill: any) =>
         bill.customerPhone === phone
-      ).slice(0, 5);
-      setCustomerHistory(customerBills);
+      );
+      setCustomerHistory(customerBills.slice(0, 5));
+      calculatePendingDue(customerBills);
     }
+  };
+
+  const calculatePendingDue = (bills: any[]) => {
+    const pendingBills = bills.filter(b => 
+      (b.status === 'pending' || b.status === 'partial') && 
+      (b.amountDue > 0 || (b.grandTotal - (b.amountPaid || 0) > 0))
+    );
+    
+    let totalDue = 0;
+    pendingBills.forEach((b: any) => {
+      if (b.amountDue !== undefined && b.amountDue !== null) {
+        totalDue += Number(b.amountDue);
+      } else {
+        totalDue += (b.grandTotal - (b.amountPaid || 0));
+      }
+    });
+
+    setCustomerPendingDue({
+      amount: totalDue,
+      count: pendingBills.length,
+      bills: pendingBills
+    });
   };
 
   const searchCustomers = (query: string) => {
@@ -211,6 +241,8 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
   useEffect(() => {
     if (customer.phone && customer.phone.length >= 10) {
       loadCustomerHistory(customer.phone);
+    } else {
+      setCustomerPendingDue({ amount: 0, count: 0, bills: [] });
     }
   }, [customer.phone]);
 
@@ -262,7 +294,7 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
       const total = parseFloat((price * kg).toFixed(2));
       const newItem: OrderItem = {
         id: `${Date.now()}-${Math.random()}`,
-        name: `${currentItem} (${kg} kg)`,
+        name: `${currentItem} (${kg} kg @ ₹${price}/kg)`,
         quantity: 1,
         price: total,
         washType: currentWashType,
@@ -450,7 +482,7 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
           // Mark local copy as synced
           try {
             const existing = JSON.parse(localStorage.getItem('laundry_bill_history') || '[]');
-            const updated = existing.map((b: any) => b.billNumber === billData.billNumber ? { ...b, _syncedToDb: true, _id: response.data?._id || b._id } : b);
+            const updated = existing.map((b: any) => b.billNumber === billData.billNumber ? { ...b, _syncedToDb: true, _id: (response.data as any)?._id || b._id } : b);
             localStorage.setItem('laundry_bill_history', JSON.stringify(updated));
           } catch (e) { /* ignore */ }
         } else {
@@ -482,12 +514,16 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
       console.log('🖨️ Printing clean thermal bill...');
       await printCleanThermalBill(billData, (message) => showAlert({ message, type: 'error' }));
 
+      // Send WhatsApp notification — done via button in success modal, not auto-send
+      // (auto window.open after await is blocked by browsers as popup)
+
       // Store bill data for sharing
       setLastGeneratedBill({
         billNumber: billData.billNumber,
         customerName: billData.customerName || '',
         customerPhone: billData.customerPhone,
         items: billData.items,
+        previousBills: billData.previousBills,
         subtotal: billData.subtotal,
         discount: billData.discount,
         deliveryCharge: billData.deliveryCharge,
@@ -495,7 +531,9 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
         grandTotal: billData.grandTotal,
         businessName: billData.businessName,
         businessPhone: billData.phone,
-        billDate: billDate
+        businessAddress: billData.address,
+        billDate: billDate,
+        thankYouMessage: billData.thankYouMessage
       });
 
       setShowSuccess(true);
@@ -748,7 +786,24 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
               )}
             </p>
             {lastGeneratedBill && (
-              <div style={{ marginBottom: '16px' }}>
+              <div style={{ marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {/* WhatsApp button — direct user click, no popup blocker */}
+                {lastGeneratedBill.customerPhone && (
+                  <button
+                    className="btn btn-sm"
+                    style={{ background: '#25D366', color: '#fff', border: 'none', fontSize: '14px', padding: '10px 20px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                    onClick={() => sendBillGeneratedWA(
+                      lastGeneratedBill.customerPhone!,
+                      lastGeneratedBill.customerName,
+                      lastGeneratedBill.billNumber,
+                      lastGeneratedBill.items.map(i => ({ name: i.name, quantity: i.quantity })),
+                      lastGeneratedBill.grandTotal
+                    )}
+                  >
+                    <i className="fab fa-whatsapp" style={{ fontSize: '18px' }}></i>
+                    Send Bill on WhatsApp
+                  </button>
+                )}
                 <BillShareButton billData={lastGeneratedBill} variant="full" />
               </div>
             )}
@@ -800,10 +855,7 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
         <div className="pos-panel-left">
 
           {/* Customer Section */}
-          <div style={{
-            padding: '24px 28px',
-            borderBottom: '1px solid #4b5563'
-          }}>
+          <div className="pos-section">
             <div style={{
               display: 'flex',
               alignItems: 'center',
@@ -1060,13 +1112,62 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
                 📅 Today
               </button>
             </div>
+            
+            {customerPendingDue.amount > 0 && (
+              <div style={{
+                marginTop: '16px',
+                padding: '12px 16px',
+                background: 'rgba(239, 68, 68, 0.15)',
+                border: '1px solid rgba(239, 68, 68, 0.4)',
+                borderRadius: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                animation: 'pulse 2s infinite'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{
+                    width: '32px', height: '32px', borderRadius: '50%',
+                    background: 'rgba(239, 68, 68, 0.2)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: '#ef4444'
+                  }}>
+                    <i className="fas fa-exclamation-triangle"></i>
+                  </div>
+                  <div>
+                    <h4 style={{ margin: 0, color: '#ef4444', fontSize: '15px', fontWeight: '700' }}>
+                      Pending Due Alert!
+                    </h4>
+                    <p style={{ margin: 0, color: '#fca5a5', fontSize: '13px', marginTop: '2px' }}>
+                      This customer has <strong style={{ color: '#fff' }}>₹{customerPendingDue.amount}</strong> unpaid across {customerPendingDue.count} bills.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setPreviousBalance(customerPendingDue.amount);
+                    setSelectedPendingBills(customerPendingDue.bills);
+                  }}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: '6px',
+                    fontSize: '12px',
+                    background: '#ef4444',
+                    border: 'none',
+                    color: 'white',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 12px rgba(239, 68, 68, 0.3)'
+                  }}
+                >
+                  Collect Now
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Item Entry */}
-          <div style={{
-            padding: '24px 28px',
-            borderBottom: '1px solid #4b5563'
-          }}>
+          <div className="pos-section">
             <div style={{
               display: 'flex',
               alignItems: 'center',
@@ -1233,6 +1334,7 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
                     type="number"
                     value={currentQuantity}
                     onChange={(e) => setCurrentQuantity(parseInt(e.target.value) || 1)}
+                    onFocus={(e) => e.target.select()}
                     min="1"
                     className="professional-input"
                     style={{
@@ -1253,6 +1355,7 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
                       type="number"
                       value={currentKg}
                       onChange={(e) => setCurrentKg(e.target.value)}
+                      onFocus={(e) => e.target.select()}
                       placeholder="0.00"
                       step="0.1"
                       min="0"
@@ -1367,10 +1470,7 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
           </div>
 
           {/* Quick Items */}
-          <div className="scrollable-area" style={{
-            padding: '24px 28px', flex: 1, overflow: 'auto',
-            borderTop: '2px solid #4b5563'
-          }}>
+          <div className="scrollable-area pos-section" style={{ flex: 1, overflow: 'auto', borderBottom: 'none' }}>
             <div style={{
               display: 'flex',
               alignItems: 'center',
@@ -1496,15 +1596,13 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
         </div>
 
         {/* Right Panel - Bill Summary */}
-        <div className="professional-card" style={{
-          width: '35%', display: 'flex', flexDirection: 'column',
-          margin: '0', borderRadius: '0', background: '#374151'
-        }}>
+        <div className="pos-panel-right">
 
           {/* Bill Header */}
           <div style={{
-            padding: '16px 20px',
-            background: '#1f2937',
+            padding: '20px 24px',
+            background: 'rgba(255, 255, 255, 0.03)',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
             color: 'white',
             display: 'flex',
             justifyContent: 'space-between',
@@ -1820,9 +1918,10 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
 
           {/* Bill Footer - Professional Calculations & Actions */}
           <div style={{
-            background: 'linear-gradient(135deg, #000000ff, #408999ff)',
-            padding: '20px',
-            borderTop: '1px solid rgba(91, 56, 56, 0.1)'
+            background: 'rgba(0, 0, 0, 0.2)',
+            padding: '24px',
+            borderTop: '1px solid rgba(255, 255, 255, 0.05)',
+            boxShadow: '0 -10px 30px rgba(0,0,0,0.2)'
           }}>
 
             {/* Quick Adjustments */}
@@ -1984,31 +2083,8 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
               <button
                 onClick={printClothingTags}
                 disabled={orderItems.length === 0 || !customer.name}
-                style={{
-                  flex: 1,
-                  padding: '12px',
-                  borderRadius: '8px',
-                  fontSize: '12px',
-                  fontWeight: '600',
-                  background: orderItems.length === 0 || !customer.name
-                    ? 'rgba(189, 195, 199, 0.3)'
-                    : 'linear-gradient(135deg, #f39c12, #e67e22)',
-                  color: 'white',
-                  cursor: orderItems.length === 0 || !customer.name ? 'not-allowed' : 'pointer',
-                  border: 'none',
-                  textAlign: 'center',
-                  transition: 'all 0.2s ease'
-                }}
-                onMouseOver={(e) => {
-                  if (orderItems.length > 0 && customer.name) {
-                    e.target.style.transform = 'translateY(-2px)';
-                    e.target.style.boxShadow = '0 4px 12px rgba(243, 156, 18, 0.3)';
-                  }
-                }}
-                onMouseOut={(e) => {
-                  e.target.style.transform = 'translateY(0)';
-                  e.target.style.boxShadow = 'none';
-                }}
+                className="btn btn-warning"
+                style={{ flex: 1, padding: '14px', borderRadius: '12px', fontSize: '13px' }}
               >
                 <i className="fas fa-tag"></i> Print Tags
               </button>
@@ -2016,33 +2092,8 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
               <button
                 onClick={clearOrder}
                 disabled={orderItems.length === 0 && selectedPendingBills.length === 0 && previousBalance === 0}
-                style={{
-                  flex: 1,
-                  padding: '12px',
-                  borderRadius: '8px',
-                  fontSize: '12px',
-                  fontWeight: '600',
-                  background: (orderItems.length === 0 && selectedPendingBills.length === 0 && previousBalance === 0)
-                    ? 'rgba(189, 195, 199, 0.3)'
-                    : 'linear-gradient(135deg, #95a5a6, #7f8c8d)',
-                  color: 'white',
-                  cursor: (orderItems.length === 0 && selectedPendingBills.length === 0 && previousBalance === 0)
-                    ? 'not-allowed'
-                    : 'pointer',
-                  border: 'none',
-                  textAlign: 'center',
-                  transition: 'all 0.2s ease'
-                }}
-                onMouseOver={(e) => {
-                  if (orderItems.length > 0 || selectedPendingBills.length > 0 || previousBalance > 0) {
-                    e.target.style.transform = 'translateY(-2px)';
-                    e.target.style.boxShadow = '0 4px 12px rgba(149, 165, 166, 0.3)';
-                  }
-                }}
-                onMouseOut={(e) => {
-                  e.target.style.transform = 'translateY(0)';
-                  e.target.style.boxShadow = 'none';
-                }}
+                className="btn btn-ghost"
+                style={{ flex: 1, padding: '14px', borderRadius: '12px', fontSize: '13px' }}
               >
                 <i className="fas fa-trash"></i> Clear
               </button>
@@ -2051,36 +2102,25 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
             <button
               onClick={processOrder}
               disabled={!customer.name || (orderItems.length === 0 && selectedPendingBills.length === 0 && previousBalance === 0) || isProcessing}
+              className="btn btn-success"
               style={{
                 width: '100%',
-                padding: '14px',
-                borderRadius: '10px',
-                fontSize: '14px',
-                fontWeight: 'bold',
-                background: (!customer.name || (orderItems.length === 0 && selectedPendingBills.length === 0 && previousBalance === 0) || isProcessing)
-                  ? 'rgba(189, 195, 199, 0.3)'
-                  : 'linear-gradient(135deg, #27ae60, #2ecc71)',
-                color: 'white',
-                cursor: (!customer.name || (orderItems.length === 0 && selectedPendingBills.length === 0 && previousBalance === 0) || isProcessing)
-                  ? 'not-allowed'
-                  : 'pointer',
-                border: 'none',
-                textAlign: 'center',
-                transition: 'all 0.2s ease',
-                boxShadow: '0 2px 8px rgba(39, 174, 96, 0.2)'
-              }}
-              onMouseOver={(e) => {
-                if (customer.name && (orderItems.length > 0 || selectedPendingBills.length > 0 || previousBalance > 0) && !isProcessing) {
-                  e.target.style.transform = 'translateY(-2px)';
-                  e.target.style.boxShadow = '0 6px 16px rgba(39, 174, 96, 0.4)';
-                }
-              }}
-              onMouseOut={(e) => {
-                e.target.style.transform = 'translateY(0)';
-                e.target.style.boxShadow = '0 2px 8px rgba(39, 174, 96, 0.2)';
+                padding: '18px',
+                borderRadius: '16px',
+                fontSize: '16px',
+                letterSpacing: '1px',
+                fontWeight: '800',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                gap: '10px'
               }}
             >
-              <i className="fas fa-print"></i> PRINT BILL
+              {isProcessing ? (
+                <><i className="fas fa-spinner fa-spin"></i> Processing...</>
+              ) : (
+                <><i className="fas fa-print"></i> PRINT BILL</>
+              )}
             </button>
 
             {/* Bottom Section - Scanner Left, Controls Right */}

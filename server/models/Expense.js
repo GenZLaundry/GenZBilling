@@ -18,12 +18,36 @@ const expenseSchema = new mongoose.Schema({
   category: {
     type: String,
     required: true,
-    enum: ['RENT', 'UTILITIES', 'SUPPLIES', 'MAINTENANCE', 'SALARY', 'MARKETING', 'OTHER'],
+    enum: ['RENT', 'UTILITIES', 'SUPPLIES', 'MAINTENANCE', 'SALARY', 'MARKETING', 'TRANSPORT', 'FOOD', 'OTHER'],
     default: 'OTHER'
   },
   date: {
     type: Date,
     default: Date.now
+  },
+  isRecurring: {
+    type: Boolean,
+    default: false
+  },
+  recurringFrequency: {
+    type: String,
+    enum: ['daily', 'weekly', 'monthly', 'yearly', null],
+    default: null
+  },
+  paymentMethod: {
+    type: String,
+    enum: ['CASH', 'UPI', 'CARD', 'BANK_TRANSFER', 'OTHER'],
+    default: 'CASH'
+  },
+  paidTo: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  receiptNumber: {
+    type: String,
+    trim: true,
+    default: ''
   },
   createdAt: {
     type: Date,
@@ -35,7 +59,6 @@ const expenseSchema = new mongoose.Schema({
   }
 });
 
-// Update the updatedAt field before saving
 expenseSchema.pre('save', function(next) {
   this.updatedAt = Date.now();
   next();
