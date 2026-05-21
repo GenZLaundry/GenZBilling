@@ -3,13 +3,15 @@ import { ShopConfig, PendingBill, BillData } from './types';
 import { printThermalBill } from './ThermalPrintManager';
 import AddPreviousBill from './AddPreviousBill';
 import AnalyticsDashboard from './AnalyticsDashboard';
-import ExpenseManager from './ExpenseManager';
+import FinanceManager from './FinanceManager';
 import BillManager from './BillManager';
 import TagHistoryViewer from './TagHistoryViewer';
 import RevenueDashboard from './RevenueDashboard';
 import ComprehensiveRevenueDashboard from './ComprehensiveRevenueDashboard';
+import BillShareButton from './BillShareButton';
 import apiService from './api';
 import { useAlert } from './GlobalAlert';
+import { sendReadyPickupWA, sendDeliveredWA, sendPaymentReceivedWA } from './whatsappNotify';
 
 interface AdminDashboardProps {
   onBackToBilling: () => void;
@@ -31,7 +33,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
   const [editBillToPass, setEditBillToPass] = useState<any>(null); // New state for passing bill to BillManager
   const [showAddPreviousBill, setShowAddPreviousBill] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(false);
-  const [showExpenseManager, setShowExpenseManager] = useState(false);
+  const [showFinanceManager, setShowFinanceManager] = useState(false);
   const [showBillManager, setShowBillManager] = useState(false);
   const [loading, setLoading] = useState(false);
   const [dashboardData, setDashboardData] = useState<any>(null);
@@ -65,6 +67,92 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
       id: Date.now(),
       action, billNumber, customerName, detail, time: new Date(), type
     }, ...prev].slice(0, 20)); // Keep last 20 actions
+  };
+
+  const [showBulkSMS, setShowBulkSMS] = useState(false);
+  const [bulkSMSMessage, setBulkSMSMessage] = useState('');
+  const [smsCustomers, setSmsCustomers] = useState<any[]>([]);
+  const [selectedSMSCustomers, setSelectedSMSCustomers] = useState<string[]>([]);
+  const [smsSending, setSmsSending] = useState(false);
+  const [smsResult, setSmsResult] = useState<any>(null);
+
+  const loadSMSCustomers = async () => {
+    try {
+      const response = await apiService.getSMSCustomers();
+      if (response.success) {
+        setSmsCustomers(response.data);
+        setSelectedSMSCustomers(response.data.map((c: any) => c.phone));
+      }
+    } catch (error) {
+      // Fallback to localStorage
+      const localHistory = JSON.parse(localStorage.getItem('laundry_bill_history') || '[]');
+      const customerMap = new Map();
+      localHistory.forEach((bill: any) => {
+        const phone = bill.customerPhone?.replace(/\D/g, '').slice(-10);
+        if (phone && phone.length === 10 && !customerMap.has(phone)) {
+          customerMap.set(phone, { name: bill.customerName, phone });
+        }
+      });
+      const customers = Array.from(customerMap.values());
+      setSmsCustomers(customers as any[]);
+      setSelectedSMSCustomers((customers as any[]).map((c: any) => c.phone));
+    }
+  };
+
+  const sendBulkSMS = async () => {
+    if (!bulkSMSMessage.trim()) {
+      showAlert({ message: 'Please enter a message', type: 'warning' });
+      return;
+    }
+    if (selectedSMSCustomers.length === 0) {
+      showAlert({ message: 'Please select at least one customer', type: 'warning' });
+      return;
+    }
+    setSmsSending(true);
+    setSmsResult(null);
+    try {
+      // Build personalized messages — replace {name} with customer name if present in message
+      const hasNamePlaceholder = bulkSMSMessage.includes('{name}');
+      
+      let successCount = 0;
+      let failCount = 0;
+      const results = [];
+
+      for (const phone of selectedSMSCustomers) {
+        const customer = smsCustomers.find((c: any) => c.phone === phone);
+        const customerName = customer?.name || 'Customer';
+        
+        // Personalize message with customer name
+        const personalizedMessage = hasNamePlaceholder
+          ? bulkSMSMessage.replace(/{name}/gi, customerName)
+          : bulkSMSMessage;
+
+        try {
+          const response = await apiService.sendBulkCustomSMS(personalizedMessage, [phone]);
+          if (response.success && response.successCount > 0) {
+            successCount++;
+            results.push({ phone, name: customerName, success: true });
+          } else {
+            failCount++;
+            results.push({ phone, name: customerName, success: false });
+          }
+        } catch (e) {
+          failCount++;
+          results.push({ phone, name: customerName, success: false });
+        }
+        // Small delay to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 150));
+      }
+
+      setSmsResult({ success: true, message: `✅ Sent: ${successCount} success, ❌ ${failCount} failed`, successCount, failCount });
+      if (successCount > 0) {
+        showAlert({ message: `SMS sent to ${successCount} customers`, type: 'success' });
+      }
+    } catch (error) {
+      showAlert({ message: 'Failed to send SMS', type: 'error' });
+    } finally {
+      setSmsSending(false);
+    }
   };
   const [dateFilteredRevenue, setDateFilteredRevenue] = useState(0);
   const [dateFilteredBillCount, setDateFilteredBillCount] = useState(0);
@@ -171,7 +259,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
   const closeAllModals = () => {
     setShowAddPreviousBill(false);
     setShowAnalytics(false);
-    setShowExpenseManager(false);
+    setShowFinanceManager(false);
     setShowBillManager(false);
     setShowDataImport(false);
     setShowBackupRestore(false);
@@ -710,6 +798,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
         const localRaw = localStorage.getItem('laundry_bill_history');
         const localBills: any[] = localRaw ? JSON.parse(localRaw) : [];
 
+        // Build a map of local bills by billNumber for quick lookup
+        const localBillMap = new Map(localBills.map((b: any) => [b.billNumber, b]));
+
         // Find local bills that are NOT in DB (unsynced offline bills)
         const dbBillNumbers = new Set(dbBills.map((b: any) => b.billNumber));
         const unsyncedLocal = localBills.filter((b: any) => !dbBillNumbers.has(b.billNumber));
@@ -726,8 +817,23 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
           }
         }
 
-        // Merge: DB bills first, then any still-unsynced local bills
-        const merged = [...dbBills, ...unsyncedLocal.filter((b: any) => !dbBillNumbers.has(b.billNumber))];
+        // Merge DB bills with local data — preserve previousBills, paymentHistory from localStorage
+        const enrichedDbBills = dbBills.map((dbBill: any) => {
+          const localBill = localBillMap.get(dbBill.billNumber);
+          if (localBill) {
+            return {
+              ...dbBill,
+              // Preserve these fields from localStorage if DB doesn't have them
+              previousBills: dbBill.previousBills?.length ? dbBill.previousBills : (localBill.previousBills || undefined),
+              paymentHistory: dbBill.paymentHistory?.length ? dbBill.paymentHistory : (localBill.paymentHistory || []),
+              amountPaid: dbBill.amountPaid || localBill.amountPaid || 0,
+              amountDue: dbBill.amountDue !== undefined ? dbBill.amountDue : localBill.amountDue,
+            };
+          }
+          return dbBill;
+        });
+
+        const merged = [...enrichedDbBills, ...unsyncedLocal.filter((b: any) => !dbBillNumbers.has(b.billNumber))];
         merged.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
         setBillHistory(merged);
@@ -766,7 +872,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
       const bill = pendingBills.find(b => (b.id || b._id) === billId) || billHistory.find(b => (b.id || b._id) === billId);
       const response = await apiService.updateBillStatus(billId, 'completed');
       if (response.success) {
-        if (bill) logActivity('Marked Complete', bill.billNumber, bill.customerName, `Status → Completed`, 'status');
+        if (bill) {
+          logActivity('Marked Complete', bill.billNumber, bill.customerName, `Status → Completed`, 'status');
+          // Send WhatsApp — use setTimeout so it runs after the async chain
+          // and is treated as a new task (avoids popup blocker in most browsers)
+          if (bill.customerPhone) {
+            setTimeout(() => {
+              try { sendReadyPickupWA(bill.customerPhone!, bill.customerName, bill.billNumber); } catch {}
+            }, 100);
+          }
+        }
         loadPendingBills();
         loadBillHistory();
       } else {
@@ -795,7 +910,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
 
       if (response.success) {
         console.log('✅ Bill status updated to delivered');
-        if (bill) logActivity('Marked Delivered', bill.billNumber, bill.customerName, 'Status → Delivered', 'status');
+        if (bill) {
+          logActivity('Marked Delivered', bill.billNumber, bill.customerName, 'Status → Delivered', 'status');
+          // Send WhatsApp "delivered" notification
+          if (bill.customerPhone) {
+            setTimeout(() => {
+              try { sendDeliveredWA(bill.customerPhone!, bill.customerName, bill.billNumber); } catch {}
+            }, 100);
+          }
+        }
         loadPendingBills();
         loadBillHistory();
       } else {
@@ -828,22 +951,50 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
   };
 
   const reprintBill = (bill: PendingBill) => {
+    // Try to get full bill data from localStorage (has previousBills)
+    let fullBill: any = bill;
+    try {
+      const localHistory = JSON.parse(localStorage.getItem('laundry_bill_history') || '[]');
+      const localPending = JSON.parse(localStorage.getItem('laundry_pending_bills') || '[]');
+      const allLocal = [...localHistory, ...localPending];
+      const found = allLocal.find((b: any) => 
+        b.billNumber === bill.billNumber || 
+        b.billNumber === (bill as any).billNumber
+      );
+      if (found) {
+        console.log('📋 Found bill in localStorage:', found.billNumber, 'previousBills:', found.previousBills?.length || 0);
+        fullBill = { ...bill, ...found };
+      } else {
+        console.warn('⚠️ Bill not found in localStorage, using DB data');
+      }
+    } catch (e) { console.warn('localStorage lookup failed:', e); }
+
+    console.log('🖨️ Reprinting bill:', fullBill.billNumber, {
+      items: fullBill.items?.length,
+      previousBills: fullBill.previousBills?.length || 0,
+      previousBalance: fullBill.previousBalance,
+      grandTotal: fullBill.grandTotal
+    });
+
     const billData: BillData = {
       businessName: shopConfig.shopName,
       address: shopConfig.address,
       phone: shopConfig.contact,
-      billNumber: bill.billNumber,
-      customerName: bill.customerName,
-      customerPhone: bill.customerPhone,
-      items: bill.items,
-      subtotal: bill.subtotal,
-      discount: bill.discount,
-      deliveryCharge: bill.deliveryCharge,
-      grandTotal: bill.grandTotal,
-      amountPaid: bill.amountPaid || 0,
-      amountDue: bill.amountDue !== undefined ? bill.amountDue : (bill.grandTotal - (bill.amountPaid || 0)),
-      paymentStatus: bill.paymentStatus || (bill.amountPaid ? 'partial' : 'unpaid'),
-      paymentHistory: bill.paymentHistory || [],
+      billNumber: fullBill.billNumber,
+      billDate: fullBill.billDate || fullBill.createdAt?.split('T')[0],
+      customerName: fullBill.customerName,
+      customerPhone: fullBill.customerPhone,
+      items: fullBill.items,
+      previousBills: fullBill.previousBills || undefined,
+      subtotal: fullBill.subtotal,
+      discount: fullBill.discount,
+      deliveryCharge: fullBill.deliveryCharge,
+      previousBalance: fullBill.previousBalance || 0,
+      grandTotal: fullBill.grandTotal,
+      amountPaid: fullBill.amountPaid || 0,
+      amountDue: fullBill.amountDue !== undefined ? fullBill.amountDue : (fullBill.grandTotal - (fullBill.amountPaid || 0)),
+      paymentStatus: fullBill.paymentStatus || (fullBill.amountPaid ? 'partial' : 'unpaid'),
+      paymentHistory: fullBill.paymentHistory || [],
       thankYouMessage: systemPrefs?.thankYouMessage || 'Thank you for choosing us!',
       termsAndConditions: systemPrefs?.termsAndConditions
     };
@@ -964,7 +1115,19 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
       if (response.success) {
         showAlert({ message: `₹${paymentAmount} payment recorded. Due: ₹${amountDue}`, type: 'success' });
         logActivity('Payment Added', selectedBillForPayment.billNumber, selectedBillForPayment.customerName, `₹${paymentAmount} paid${paymentNote ? ' — ' + paymentNote : ''}. Due: ₹${amountDue}`, 'payment');
-        // Reload from DB to get latest data
+        // Send WhatsApp payment notification
+        if (selectedBillForPayment.customerPhone) {
+          try {
+            sendPaymentReceivedWA(
+              selectedBillForPayment.customerPhone,
+              selectedBillForPayment.customerName,
+              totalPaid,
+              amountDue,
+              selectedBillForPayment.billNumber
+            );
+            console.log('✅ Payment WhatsApp sent');
+          } catch (e) { console.warn('WhatsApp failed:', e); }
+        }
         loadPendingBills();
         loadBillHistory();
       } else {
@@ -1125,7 +1288,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
               { key: 'revenue', label: 'Revenue', icon: 'fa-indian-rupee-sign' },
               { key: 'analytics', label: 'Analytics', icon: 'fa-chart-pie' },
               { key: 'manage', label: 'Data Manager', icon: 'fa-database' },
-              { key: 'expenses', label: 'Expenses', icon: 'fa-wallet' },
+              { key: 'finance', label: 'Finance Center', icon: 'fa-landmark' },
               { key: 'pending', label: 'Pending', icon: 'fa-clock' },
               { key: 'history', label: 'History', icon: 'fa-list-check' },
               { key: 'tags', label: 'Tag History', icon: 'fa-tag' },
@@ -1180,16 +1343,26 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
                 }}>
                   {(() => {
                     // Calculate revenue from local state (always up-to-date)
-                    const calcRevenue = (bills: any[]) => bills.reduce((sum, bill) => {
-                      if (bill.amountPaid && bill.amountPaid > 0) return sum + bill.amountPaid;
-                      if (bill.status === 'completed' || bill.status === 'delivered') return sum + (bill.grandTotal || 0);
-                      return sum;
-                    }, 0);
+                    const calcRevenue = (bills: any[]) => {
+                      try {
+                        return bills.reduce((sum, bill) => {
+                          if (!bill) return sum;
+                          if (bill.amountPaid && bill.amountPaid > 0) return sum + Number(bill.amountPaid);
+                          if (bill.status === 'completed' || bill.status === 'delivered') return sum + Number(bill.grandTotal || 0);
+                          return sum;
+                        }, 0);
+                      } catch { return 0; }
+                    };
 
-                    const calcPendingDue = (bills: any[]) => bills.reduce((sum, bill) => {
-                      const due = bill.amountDue !== undefined ? bill.amountDue : bill.grandTotal;
-                      return sum + (due || 0);
-                    }, 0);
+                    const calcPendingDue = (bills: any[]) => {
+                      try {
+                        return bills.reduce((sum, bill) => {
+                          if (!bill) return sum;
+                          const due = bill.amountDue !== undefined ? bill.amountDue : bill.grandTotal;
+                          return sum + Number(due || 0);
+                        }, 0);
+                      } catch { return 0; }
+                    };
 
                     const totalRevenue = calcRevenue([...pendingBills, ...billHistory]);
                     const pendingDue = calcPendingDue(pendingBills);
@@ -1286,25 +1459,25 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
                         title: 'Today Revenue',
                         value: dashboardData?.today?.revenue
                           ? `₹${dashboardData.today.revenue.toLocaleString()}`
-                          : `₹${[...pendingBills, ...billHistory]
-                            .filter(bill => new Date(bill.createdAt).toDateString() === new Date().toDateString())
+                          : `₹${(() => { try { return [...pendingBills, ...billHistory]
+                            .filter(bill => bill && new Date(bill.createdAt).toDateString() === new Date().toDateString())
                             .reduce((sum, bill) => {
-                              if (bill.amountPaid && bill.amountPaid > 0) return sum + bill.amountPaid;
-                              if (bill.status === 'completed' || bill.status === 'delivered') return sum + (bill.grandTotal || 0);
+                              if (bill.amountPaid && bill.amountPaid > 0) return sum + Number(bill.amountPaid);
+                              if (bill.status === 'completed' || bill.status === 'delivered') return sum + Number(bill.grandTotal || 0);
                               return sum;
-                            }, 0).toLocaleString()}`,
+                            }, 0); } catch { return 0; } })().toLocaleString()}`,
                         icon: 'fa-calendar-day',
                         subtitle: 'Actual collected today',
                         color: '#3b82f6'
                       },
                       {
                         title: 'Today Pending',
-                        value: `₹${[...pendingBills]
-                          .filter(bill => new Date(bill.createdAt).toDateString() === new Date().toDateString())
+                        value: `₹${(() => { try { return [...pendingBills]
+                          .filter(bill => bill && new Date(bill.createdAt).toDateString() === new Date().toDateString())
                           .reduce((sum, bill) => {
                             const due = bill.amountDue !== undefined ? bill.amountDue : bill.grandTotal;
-                            return sum + (due || 0);
-                          }, 0).toLocaleString()}`,
+                            return sum + Number(due || 0);
+                          }, 0); } catch { return 0; } })().toLocaleString()}`,
                         icon: 'fa-hourglass-half',
                         subtitle: 'Due amount today',
                         color: '#f59e0b'
@@ -1313,17 +1486,18 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
                         title: 'This Month Revenue',
                         value: dashboardData?.month?.revenue
                           ? `₹${dashboardData.month.revenue.toLocaleString()}`
-                          : `₹${[...pendingBills, ...billHistory]
+                          : `₹${(() => { try { return [...pendingBills, ...billHistory]
                             .filter(bill => {
+                              if (!bill) return false;
                               const d = new Date(bill.createdAt);
                               const n = new Date();
                               return d.getMonth() === n.getMonth() && d.getFullYear() === n.getFullYear();
                             })
                             .reduce((sum, bill) => {
-                              if (bill.amountPaid && bill.amountPaid > 0) return sum + bill.amountPaid;
-                              if (bill.status === 'completed' || bill.status === 'delivered') return sum + (bill.grandTotal || 0);
+                              if (bill.amountPaid && bill.amountPaid > 0) return sum + Number(bill.amountPaid);
+                              if (bill.status === 'completed' || bill.status === 'delivered') return sum + Number(bill.grandTotal || 0);
                               return sum;
-                            }, 0).toLocaleString()}`,
+                            }, 0); } catch { return 0; } })().toLocaleString()}`,
                         icon: 'fa-calendar-alt',
                         subtitle: 'Actual collected this month',
                         color: '#10b981'
@@ -1458,7 +1632,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
                         }
                       },
                       { title: 'Revenue', icon: 'fa-chart-line', action: () => setActiveTab('revenue') },
-                      { title: 'Expenses', icon: 'fa-wallet', action: () => setShowExpenseManager(true) },
+                      { title: 'Finance Center', icon: 'fa-landmark', action: () => setShowFinanceManager(true) },
                       { title: 'Edit Bills', icon: 'fa-pen', action: () => setShowBillManager(true) },
                       { title: 'Add Previous', icon: 'fa-history', action: () => setShowAddPreviousBill(true) },
                       {
@@ -1485,7 +1659,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
                           printThermalBill(testBill);
                         }
                       },
-                      { title: 'Backup', icon: 'fa-cloud-download-alt', action: backupAllData }
+                      { title: 'Backup', icon: 'fa-cloud-download-alt', action: backupAllData },
+                      { title: 'Bulk SMS', icon: 'fa-sms', action: () => { setShowBulkSMS(true); loadSMSCustomers(); } }
                     ].map((action, index) => (
                       <button
                         key={index}
@@ -1587,23 +1762,23 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
               <AnalyticsDashboard />
             )}
 
-            {activeTab === 'expenses' && (
+            {activeTab === 'finance' && (
               <div style={{ animation: 'slideIn 0.5s ease-out' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                   <div>
                     <h2 style={{ color: 'var(--text-primary)', margin: 0, fontSize: '18px', fontWeight: 'bold', display: 'flex', alignItems: 'center' }}>
-                      <i className="fas fa-wallet" style={{ marginRight: '8px', color: 'var(--accent)' }}></i> Expense Management
+                      <i className="fas fa-landmark" style={{ marginRight: '8px', color: 'var(--accent)' }}></i> Finance Center
                     </h2>
                     <p style={{ color: 'var(--text-secondary)', margin: '4px 0 0 0', fontSize: '12px' }}>
-                      Track and manage business expenses
+                      Track and manage all business cash flow
                     </p>
                   </div>
                   <button
-                    onClick={() => { closeAllModals(); setShowExpenseManager(true); }}
+                    onClick={() => { closeAllModals(); setShowFinanceManager(true); }}
                     className="btn btn-primary"
                     style={{ padding: '8px 16px', borderRadius: 'var(--radius-md)', fontSize: '12px' }}
                   >
-                    <i className="fas fa-wallet" style={{ marginRight: '6px' }}></i> Manage Expenses
+                    <i className="fas fa-landmark" style={{ marginRight: '6px' }}></i> Open Finance Center
                   </button>
                 </div>
 
@@ -1627,7 +1802,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
                     marginBottom: '8px',
                     color: 'var(--text-primary)'
                   }}>
-                    Track Business Expenses
+                    Complete Financial Control
                   </h3>
                   <p style={{
                     color: 'var(--text-secondary)',
@@ -1637,8 +1812,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
                     maxWidth: '400px',
                     margin: '0 auto 24px auto'
                   }}>
-                    Add and manage all business expenses including rent, utilities, and supplies.<br />
-                    Calculate true profit by tracking income against expenses.
+                    Manage business expenses, capital income, and loans/advances all in one place.<br />
+                    Get a complete picture of your business's financial health.
                   </p>
 
                   <div style={{
@@ -1650,9 +1825,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
                     margin: '0 auto 24px auto'
                   }}>
                     {[
-                      { icon: 'fa-home', title: 'Rent & Utilities', desc: 'Fixed costs', color: 'var(--error)' },
-                      { icon: 'fa-box-open', title: 'Supplies', desc: 'Materials', color: 'var(--warning)' },
-                      { icon: 'fa-chart-line', title: 'Profit Analysis', desc: 'Income vs Expenses', color: 'var(--success)' }
+                      { icon: 'fa-piggy-bank', title: 'Income & Capital', desc: 'Investments', color: 'var(--success)' },
+                      { icon: 'fa-wallet', title: 'Expenses', desc: 'Operational costs', color: 'var(--error)' },
+                      { icon: 'fa-hand-holding-usd', title: 'Loans', desc: 'Given & returned', color: 'var(--warning)' }
                     ].map((item, index) => (
                       <div key={index} style={{
                         background: 'var(--bg-base)',
@@ -1673,11 +1848,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
                   </div>
 
                   <button
-                    onClick={() => { closeAllModals(); setShowExpenseManager(true); }}
+                    onClick={() => { closeAllModals(); setShowFinanceManager(true); }}
                     className="btn btn-primary"
                     style={{ borderRadius: 'var(--radius-md)', padding: '12px 24px', fontSize: '14px' }}
                   >
-                    <i className="fas fa-rocket" style={{ marginRight: '8px' }}></i> Open Expense Manager
+                    <i className="fas fa-rocket" style={{ marginRight: '8px' }}></i> Open Finance Center
                   </button>
                 </div>
               </div>
@@ -2503,6 +2678,31 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
                             <i className="fas fa-print" style={{ width: '20px' }}></i> Reprint
                           </button>
 
+                          <BillShareButton
+                            billData={{
+                              billNumber: bill.billNumber,
+                              customerName: bill.customerName,
+                              customerPhone: bill.customerPhone,
+                              items: bill.items,
+                              previousBills: (bill as any).previousBills,
+                              subtotal: bill.subtotal,
+                              discount: bill.discount,
+                              deliveryCharge: bill.deliveryCharge,
+                              previousBalance: bill.previousBalance || 0,
+                              grandTotal: bill.grandTotal,
+                              amountPaid: bill.amountPaid || 0,
+                              amountDue: bill.amountDue,
+                              paymentStatus: bill.paymentStatus,
+                              paymentHistory: bill.paymentHistory,
+                              businessName: shopConfig.shopName,
+                              businessPhone: shopConfig.contact,
+                              businessAddress: shopConfig.address,
+                              billDate: bill.createdAt,
+                              thankYouMessage: 'Thank you for choosing Gen-z laundry!'
+                            }}
+                            variant="button"
+                          />
+
                           {bill.status !== 'delivered' && (
                             <button
                               onClick={() => markBillAsDelivered(bill.id || bill._id)}
@@ -2574,8 +2774,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
           {/* Removed Analytics Modal - Now renders inline */}
 
           {/* Expense Manager Modal */}
-          {showExpenseManager && (
-            <ExpenseManager onClose={() => setShowExpenseManager(false)} />
+          {showFinanceManager && (
+            <FinanceManager onClose={() => setShowFinanceManager(false)} />
           )}
 
           {/* Bill Manager Modal */}
@@ -2597,6 +2797,223 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
                 setActiveTab('pending');
               }}
             />
+          )}
+
+          {/* Bulk SMS Modal */}
+          {showBulkSMS && (
+            <div style={{
+              position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+              background: 'rgba(0,0,0,0.75)', display: 'flex',
+              justifyContent: 'center', alignItems: 'center', zIndex: 9999, padding: '20px'
+            }}>
+              <div style={{
+                background: '#1f2937', borderRadius: '16px', width: '100%', maxWidth: '600px',
+                maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column',
+                border: '1px solid #374151', boxShadow: '0 20px 60px rgba(0,0,0,0.5)'
+              }}>
+                {/* Header */}
+                <div style={{ padding: '20px 24px', borderBottom: '1px solid #374151', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#374151' }}>
+                  <div>
+                    <h3 style={{ margin: 0, color: 'white', fontSize: '18px', fontWeight: 'bold' }}>📱 Send Bulk SMS</h3>
+                    <p style={{ margin: '4px 0 0 0', color: '#9ca3af', fontSize: '13px' }}>{smsCustomers.length} customers available</p>
+                  </div>
+                  <button onClick={() => { setShowBulkSMS(false); setSmsResult(null); setBulkSMSMessage(''); }}
+                    style={{ background: 'none', border: 'none', color: '#9ca3af', cursor: 'pointer', fontSize: '20px' }}>✕</button>
+                </div>
+
+                <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1 }}>
+                  {/* Message Input */}
+                  <div style={{ marginBottom: '20px' }}>
+                    <label style={{ color: '#d1d5db', fontSize: '13px', fontWeight: '600', display: 'block', marginBottom: '8px' }}>
+                      Message *
+                    </label>
+                    <textarea
+                      value={bulkSMSMessage}
+                      onChange={(e) => setBulkSMSMessage(e.target.value)}
+                      placeholder="Type your message... Use {name} to personalize. e.g. Hi {name}, special 20% off offer at Gen-Z Laundry this week!"
+                      rows={4}
+                      style={{
+                        width: '100%', padding: '12px', borderRadius: '8px',
+                        border: '1px solid #4b5563', background: '#374151',
+                        color: 'white', fontSize: '14px', resize: 'vertical', boxSizing: 'border-box'
+                      }}
+                    />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px' }}>
+                      <span style={{ color: '#10b981', fontSize: '11px' }}>
+                        💡 Use <strong>{'{name}'}</strong> to insert customer name automatically
+                      </span>
+                      <span style={{ color: '#6b7280', fontSize: '11px' }}>{bulkSMSMessage.length} chars</span>
+                    </div>
+                  </div>
+
+                  {/* Quick Templates */}
+                  <div style={{ marginBottom: '20px' }}>
+                    <label style={{ color: '#d1d5db', fontSize: '13px', fontWeight: '600', display: 'block', marginBottom: '8px' }}>Quick Templates</label>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {[
+                        { label: '🎉 Festival Offer', msg: 'Special festival offer at Gen-Z Laundry! Get 20% off on all services this week. Visit us at Ratanada, Jodhpur. Call +91 9256930727.' },
+                        { label: '📢 New Service', msg: 'Gen-Z Laundry now offers express delivery! Get your clothes cleaned and delivered same day. Call +91 9256930727 to book.' },
+                        { label: '💰 Discount', msg: 'Exclusive offer for our valued customers! Bring 5+ clothes and get 15% discount at Gen-Z Laundry, Ratanada Jodhpur.' }
+                      ].map((t, i) => (
+                        <button key={i} onClick={() => setBulkSMSMessage(t.msg)}
+                          style={{ background: '#374151', border: '1px solid #4b5563', borderRadius: '8px', padding: '8px 12px', color: '#d1d5db', cursor: 'pointer', textAlign: 'left', fontSize: '13px' }}>
+                          {t.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Manual Number Entry */}
+                  <div style={{ marginBottom: '20px' }}>
+                    <label style={{ color: '#d1d5db', fontSize: '13px', fontWeight: '600', display: 'block', marginBottom: '8px' }}>
+                      ➕ Add Numbers Manually
+                    </label>
+                    <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                      <input
+                        type="text"
+                        id="manualNameInput"
+                        placeholder="Customer name"
+                        style={{
+                          flex: 1, padding: '10px 12px', borderRadius: '8px',
+                          border: '1px solid #4b5563', background: '#374151',
+                          color: 'white', fontSize: '14px'
+                        }}
+                      />
+                      <input
+                        type="tel"
+                        id="manualPhoneInput"
+                        placeholder="10-digit mobile"
+                        maxLength={10}
+                        style={{
+                          flex: 1, padding: '10px 12px', borderRadius: '8px',
+                          border: '1px solid #4b5563', background: '#374151',
+                          color: 'white', fontSize: '14px'
+                        }}
+                      />
+                      <button
+                        onClick={() => {
+                          const nameInput = document.getElementById('manualNameInput') as HTMLInputElement;
+                          const phoneInput = document.getElementById('manualPhoneInput') as HTMLInputElement;
+                          const name = nameInput.value.trim() || 'Customer';
+                          const phone = phoneInput.value.replace(/\D/g, '').slice(-10);
+                          if (phone.length === 10) {
+                            if (!selectedSMSCustomers.includes(phone)) {
+                              setSelectedSMSCustomers(prev => [...prev, phone]);
+                            }
+                            if (!smsCustomers.find((c: any) => c.phone === phone)) {
+                              setSmsCustomers(prev => [...prev, { name, phone }]);
+                            } else {
+                              // Update name if already exists
+                              setSmsCustomers(prev => prev.map((c: any) => c.phone === phone ? { ...c, name } : c));
+                            }
+                            nameInput.value = '';
+                            phoneInput.value = '';
+                            nameInput.focus();
+                          } else {
+                            showAlert({ message: 'Please enter a valid 10-digit number', type: 'warning' });
+                          }
+                        }}
+                        style={{
+                          padding: '10px 16px', borderRadius: '8px', border: 'none',
+                          background: '#10b981', color: 'white', cursor: 'pointer',
+                          fontSize: '14px', fontWeight: 'bold', whiteSpace: 'nowrap'
+                        }}
+                      >
+                        + Add
+                      </button>
+                    </div>
+                    <p style={{ color: '#6b7280', fontSize: '11px', margin: 0 }}>
+                      Enter name + number. Customer will receive personalized message with their name.
+                    </p>
+                  </div>
+
+                  {/* Customer Selection */}
+                  <div style={{ marginBottom: '20px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                      <label style={{ color: '#d1d5db', fontSize: '13px', fontWeight: '600' }}>
+                        Select Customers ({selectedSMSCustomers.length}/{smsCustomers.length})
+                      </label>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button onClick={() => setSelectedSMSCustomers(smsCustomers.map((c: any) => c.phone))}
+                          style={{ background: '#3b82f6', border: 'none', borderRadius: '6px', padding: '4px 10px', color: 'white', cursor: 'pointer', fontSize: '12px' }}>
+                          All
+                        </button>
+                        <button onClick={() => setSelectedSMSCustomers([])}
+                          style={{ background: '#4b5563', border: 'none', borderRadius: '6px', padding: '4px 10px', color: 'white', cursor: 'pointer', fontSize: '12px' }}>
+                          None
+                        </button>
+                      </div>
+                    </div>
+                    <div style={{ maxHeight: '200px', overflowY: 'auto', border: '1px solid #374151', borderRadius: '8px' }}>
+                      {smsCustomers.length === 0 ? (
+                        <div style={{ padding: '20px', textAlign: 'center', color: '#6b7280', fontSize: '13px' }}>
+                          No customers with phone numbers found
+                        </div>
+                      ) : smsCustomers.map((customer: any, i: number) => (
+                        <div key={i} onClick={() => {
+                          setSelectedSMSCustomers(prev =>
+                            prev.includes(customer.phone)
+                              ? prev.filter(p => p !== customer.phone)
+                              : [...prev, customer.phone]
+                          );
+                        }} style={{
+                          display: 'flex', alignItems: 'center', gap: '12px',
+                          padding: '10px 14px', cursor: 'pointer',
+                          borderBottom: i < smsCustomers.length - 1 ? '1px solid #374151' : 'none',
+                          background: selectedSMSCustomers.includes(customer.phone) ? 'rgba(59,130,246,0.1)' : 'transparent'
+                        }}>
+                          <div style={{
+                            width: '18px', height: '18px', borderRadius: '4px', border: '2px solid',
+                            borderColor: selectedSMSCustomers.includes(customer.phone) ? '#3b82f6' : '#4b5563',
+                            background: selectedSMSCustomers.includes(customer.phone) ? '#3b82f6' : 'transparent',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                          }}>
+                            {selectedSMSCustomers.includes(customer.phone) && <span style={{ color: 'white', fontSize: '12px' }}>✓</span>}
+                          </div>
+                          <div>
+                            <div style={{ color: 'white', fontSize: '13px', fontWeight: '500' }}>{customer.name}</div>
+                            <div style={{ color: '#6b7280', fontSize: '11px' }}>📱 {customer.phone}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Result */}
+                  {smsResult && (
+                    <div style={{
+                      padding: '12px', borderRadius: '8px', marginBottom: '16px',
+                      background: smsResult.successCount > 0 ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
+                      border: `1px solid ${smsResult.successCount > 0 ? '#10b981' : '#ef4444'}`
+                    }}>
+                      <div style={{ color: smsResult.successCount > 0 ? '#10b981' : '#ef4444', fontWeight: 'bold', fontSize: '14px' }}>
+                        {smsResult.message}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Footer */}
+                <div style={{ padding: '16px 24px', borderTop: '1px solid #374151', display: 'flex', gap: '12px' }}>
+                  <button onClick={() => { setShowBulkSMS(false); setSmsResult(null); setBulkSMSMessage(''); }}
+                    style={{ flex: 1, padding: '12px', borderRadius: '8px', border: '1px solid #4b5563', background: 'transparent', color: 'white', cursor: 'pointer', fontSize: '14px' }}>
+                    Cancel
+                  </button>
+                  <button
+                    onClick={sendBulkSMS}
+                    disabled={smsSending || !bulkSMSMessage.trim() || selectedSMSCustomers.length === 0}
+                    style={{
+                      flex: 2, padding: '12px', borderRadius: '8px', border: 'none',
+                      background: smsSending ? '#4b5563' : 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
+                      color: 'white', cursor: smsSending ? 'not-allowed' : 'pointer',
+                      fontSize: '14px', fontWeight: 'bold',
+                      opacity: (!bulkSMSMessage.trim() || selectedSMSCustomers.length === 0) ? 0.5 : 1
+                    }}>
+                    {smsSending ? '⏳ Sending...' : `📱 Send to ${selectedSMSCustomers.length} customers`}
+                  </button>
+                </div>
+              </div>
+            </div>
           )}
 
           {/* Partial Payment Modal */}

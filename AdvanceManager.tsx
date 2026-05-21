@@ -1,0 +1,430 @@
+import React, { useState, useEffect } from 'react';
+import apiService from './api';
+import { useAlert } from './GlobalAlert';
+
+interface AdvanceHistory {
+  amount: number;
+  type: 'GIVEN' | 'RETURNED';
+  date: string;
+  note: string;
+  _id: string;
+}
+
+interface Advance {
+  _id: string;
+  personName: string;
+  amountGiven: number;
+  amountReturned: number;
+  date: string;
+  status: 'PENDING' | 'SETTLED';
+  history: AdvanceHistory[];
+}
+
+interface AdvanceManagerProps {
+  onClose: () => void;
+}
+
+const AdvanceManager: React.FC<AdvanceManagerProps> = ({ onClose }) => {
+  const { showAlert, showConfirm } = useAlert();
+  const [advances, setAdvances] = useState<Advance[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  // Form for new advance
+  const [formData, setFormData] = useState({
+    personName: '',
+    amountGiven: '',
+    date: new Date().toISOString().split('T')[0],
+    note: ''
+  });
+
+  // Form for adding history (return or give more)
+  const [selectedAdvance, setSelectedAdvance] = useState<Advance | null>(null);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [historyForm, setHistoryForm] = useState({
+    amount: '',
+    type: 'RETURNED' as 'GIVEN' | 'RETURNED',
+    date: new Date().toISOString().split('T')[0],
+    note: ''
+  });
+
+  const loadAdvances = async () => {
+    try {
+      setLoading(true);
+      const response = await apiService.getAdvances(undefined, searchQuery);
+      if (response.success && response.data) {
+        setAdvances(response.data);
+      }
+    } catch (error) {
+      console.error('Failed to load advances:', error);
+      showAlert('Failed to load advances', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      loadAdvances();
+    }, 300);
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchQuery]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.personName || !formData.amountGiven) return;
+
+    try {
+      const payload = {
+        personName: formData.personName,
+        amountGiven: parseFloat(formData.amountGiven),
+        date: formData.date,
+        note: formData.note
+      };
+
+      const response = await apiService.createAdvance(payload);
+      if (response.success) {
+        showAlert('Advance record created successfully!', 'success');
+        resetForm();
+        loadAdvances();
+      } else {
+        showAlert('Failed to create record: ' + response.message, 'error');
+      }
+    } catch (error) {
+      console.error('Failed to create advance:', error);
+      showAlert('Failed to create record', 'error');
+    }
+  };
+
+  const handleHistorySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedAdvance || !historyForm.amount) return;
+
+    try {
+      const payload = {
+        amount: parseFloat(historyForm.amount),
+        type: historyForm.type,
+        date: historyForm.date,
+        note: historyForm.note
+      };
+
+      const response = await apiService.addAdvanceHistory(selectedAdvance._id, payload);
+      if (response.success) {
+        showAlert('History added successfully!', 'success');
+        setShowHistoryModal(false);
+        setHistoryForm({
+          amount: '',
+          type: 'RETURNED',
+          date: new Date().toISOString().split('T')[0],
+          note: ''
+        });
+        loadAdvances();
+      } else {
+        showAlert('Failed to update: ' + response.message, 'error');
+      }
+    } catch (error) {
+      console.error('Failed to add history:', error);
+      showAlert('Failed to update record', 'error');
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    showConfirm(
+      'Are you sure you want to delete this entire record? This action cannot be undone.',
+      async () => {
+        try {
+          const response = await apiService.deleteAdvance(id);
+          if (response.success) {
+            showAlert('Record deleted successfully!', 'success');
+            loadAdvances();
+          } else {
+            showAlert('Failed to delete: ' + response.message, 'error');
+          }
+        } catch (error) {
+          console.error('Failed to delete advance:', error);
+          showAlert('Failed to delete record', 'error');
+        }
+      }
+    );
+  };
+
+  const resetForm = () => {
+    setFormData({
+      personName: '',
+      amountGiven: '',
+      date: new Date().toISOString().split('T')[0],
+      note: ''
+    });
+    setShowAddForm(false);
+  };
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      maximumFractionDigits: 0
+    }).format(amount);
+  };
+
+  const totalOutstanding = advances.reduce((sum, adv) => {
+    const remaining = adv.amountGiven - adv.amountReturned;
+    return sum + (remaining > 0 ? remaining : 0);
+  }, 0);
+
+  return (
+    <div style={{
+      width: '100%',
+      height: '100%',
+      background: 'var(--bg-base)',
+      display: 'flex',
+      flexDirection: 'column',
+      animation: 'slideIn 0.3s ease'
+    }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
+        <div style={{ maxWidth: '1000px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          
+          {/* Summary Card */}
+          <div style={{
+            background: 'var(--bg-elevated)', padding: '20px', borderRadius: 'var(--radius-lg)',
+            border: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: '12px',
+            maxWidth: '300px'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ fontSize: '14px', color: 'var(--text-secondary)', fontWeight: '500' }}>
+                Total Outstanding
+              </div>
+              <div style={{ background: 'rgba(243, 156, 18, 0.1)', padding: '8px', borderRadius: '8px', color: '#f39c12' }}>
+                <i className="fas fa-clock"></i>
+              </div>
+            </div>
+            <div style={{ fontSize: '28px', fontWeight: 'bold', color: 'var(--text-primary)' }}>
+              {formatCurrency(totalOutstanding)}
+            </div>
+          </div>
+
+          {/* Controls */}
+          <div style={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <button
+              onClick={() => setShowAddForm(!showAddForm)}
+              className="btn btn-primary"
+              style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+            >
+              <i className={`fas ${showAddForm ? 'fa-times' : 'fa-plus'}`}></i>
+              {showAddForm ? 'Cancel' : 'New Loan/Advance'}
+            </button>
+            <div style={{ flex: 1, position: 'relative' }}>
+              <i className="fas fa-search" style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }}></i>
+              <input
+                type="text"
+                placeholder="Search by person name..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="input-field"
+                style={{ paddingLeft: '44px', width: '100%' }}
+              />
+            </div>
+          </div>
+
+          {/* Add Form */}
+          {showAddForm && (
+            <div style={{ padding: '24px', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-subtle)' }}>
+              <h3 style={{ margin: '0 0 20px 0', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '16px' }}>
+                <i className="fas fa-plus-circle" style={{ color: 'var(--accent)' }}></i>
+                New Loan/Advance
+              </h3>
+              <form onSubmit={handleSubmit} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+                <input
+                  type="text"
+                  placeholder="Person Name *"
+                  value={formData.personName}
+                  onChange={(e) => setFormData({ ...formData, personName: e.target.value })}
+                  className="input-field"
+                  required
+                />
+                <input
+                  type="number"
+                  placeholder="Amount Given (₹) *"
+                  value={formData.amountGiven}
+                  onChange={(e) => setFormData({ ...formData, amountGiven: e.target.value })}
+                  className="input-field"
+                  required
+                  min="1"
+                />
+                <input
+                  type="date"
+                  value={formData.date}
+                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                  className="input-field"
+                  required
+                />
+                <input
+                  type="text"
+                  placeholder="Note (optional)"
+                  value={formData.note}
+                  onChange={(e) => setFormData({ ...formData, note: e.target.value })}
+                  className="input-field"
+                />
+                <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '12px', marginTop: '8px' }}>
+                  <button type="submit" className="btn btn-primary">Save Record</button>
+                  <button type="button" onClick={resetForm} className="btn btn-secondary">Cancel</button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* List */}
+          {loading ? (
+            <div style={{ textAlign: 'center', padding: '40px' }}>Loading records...</div>
+          ) : advances.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '60px 40px', color: 'var(--text-secondary)', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', border: '1px dashed var(--border-subtle)' }}>
+              <i className="fas fa-hand-holding-usd fa-3x" style={{ opacity: 0.5, marginBottom: '20px' }}></i>
+              <h3 style={{ color: 'var(--text-primary)', margin: '0 0 8px 0' }}>No records found</h3>
+              <p style={{ margin: 0 }}>Add a loan or advance to start tracking</p>
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gap: '16px' }}>
+              {advances.map((advance) => {
+                const remaining = advance.amountGiven - advance.amountReturned;
+                const isSettled = remaining <= 0;
+
+                return (
+                  <div key={advance._id} style={{
+                    background: 'var(--bg-elevated)', 
+                    borderRadius: 'var(--radius-md)', 
+                    padding: '20px',
+                    border: '1px solid var(--border-subtle)',
+                    borderLeft: `4px solid ${isSettled ? '#27ae60' : '#f39c12'}`
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+                          <h4 style={{ margin: 0, fontSize: '18px', fontWeight: '600', color: 'var(--text-primary)' }}>
+                            {advance.personName}
+                          </h4>
+                          <span style={{
+                            background: isSettled ? '#27ae6020' : '#f39c1220', 
+                            color: isSettled ? '#27ae60' : '#f39c12',
+                            padding: '4px 10px', 
+                            borderRadius: 'var(--radius-sm)', 
+                            fontSize: '11px', 
+                            fontWeight: 'bold'
+                          }}>
+                            {isSettled ? 'SETTLED' : 'PENDING'}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', display: 'flex', gap: '16px' }}>
+                          <span>Given: {formatCurrency(advance.amountGiven)}</span>
+                          <span>Returned: <span style={{ color: '#27ae60' }}>{formatCurrency(advance.amountReturned)}</span></span>
+                          {!isSettled && <span>Remaining: <span style={{ color: '#e74c3c', fontWeight: 'bold' }}>{formatCurrency(remaining)}</span></span>}
+                        </div>
+                      </div>
+                      
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        {!isSettled && (
+                          <button
+                            onClick={() => { setSelectedAdvance(advance); setShowHistoryModal(true); setHistoryForm({ ...historyForm, type: 'RETURNED' }); }}
+                            className="btn btn-secondary"
+                            style={{ padding: '8px 12px', fontSize: '13px' }}
+                          >
+                            <i className="fas fa-undo"></i> Add Repayment
+                          </button>
+                        )}
+                        <button
+                          onClick={() => { setSelectedAdvance(advance); setShowHistoryModal(true); setHistoryForm({ ...historyForm, type: 'GIVEN' }); }}
+                          className="btn btn-ghost"
+                          style={{ padding: '8px 12px', fontSize: '13px' }}
+                        >
+                          <i className="fas fa-hand-holding-usd"></i> Give More
+                        </button>
+                        <button
+                          onClick={() => handleDelete(advance._id)}
+                          className="btn btn-ghost"
+                          style={{ padding: '8px', color: 'var(--error)' }}
+                          title="Delete Record"
+                        >
+                          <i className="fas fa-trash"></i>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* History */}
+                    {advance.history && advance.history.length > 0 && (
+                      <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border-subtle)' }}>
+                        <div style={{ fontSize: '12px', fontWeight: 'bold', color: 'var(--text-secondary)', marginBottom: '8px' }}>TRANSACTION HISTORY</div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          {advance.history.map((hist, idx) => (
+                            <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', padding: '8px', background: 'var(--bg-base)', borderRadius: '4px' }}>
+                              <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                                <span style={{ color: hist.type === 'RETURNED' ? '#27ae60' : '#e74c3c', fontWeight: 'bold', width: '70px' }}>
+                                  {hist.type === 'RETURNED' ? 'RETURN' : 'GIVEN'}
+                                </span>
+                                <span>{new Date(hist.date).toLocaleDateString()}</span>
+                                {hist.note && <span style={{ color: 'var(--text-secondary)' }}>- {hist.note}</span>}
+                              </div>
+                              <div style={{ fontWeight: 'bold' }}>{formatCurrency(hist.amount)}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* History Modal */}
+      {showHistoryModal && selectedAdvance && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.5)', zIndex: 1100,
+          display: 'flex', alignItems: 'center', justifyContent: 'center'
+        }}>
+          <div style={{ background: 'var(--bg-elevated)', padding: '24px', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: '400px' }}>
+            <h3 style={{ margin: '0 0 20px 0', color: 'var(--text-primary)' }}>
+              {historyForm.type === 'RETURNED' ? 'Add Repayment' : 'Give More Advance'}
+            </h3>
+            <p style={{ margin: '0 0 16px 0', fontSize: '14px', color: 'var(--text-secondary)' }}>
+              Person: <strong>{selectedAdvance.personName}</strong>
+              {historyForm.type === 'RETURNED' && <span><br/>Remaining: {formatCurrency(selectedAdvance.amountGiven - selectedAdvance.amountReturned)}</span>}
+            </p>
+            <form onSubmit={handleHistorySubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <input
+                type="number"
+                placeholder="Amount (₹) *"
+                value={historyForm.amount}
+                onChange={(e) => setHistoryForm({ ...historyForm, amount: e.target.value })}
+                className="input-field"
+                required
+                min="1"
+              />
+              <input
+                type="date"
+                value={historyForm.date}
+                onChange={(e) => setHistoryForm({ ...historyForm, date: e.target.value })}
+                className="input-field"
+                required
+              />
+              <input
+                type="text"
+                placeholder="Note (optional)"
+                value={historyForm.note}
+                onChange={(e) => setHistoryForm({ ...historyForm, note: e.target.value })}
+                className="input-field"
+              />
+              <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
+                <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>Save</button>
+                <button type="button" onClick={() => setShowHistoryModal(false)} className="btn btn-secondary">Cancel</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default AdvanceManager;

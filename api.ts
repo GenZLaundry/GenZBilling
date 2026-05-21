@@ -111,6 +111,10 @@ class ApiService {
     return this.request('/bills/pending');
   }
 
+  async getBillsByCustomer(phone: string) {
+    return this.request(`/bills?search=${encodeURIComponent(phone)}&limit=10`);
+  }
+
   async getCompletedBills(params: {
     page?: number;
     limit?: number;
@@ -152,6 +156,39 @@ class ApiService {
     return this.request(`/bills/payment/${billNumber}/${paymentIndex}`, {
       method: 'DELETE',
     });
+  }
+
+  // SMS Methods
+  async sendBillGeneratedSMS(phone: string, customerName: string, items: any[]) {
+    return this.request('/sms/bill-generated', {
+      method: 'POST',
+      body: JSON.stringify({ phone, customerName, items }),
+    });
+  }
+
+  async sendReadyPickupSMS(phone: string, customerName: string) {
+    return this.request('/sms/ready-pickup', {
+      method: 'POST',
+      body: JSON.stringify({ phone, customerName }),
+    });
+  }
+
+  async sendPaymentReceivedSMS(phone: string, customerName: string, amountPaid: number, amountDue: number) {
+    return this.request('/sms/payment-received', {
+      method: 'POST',
+      body: JSON.stringify({ phone, customerName, amountPaid, amountDue }),
+    });
+  }
+
+  async sendBulkCustomSMS(message: string, phones: string[]) {
+    return this.request('/sms/bulk-custom', {
+      method: 'POST',
+      body: JSON.stringify({ message, phones }),
+    });
+  }
+
+  async getSMSCustomers() {
+    return this.request('/sms/customers');
   }
 
   async bulkUpdateBillStatus(billIds: string[], status: string) {
@@ -540,6 +577,65 @@ class ApiService {
         error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
+  }
+  // --- ADVANCES API ---
+  async getAdvances(status?: string, search?: string) {
+    let url = '/advances';
+    const params = new URLSearchParams();
+    if (status) params.append('status', status);
+    if (search) params.append('search', search);
+    if (params.toString()) url += `?${params.toString()}`;
+    return this.request(url);
+  }
+
+  async createAdvance(data: { personName: string; amountGiven: number; date?: string; note?: string }) {
+    return this.request('/advances', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async addAdvanceHistory(id: string, data: { amount: number; type: 'GIVEN' | 'RETURNED'; date?: string; note?: string }) {
+    return this.request(`/advances/${id}/history`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteAdvance(id: string) {
+    return this.request(`/advances/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // --- INCOMES API ---
+  async getIncomes(startDate?: string, endDate?: string) {
+    let url = '/incomes';
+    const params = new URLSearchParams();
+    if (startDate) params.append('startDate', startDate);
+    if (endDate) params.append('endDate', endDate);
+    if (params.toString()) url += `?${params.toString()}`;
+    return this.request(url);
+  }
+
+  async createIncome(data: { source: string; amount: number; description?: string; date?: string }) {
+    return this.request('/incomes', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateIncome(id: string, data: { source: string; amount: number; description?: string; date?: string }) {
+    return this.request(`/incomes/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteIncome(id: string) {
+    return this.request(`/incomes/${id}`, {
+      method: 'DELETE',
+    });
   }
 }
 

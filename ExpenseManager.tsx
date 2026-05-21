@@ -9,6 +9,11 @@ interface Expense {
   amount: number;
   category: string;
   date: string;
+  isRecurring?: boolean;
+  recurringFrequency?: string;
+  paymentMethod?: string;
+  paidTo?: string;
+  receiptNumber?: string;
   createdAt: string;
 }
 
@@ -43,8 +48,38 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({ onClose }) => {
     description: '',
     amount: '',
     category: 'OTHER',
-    date: new Date().toISOString().split('T')[0]
+    date: new Date().toISOString().split('T')[0],
+    isRecurring: false,
+    recurringFrequency: 'monthly',
+    paymentMethod: 'CASH',
+    paidTo: '',
+    receiptNumber: ''
   });
+
+  // Budget limits per category (monthly)
+  const [budgetLimits] = useState<Record<string, number>>({
+    RENT: 15000,
+    UTILITIES: 5000,
+    SUPPLIES: 8000,
+    MAINTENANCE: 3000,
+    SALARY: 20000,
+    MARKETING: 2000,
+    TRANSPORT: 2000,
+    FOOD: 3000,
+    OTHER: 5000
+  });
+
+  // Quick expense templates
+  const quickExpenses = [
+    { title: 'Electricity Bill', category: 'UTILITIES', icon: '⚡' },
+    { title: 'Water Bill', category: 'UTILITIES', icon: '💧' },
+    { title: 'Shop Rent', category: 'RENT', icon: '🏠' },
+    { title: 'Detergent/Supplies', category: 'SUPPLIES', icon: '🧴' },
+    { title: 'Staff Salary', category: 'SALARY', icon: '👤' },
+    { title: 'Machine Repair', category: 'MAINTENANCE', icon: '🔧' },
+    { title: 'Transport/Delivery', category: 'TRANSPORT', icon: '🚗' },
+    { title: 'Food/Tea', category: 'FOOD', icon: '☕' },
+  ];
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {
@@ -61,6 +96,8 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({ onClose }) => {
     { value: 'MAINTENANCE', label: 'Maintenance', icon: 'fa-wrench', color: '#9b59b6' },
     { value: 'SALARY', label: 'Salary', icon: 'fa-money-bill-wave', color: '#27ae60' },
     { value: 'MARKETING', label: 'Marketing', icon: 'fa-bullhorn', color: '#e67e22' },
+    { value: 'TRANSPORT', label: 'Transport', icon: 'fa-car', color: '#1abc9c' },
+    { value: 'FOOD', label: 'Food', icon: 'fa-utensils', color: '#e91e63' },
     { value: 'OTHER', label: 'Other', icon: 'fa-clipboard-list', color: '#95a5a6' }
   ];
 
@@ -218,7 +255,12 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({ onClose }) => {
       description: expense.description,
       amount: expense.amount.toString(),
       category: expense.category,
-      date: expense.date.split('T')[0]
+      date: expense.date.split('T')[0],
+      isRecurring: expense.isRecurring || false,
+      recurringFrequency: expense.recurringFrequency || 'monthly',
+      paymentMethod: expense.paymentMethod || 'CASH',
+      paidTo: expense.paidTo || '',
+      receiptNumber: expense.receiptNumber || ''
     });
     setShowAddForm(true);
   };
@@ -250,7 +292,12 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({ onClose }) => {
       description: '',
       amount: '',
       category: 'OTHER',
-      date: new Date().toISOString().split('T')[0]
+      date: new Date().toISOString().split('T')[0],
+      isRecurring: false,
+      recurringFrequency: 'monthly',
+      paymentMethod: 'CASH',
+      paidTo: '',
+      receiptNumber: ''
     });
     setEditingExpense(null);
     setShowAddForm(false);
@@ -549,25 +596,7 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({ onClose }) => {
         border: '1px solid var(--border-subtle)'
       }}>
         
-        {/* Header */}
-        <div style={{
-          background: 'transparent',
-          padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          borderBottom: '1px solid var(--border-subtle)'
-        }}>
-          <div>
-            <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 'bold', color: 'var(--text-primary)' }}>
-              <i className="fas fa-wallet" style={{ marginRight: '8px', color: 'var(--accent)' }}></i>
-              Expense Management
-            </h2>
-            <p style={{ margin: '5px 0 0 0', opacity: 0.9, fontSize: '13px', color: 'var(--text-secondary)' }}>
-              Track and manage business expenses
-            </p>
-          </div>
-          <button className="btn btn-ghost btn-sm" onClick={onClose}>
-            <i className="fas fa-times"></i> Close
-          </button>
-        </div>
+        {/* No Header here since it is managed by FinanceManager */}
 
         {/* Summary Cards */}
         {expenseSummary && (

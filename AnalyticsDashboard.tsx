@@ -38,7 +38,7 @@ const AnalyticsDashboard: React.FC = () => {
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedPeriod, setSelectedPeriod] = useState<'day' | 'week' | 'month'>('month');
+  const [selectedPeriod, setSelectedPeriod] = useState<'day' | 'week' | 'month' | 'year'>('month');
   const [comparisonData, setComparisonData] = useState<any>(null);
   const [profitData, setProfitData] = useState<any>(null);
   const [activeView, setActiveView] = useState<'overview' | 'profit'>('overview');
@@ -344,13 +344,13 @@ const AnalyticsDashboard: React.FC = () => {
               {/* Period Selector */}
               <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'center' }}>
                 <div style={{ 
-                  display: 'inline-flex', 
-                  background: 'var(--bg-elevated)', 
+                  display: 'flex', 
+                  background: 'var(--bg-base)', 
                   borderRadius: 'var(--radius-md)', 
                   padding: '4px',
                   border: '1px solid var(--border-subtle)'
                 }}>
-                  {(['day', 'week', 'month'] as const).map(period => (
+                  {(['day', 'week', 'month', 'year'] as const).map(period => (
                     <button
                       key={period}
                       onClick={() => setSelectedPeriod(period)}
