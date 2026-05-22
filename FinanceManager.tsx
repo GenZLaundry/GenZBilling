@@ -116,7 +116,7 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({ onClose }) => {
 
     } catch (error) {
       console.error('Failed to load finance overview:', error);
-      showAlert('Failed to load overview data', 'error');
+      showAlert({ message: 'Failed to load overview data', type: 'error' });
     } finally {
       setLoading(false);
     }

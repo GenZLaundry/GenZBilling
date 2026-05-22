@@ -37,7 +37,7 @@ const IncomeManager: React.FC<IncomeManagerProps> = ({ onClose }) => {
       }
     } catch (error) {
       console.error('Failed to load incomes:', error);
-      showAlert('Failed to load incomes', 'error');
+      showAlert({ message: 'Failed to load incomes', type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -69,16 +69,16 @@ const IncomeManager: React.FC<IncomeManagerProps> = ({ onClose }) => {
       console.log('📥 Received income response:', response);
 
       if (response.success) {
-        showAlert(editingIncome ? 'Income updated successfully!' : 'Income logged successfully!', 'success');
+        showAlert({ message: editingIncome ? 'Income updated successfully!' : 'Income logged successfully!', type: 'success' });
         resetForm();
         loadIncomes();
       } else {
         console.error('❌ Failed to save income record:', response);
-        showAlert('Failed to save record: ' + response.message, 'error');
+        showAlert({ message: 'Failed to save record: ' + response.message, type: 'error' });
       }
     } catch (error) {
       console.error('❌ Exception in save income:', error);
-      showAlert('Failed to save record (check console)', 'error');
+      showAlert({ message: 'Failed to save record (check console)', type: 'error' });
     }
   };
 
@@ -100,14 +100,14 @@ const IncomeManager: React.FC<IncomeManagerProps> = ({ onClose }) => {
         try {
           const response = await apiService.deleteIncome(id);
           if (response.success) {
-            showAlert('Record deleted successfully!', 'success');
+            showAlert({ message: 'Record deleted successfully!', type: 'success' });
             loadIncomes();
           } else {
-            showAlert('Failed to delete: ' + response.message, 'error');
+            showAlert({ message: 'Failed to delete: ' + response.message, type: 'error' });
           }
         } catch (error) {
           console.error('Failed to delete income:', error);
-          showAlert('Failed to delete record', 'error');
+          showAlert({ message: 'Failed to delete record', type: 'error' });
         }
       }
     );
