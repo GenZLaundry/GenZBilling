@@ -83,17 +83,20 @@ const AdvanceManager: React.FC<AdvanceManagerProps> = ({ onClose }) => {
         note: formData.note
       };
 
+      console.log('📤 Sending createAdvance request with payload:', payload);
       const response = await apiService.createAdvance(payload);
+      console.log('📥 Received createAdvance response:', response);
       if (response.success) {
         showAlert('Advance record created successfully!', 'success');
         resetForm();
         loadAdvances();
       } else {
+        console.error('❌ Failed to create advance record:', response);
         showAlert('Failed to create record: ' + response.message, 'error');
       }
     } catch (error) {
-      console.error('Failed to create advance:', error);
-      showAlert('Failed to create record', 'error');
+      console.error('❌ Exception in create advance:', error);
+      showAlert('Failed to create record (check console)', 'error');
     }
   };
 
@@ -109,7 +112,9 @@ const AdvanceManager: React.FC<AdvanceManagerProps> = ({ onClose }) => {
         note: historyForm.note
       };
 
+      console.log('📤 Sending addAdvanceHistory request with payload:', payload);
       const response = await apiService.addAdvanceHistory(selectedAdvance._id, payload);
+      console.log('📥 Received addAdvanceHistory response:', response);
       if (response.success) {
         showAlert('History added successfully!', 'success');
         setShowHistoryModal(false);
@@ -121,11 +126,12 @@ const AdvanceManager: React.FC<AdvanceManagerProps> = ({ onClose }) => {
         });
         loadAdvances();
       } else {
+        console.error('❌ Failed to add advance history:', response);
         showAlert('Failed to update: ' + response.message, 'error');
       }
     } catch (error) {
-      console.error('Failed to add history:', error);
-      showAlert('Failed to update record', 'error');
+      console.error('❌ Exception in add advance history:', error);
+      showAlert('Failed to update record (check console)', 'error');
     }
   };
 

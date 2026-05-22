@@ -60,22 +60,25 @@ const IncomeManager: React.FC<IncomeManagerProps> = ({ onClose }) => {
       };
 
       let response;
+      console.log('📤 Sending income request with payload:', payload);
       if (editingIncome) {
         response = await apiService.updateIncome(editingIncome._id, payload);
       } else {
         response = await apiService.createIncome(payload);
       }
+      console.log('📥 Received income response:', response);
 
       if (response.success) {
         showAlert(editingIncome ? 'Income updated successfully!' : 'Income logged successfully!', 'success');
         resetForm();
         loadIncomes();
       } else {
+        console.error('❌ Failed to save income record:', response);
         showAlert('Failed to save record: ' + response.message, 'error');
       }
     } catch (error) {
-      console.error('Failed to save income:', error);
-      showAlert('Failed to save record', 'error');
+      console.error('❌ Exception in save income:', error);
+      showAlert('Failed to save record (check console)', 'error');
     }
   };
 
