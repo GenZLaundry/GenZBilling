@@ -21,6 +21,11 @@ const expenseSchema = new mongoose.Schema({
     enum: ['RENT', 'UTILITIES', 'SUPPLIES', 'MAINTENANCE', 'SALARY', 'MARKETING', 'TRANSPORT', 'FOOD', 'OTHER'],
     default: 'OTHER'
   },
+  type: {
+    type: String,
+    enum: ['EXPENSE', 'RETURN'],
+    default: 'EXPENSE'
+  },
   date: {
     type: Date,
     default: Date.now

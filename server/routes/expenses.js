@@ -82,8 +82,8 @@ router.get('/summary', async (req, res) => {
       }
     }
 
-    // Get total expenses for the period
-    const totalExpenses = await Expense.aggregate([
+    // Get total expenses and returns for the period
+    const expenseStats = await Expense.aggregate([
       {
         $match: {
           date: { $gte: startDate, $lte: endDate }
@@ -92,12 +92,17 @@ router.get('/summary', async (req, res) => {
       {
         $group: {
           _id: null,
-          total: { $sum: '$amount' }
+          grossExpenses: { $sum: { $cond: [{ $eq: [{ $ifNull: ['$type', 'EXPENSE'] }, 'EXPENSE'] }, '$amount', 0] } },
+          totalReturns: { $sum: { $cond: [{ $eq: ['$type', 'RETURN'] }, '$amount', 0] } }
         }
       }
     ]);
 
-    // Get expenses by category
+    const grossExpenses = expenseStats[0]?.grossExpenses || 0;
+    const totalReturns = expenseStats[0]?.totalReturns || 0;
+    const netExpenses = grossExpenses - totalReturns;
+
+    // Get net expenses by category
     const expensesByCategory = await Expense.aggregate([
       {
         $match: {
@@ -107,7 +112,7 @@ router.get('/summary', async (req, res) => {
       {
         $group: {
           _id: '$category',
-          total: { $sum: '$amount' },
+          total: { $sum: { $cond: [{ $eq: [{ $ifNull: ['$type', 'EXPENSE'] }, 'EXPENSE'] }, '$amount', { $multiply: ['$amount', -1] }] } },
           count: { $sum: 1 }
         }
       },
@@ -126,7 +131,9 @@ router.get('/summary', async (req, res) => {
     res.json({
       success: true,
       data: {
-        totalExpenses: totalExpenses[0]?.total || 0,
+        grossExpenses,
+        totalReturns,
+        totalExpenses: netExpenses,
         expensesByCategory,
         recentExpenses,
         period,
@@ -149,7 +156,7 @@ router.get('/summary', async (req, res) => {
 // Create new expense
 router.post('/', async (req, res) => {
   try {
-    const { title, description, amount, category, date } = req.body;
+    const { title, description, amount, category, date, type } = req.body;
 
     // Validation
     if (!title || !amount || amount <= 0) {
@@ -164,6 +171,7 @@ router.post('/', async (req, res) => {
       description: description?.trim() || '',
       amount: parseFloat(amount),
       category: category || 'OTHER',
+      type: type === 'RETURN' ? 'RETURN' : 'EXPENSE',
       date: date ? new Date(date) : new Date()
     });
 
@@ -188,7 +196,7 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, description, amount, category, date } = req.body;
+    const { title, description, amount, category, date, type } = req.body;
 
     // Validation
     if (!title || !amount || amount <= 0) {
@@ -205,6 +213,7 @@ router.put('/:id', async (req, res) => {
         description: description?.trim() || '',
         amount: parseFloat(amount),
         category: category || 'OTHER',
+        type: type === 'RETURN' ? 'RETURN' : 'EXPENSE',
         date: date ? new Date(date) : undefined,
         updatedAt: new Date()
       },
