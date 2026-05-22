@@ -86,8 +86,8 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({ onClose }) => {
             adv.history.forEach((hist: any) => {
               activity.push({
                 id: hist._id || Math.random().toString(),
-                type: hist.type === 'GIVEN' ? 'DIYA HUA' : 'WAPAS AAYA',
-                title: `${hist.type === 'GIVEN' ? 'Diya:' : 'Wapas aaya:'} ${adv.personName}`,
+                type: hist.type === 'GIVEN' ? 'MONEY GIVEN' : 'MONEY RETURNED',
+                title: `${hist.type === 'GIVEN' ? 'Given to:' : 'Returned from:'} ${adv.personName}`,
                 amount: hist.amount,
                 date: new Date(hist.date),
                 color: hist.type === 'GIVEN' ? '#f39c12' : '#2980b9',
@@ -186,8 +186,8 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({ onClose }) => {
           {[
             { id: 'overview', label: 'Overview Dashboard', icon: 'fa-chart-pie' },
             { id: 'income', label: 'Capital Invested', icon: 'fa-piggy-bank' },
-            { id: 'expenses', label: 'Kharcha (Expenses)', icon: 'fa-wallet' },
-            { id: 'loans', label: 'Diya Hua Paisa', icon: 'fa-hand-holding-usd' }
+            { id: 'expenses', label: 'Expense Tracker', icon: 'fa-wallet' },
+            { id: 'loans', label: 'Money Given Out', icon: 'fa-hand-holding-usd' }
           ].map((tab) => (
             <button
               key={tab.id}
@@ -235,8 +235,8 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({ onClose }) => {
           <h2 style={{ margin: 0, fontSize: '20px', color: 'var(--text-primary)', textTransform: 'capitalize' }}>
             {activeTab === 'overview' ? 'Overview Dashboard' :
              activeTab === 'income' ? 'Capital Invested' :
-             activeTab === 'expenses' ? 'Kharcha (Expenses)' :
-             activeTab === 'loans' ? 'Diya Hua Paisa' : activeTab}
+             activeTab === 'expenses' ? 'Expense Tracker' :
+             activeTab === 'loans' ? 'Money Given Out' : activeTab}
           </h2>
           <div style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
             {new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
@@ -282,7 +282,7 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({ onClose }) => {
                       <div style={{ fontSize: '22px', fontWeight: 'bold', color: '#27ae60', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {formatCurrency(overviewData.totalIncome)}
                       </div>
-                      <div style={{ fontSize: '11px', color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Apna lagaya hua paisa</div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Your invested funds</div>
                     </div>
 
                     {/* Net Balance */}
@@ -317,11 +317,11 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({ onClose }) => {
                       border: '1px solid var(--border-subtle)', borderTop: '4px solid #f39c12',
                       display: 'flex', flexDirection: 'column', gap: '6px'
                     }}>
-                      <div style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '600', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Diya Hua Paisa</div>
+                      <div style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '600', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Money Given Out</div>
                       <div style={{ fontSize: '22px', fontWeight: 'bold', color: '#f39c12', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {formatCurrency(overviewData.totalOutstandingLoans)}
                       </div>
-                      <div style={{ fontSize: '11px', color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Abhi wapas nahi aaya</div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Not yet returned</div>
                     </div>
                   </div>
 
@@ -372,7 +372,7 @@ const FinanceManager: React.FC<FinanceManagerProps> = ({ onClose }) => {
                             </div>
 
                             <div style={{ fontSize: '16px', fontWeight: 'bold', color: item.color }}>
-                              {item.type === 'EXPENSE' || item.type === 'DIYA HUA' ? '-' : '+'}{formatCurrency(item.amount)}
+                              {item.type === 'EXPENSE' || item.type === 'MONEY GIVEN' ? '-' : '+'}{formatCurrency(item.amount)}
                             </div>
                           </div>
                         ))}

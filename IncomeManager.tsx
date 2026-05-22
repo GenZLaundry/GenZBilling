@@ -83,7 +83,7 @@ const IncomeManager: React.FC<IncomeManagerProps> = ({ onClose: _onClose }) => {
   };
 
   const handleDelete = async (id: string) => {
-    showConfirm('Kya aap ye record delete karna chahte hain?', async () => {
+    showConfirm('Are you sure you want to delete this record? This cannot be undone.', async () => {
       try {
         const response = await apiService.deleteIncome(id);
         if (response.success) {
@@ -121,7 +121,7 @@ const IncomeManager: React.FC<IncomeManagerProps> = ({ onClose: _onClose }) => {
               Capital Invested
             </h2>
             <p style={{ margin: '6px 0 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>
-              Apna ya kisi ka lagaya hua paisa — business mein daala hua investment
+              Money you or someone else put into the business — your own funds or external investment
             </p>
           </div>
 
@@ -152,7 +152,7 @@ const IncomeManager: React.FC<IncomeManagerProps> = ({ onClose: _onClose }) => {
               style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#27ae60', border: 'none' }}
             >
               <i className={`fas ${showAddForm ? 'fa-times' : 'fa-plus'}`}></i>
-              {showAddForm ? 'Cancel' : '+ Capital Entry Add Karo'}
+              {showAddForm ? 'Cancel' : '+ Add Capital Entry'}
             </button>
           </div>
 
@@ -161,15 +161,15 @@ const IncomeManager: React.FC<IncomeManagerProps> = ({ onClose: _onClose }) => {
             <div style={{ padding: '24px', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-subtle)' }}>
               <h3 style={{ margin: '0 0 6px 0', color: 'var(--text-primary)', fontSize: '16px', fontWeight: '600' }}>
                 <i className={`fas ${editingIncome ? 'fa-edit' : 'fa-plus-circle'}`} style={{ color: '#27ae60', marginRight: '8px' }}></i>
-                {editingIncome ? 'Record Edit Karo' : 'Naya Capital Entry'}
+                {editingIncome ? 'Edit Record' : 'New Capital Entry'}
               </h3>
               <p style={{ margin: '0 0 20px 0', fontSize: '12px', color: 'var(--text-secondary)' }}>
-                Jaise: "Apna paisa daala", "Bank se loan liya", "Partner investment"
+                e.g. "Owner investment", "Bank loan taken", "Partner investment"
               </p>
               <form onSubmit={handleSubmit} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
                 <input
                   type="text"
-                  placeholder="Kahan se aaya? (e.g. Apna paisa, Bank Loan) *"
+                  placeholder="Source (e.g. Owner Funds, Bank Loan) *"
                   value={formData.source}
                   onChange={(e) => setFormData({ ...formData, source: e.target.value })}
                   className="input-field"
@@ -200,7 +200,7 @@ const IncomeManager: React.FC<IncomeManagerProps> = ({ onClose: _onClose }) => {
                 />
                 <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '12px', marginTop: '8px' }}>
                   <button type="submit" className="btn btn-primary" style={{ background: '#27ae60', border: 'none' }}>
-                    {editingIncome ? 'Update Karo' : 'Save Karo'}
+                    {editingIncome ? 'Update Record' : 'Save Record'}
                   </button>
                   <button type="button" onClick={resetForm} className="btn btn-secondary">Cancel</button>
                 </div>
@@ -216,8 +216,8 @@ const IncomeManager: React.FC<IncomeManagerProps> = ({ onClose: _onClose }) => {
           ) : incomes.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '60px 40px', color: 'var(--text-secondary)', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', border: '1px dashed var(--border-subtle)' }}>
               <i className="fas fa-piggy-bank fa-3x" style={{ opacity: 0.4, marginBottom: '16px', display: 'block' }}></i>
-              <h3 style={{ color: 'var(--text-primary)', margin: '0 0 8px 0' }}>Koi capital entry nahi mili</h3>
-              <p style={{ margin: 0, fontSize: '13px' }}>Pehli entry add karo — jaise apna lagaya hua paisa ya bank loan</p>
+              <h3 style={{ color: 'var(--text-primary)', margin: '0 0 8px 0' }}>No capital entries found</h3>
+              <p style={{ margin: 0, fontSize: '13px' }}>Add your first entry — e.g. owner investment or bank loan</p>
             </div>
           ) : (
             <div style={{ display: 'grid', gap: '12px' }}>
