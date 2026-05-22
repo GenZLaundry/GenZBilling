@@ -190,22 +190,33 @@ const AdvanceManager: React.FC<AdvanceManagerProps> = ({ onClose }) => {
       <div style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
         <div style={{ maxWidth: '1000px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '24px' }}>
           
+          {/* Header */}
+          <div>
+            <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 'bold', color: 'var(--text-primary)' }}>
+              <i className="fas fa-hand-holding-usd" style={{ marginRight: '8px', color: '#f39c12' }}></i>
+              Diya Hua Paisa
+            </h2>
+            <p style={{ margin: '6px 0 0 0', fontSize: '13px', color: 'var(--text-secondary)' }}>
+              Jab aapne kisi ko paisa diya ho — staff advance, borrow, ya kisi ko diya — aur wapas lena ho
+            </p>
+          </div>
+
           {/* Summary Card */}
           <div style={{
             background: 'var(--bg-elevated)', padding: '20px', borderRadius: 'var(--radius-lg)',
-            border: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: '12px',
-            maxWidth: '300px'
+            border: '1px solid var(--border-subtle)', borderLeft: '4px solid #f39c12',
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center', maxWidth: '360px'
           }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ fontSize: '14px', color: 'var(--text-secondary)', fontWeight: '500' }}>
-                Total Outstanding
+            <div>
+              <div style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: '500', marginBottom: '6px' }}>
+                Abhi Wapas Nahi Aaya
               </div>
-              <div style={{ background: 'rgba(243, 156, 18, 0.1)', padding: '8px', borderRadius: '8px', color: '#f39c12' }}>
-                <i className="fas fa-clock"></i>
+              <div style={{ fontSize: '28px', fontWeight: 'bold', color: '#f39c12' }}>
+                {formatCurrency(totalOutstanding)}
               </div>
             </div>
-            <div style={{ fontSize: '28px', fontWeight: 'bold', color: 'var(--text-primary)' }}>
-              {formatCurrency(totalOutstanding)}
+            <div style={{ background: 'rgba(243, 156, 18, 0.1)', padding: '12px', borderRadius: '10px', color: '#f39c12', fontSize: '22px' }}>
+              <i className="fas fa-clock"></i>
             </div>
           </div>
 
@@ -214,10 +225,10 @@ const AdvanceManager: React.FC<AdvanceManagerProps> = ({ onClose }) => {
             <button
               onClick={() => setShowAddForm(!showAddForm)}
               className="btn btn-primary"
-              style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+              style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#f39c12', border: 'none' }}
             >
               <i className={`fas ${showAddForm ? 'fa-times' : 'fa-plus'}`}></i>
-              {showAddForm ? 'Cancel' : 'New Loan/Advance'}
+              {showAddForm ? 'Cancel' : '+ Naya Paisa Diya Record'}
             </button>
             <div style={{ flex: 1, position: 'relative' }}>
               <i className="fas fa-search" style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }}></i>
@@ -235,14 +246,17 @@ const AdvanceManager: React.FC<AdvanceManagerProps> = ({ onClose }) => {
           {/* Add Form */}
           {showAddForm && (
             <div style={{ padding: '24px', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-subtle)' }}>
-              <h3 style={{ margin: '0 0 20px 0', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '16px' }}>
-                <i className="fas fa-plus-circle" style={{ color: 'var(--accent)' }}></i>
-                New Loan/Advance
+              <h3 style={{ margin: '0 0 6px 0', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '16px' }}>
+                <i className="fas fa-plus-circle" style={{ color: '#f39c12' }}></i>
+                Kisko Paisa Diya?
               </h3>
+              <p style={{ margin: '0 0 20px 0', fontSize: '12px', color: 'var(--text-secondary)' }}>
+                Jaise: Staff ko advance, dost ko borrow, supplier ko advance
+              </p>
               <form onSubmit={handleSubmit} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
                 <input
                   type="text"
-                  placeholder="Person Name *"
+                  placeholder="Kiska naam? (e.g. Raju Staff, Amit Dost) *"
                   value={formData.personName}
                   onChange={(e) => setFormData({ ...formData, personName: e.target.value })}
                   className="input-field"
@@ -250,7 +264,7 @@ const AdvanceManager: React.FC<AdvanceManagerProps> = ({ onClose }) => {
                 />
                 <input
                   type="number"
-                  placeholder="Amount Given (₹) *"
+                  placeholder="Kitna paisa diya? (₹) *"
                   value={formData.amountGiven}
                   onChange={(e) => setFormData({ ...formData, amountGiven: e.target.value })}
                   className="input-field"
@@ -285,8 +299,8 @@ const AdvanceManager: React.FC<AdvanceManagerProps> = ({ onClose }) => {
           ) : advances.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '60px 40px', color: 'var(--text-secondary)', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', border: '1px dashed var(--border-subtle)' }}>
               <i className="fas fa-hand-holding-usd fa-3x" style={{ opacity: 0.5, marginBottom: '20px' }}></i>
-              <h3 style={{ color: 'var(--text-primary)', margin: '0 0 8px 0' }}>No records found</h3>
-              <p style={{ margin: 0 }}>Add a loan or advance to start tracking</p>
+              <h3 style={{ color: 'var(--text-primary)', margin: '0 0 8px 0' }}>Koi record nahi mila</h3>
+              <p style={{ margin: 0, fontSize: '13px' }}>Jab kisi ko paisa do — staff advance, borrow — tab yahan add karo</p>
             </div>
           ) : (
             <div style={{ display: 'grid', gap: '16px' }}>
@@ -331,9 +345,9 @@ const AdvanceManager: React.FC<AdvanceManagerProps> = ({ onClose }) => {
                           <button
                             onClick={() => { setSelectedAdvance(advance); setShowHistoryModal(true); setHistoryForm({ ...historyForm, type: 'RETURNED' }); }}
                             className="btn btn-secondary"
-                            style={{ padding: '8px 12px', fontSize: '13px' }}
+                            style={{ padding: '8px 12px', fontSize: '13px', background: '#27ae6020', color: '#27ae60', border: '1px solid #27ae6040' }}
                           >
-                            <i className="fas fa-undo"></i> Add Repayment
+                            <i className="fas fa-undo"></i> Wapas Aaya
                           </button>
                         )}
                         <button
@@ -341,7 +355,7 @@ const AdvanceManager: React.FC<AdvanceManagerProps> = ({ onClose }) => {
                           className="btn btn-ghost"
                           style={{ padding: '8px 12px', fontSize: '13px' }}
                         >
-                          <i className="fas fa-hand-holding-usd"></i> Give More
+                          <i className="fas fa-hand-holding-usd"></i> Aur Diya
                         </button>
                         <button
                           onClick={() => handleDelete(advance._id)}
@@ -362,8 +376,8 @@ const AdvanceManager: React.FC<AdvanceManagerProps> = ({ onClose }) => {
                           {advance.history.map((hist, idx) => (
                             <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', padding: '8px', background: 'var(--bg-base)', borderRadius: '4px' }}>
                               <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                                <span style={{ color: hist.type === 'RETURNED' ? '#27ae60' : '#e74c3c', fontWeight: 'bold', width: '70px' }}>
-                                  {hist.type === 'RETURNED' ? 'RETURN' : 'GIVEN'}
+                        <span style={{ color: hist.type === 'RETURNED' ? '#27ae60' : '#e74c3c', fontWeight: 'bold', width: '80px' }}>
+                                  {hist.type === 'RETURNED' ? '✅ WAPAS' : '🔴 DIYA'}
                                 </span>
                                 <span>{new Date(hist.date).toLocaleDateString()}</span>
                                 {hist.note && <span style={{ color: 'var(--text-secondary)' }}>- {hist.note}</span>}
@@ -390,8 +404,8 @@ const AdvanceManager: React.FC<AdvanceManagerProps> = ({ onClose }) => {
           display: 'flex', alignItems: 'center', justifyContent: 'center'
         }}>
           <div style={{ background: 'var(--bg-elevated)', padding: '24px', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: '400px' }}>
-            <h3 style={{ margin: '0 0 20px 0', color: 'var(--text-primary)' }}>
-              {historyForm.type === 'RETURNED' ? 'Add Repayment' : 'Give More Advance'}
+              <h3 style={{ margin: '0 0 8px 0', color: 'var(--text-primary)' }}>
+              {historyForm.type === 'RETURNED' ? '💚 Paisa Wapas Aaya' : '🔴 Aur Paisa Diya'}
             </h3>
             <p style={{ margin: '0 0 16px 0', fontSize: '14px', color: 'var(--text-secondary)' }}>
               Person: <strong>{selectedAdvance.personName}</strong>
