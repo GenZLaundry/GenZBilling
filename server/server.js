@@ -25,6 +25,8 @@ const expenseRoutes = require('./routes/expenses');
 const authRoutes = require('./routes/simpleAuth');
 const tagHistoryRoutes = require('./routes/tagHistory');
 const smsRoutes = require('./routes/sms');
+const incomeRoutes = require('./routes/incomes');
+const advanceRoutes = require('./routes/advances');
 
 // Middleware
 app.use(helmet());
@@ -101,6 +103,8 @@ app.use('/api/shop-config', shopConfigRoutes);
 app.use('/api/expenses', expenseRoutes);
 app.use('/api/tag-history', tagHistoryRoutes);
 app.use('/api/sms', smsRoutes);
+app.use('/api/incomes', incomeRoutes);
+app.use('/api/advances', advanceRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
