@@ -323,6 +323,22 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
     }
   };
 
+  const bulkMarkAsPending = async (billIds: string[]) => {
+    try {
+      setLoading(true);
+      for (const billId of billIds) {
+        await apiService.updateBillStatus(billId, 'pending');
+      }
+      showAlert({ message: `${billIds.length} bills marked as pending`, type: 'success' });
+      loadPendingBills();
+      loadBillHistory();
+    } catch (error) {
+      showAlert({ message: 'Error in bulk pending operation', type: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const bulkMarkAsDelivered = async (billIds: string[]) => {
     try {
       setLoading(true);
@@ -3389,6 +3405,31 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
                       >
                         {loading ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-check-circle" style={{ marginRight: '8px' }}></i>}
                         Mark Completed
+                      </button>
+
+                      {/* ── NEW: Mark as Pending ── */}
+                      <button
+                        onClick={() => {
+                          if (selectedBills.length > 0) {
+                            showConfirm(`Mark ${selectedBills.length} bills as PENDING? They will move back to the pending list.`, async () => {
+                              await bulkMarkAsPending(selectedBills);
+                              setSelectedBills([]);
+                              setShowBulkOperations(false);
+                            });
+                          }
+                        }}
+                        disabled={selectedBills.length === 0 || loading}
+                        className="btn btn-primary"
+                        style={{
+                          width: '100%',
+                          justifyContent: 'center',
+                          background: '#f39c12',
+                          border: 'none',
+                          boxShadow: '0 4px 12px rgba(243, 156, 18, 0.2)'
+                        }}
+                      >
+                        {loading ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-clock" style={{ marginRight: '8px' }}></i>}
+                        Mark Pending
                       </button>
 
                       <div style={{ display: 'flex', gap: '12px' }}>
