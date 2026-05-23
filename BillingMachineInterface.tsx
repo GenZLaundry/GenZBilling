@@ -485,6 +485,21 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
             const updated = existing.map((b: any) => b.billNumber === billData.billNumber ? { ...b, _syncedToDb: true, _id: (response.data as any)?._id || b._id } : b);
             localStorage.setItem('laundry_bill_history', JSON.stringify(updated));
           } catch (e) { /* ignore */ }
+
+          // AUTOMATICALLY SEND BACKGROUND SMS
+          if (billData.customerPhone && billData.customerPhone.length >= 10) {
+            try {
+              console.log('📱 Automatically triggering background SMS via Fast2SMS...');
+              apiService.sendBillGeneratedSMS(
+                billData.customerPhone,
+                billData.customerName || 'Customer',
+                billData.items.map(i => ({ name: i.name, quantity: i.quantity }))
+              ).catch(err => console.warn('⚠️ Auto-SMS failed:', err));
+            } catch (smsError) {
+              console.warn('⚠️ Could not send auto-SMS:', smsError);
+            }
+          }
+
         } else {
           console.warn('⚠️ Database save failed:', response.message);
         }
@@ -1450,21 +1465,23 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
                 onClick={addItemToOrder}
                 className="professional-btn"
                 style={{
-                  padding: '12px 20px',
+                  padding: '8px 16px',
                   borderRadius: '8px',
-                  fontSize: '14px',
+                  fontSize: '13px',
                   fontWeight: '600',
                   background: 'linear-gradient(135deg, #10b981, #059669)',
                   color: 'white',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: '8px',
+                  gap: '6px',
                   boxShadow: '0 2px 4px rgba(16, 185, 129, 0.3)',
-                  minHeight: '48px'
+                  whiteSpace: 'nowrap',
+                  alignSelf: 'flex-end',
+                  height: '40px'
                 }}
               >
-                <i className="fas fa-plus"></i> Add Item
+                <i className="fas fa-plus" style={{ fontSize: '11px' }}></i> Add
               </button>
             </div>
           </div>
