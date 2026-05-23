@@ -49,6 +49,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
   const [showDataImport, setShowDataImport] = useState(false);
   const [showBackupRestore, setShowBackupRestore] = useState(false);
   const [showBulkOperations, setShowBulkOperations] = useState(false);
+  const [bulkSearchQuery, setBulkSearchQuery] = useState('');
+  const [bulkStatusFilter, setBulkStatusFilter] = useState<'all' | 'pending' | 'completed' | 'delivered'>('all');
   const [selectedBills, setSelectedBills] = useState<string[]>([]);
   const [showCustomerManager, setShowCustomerManager] = useState(false);
   const [showReportsGenerator, setShowReportsGenerator] = useState(false);
@@ -1967,7 +1969,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
                         <i className="fas fa-pen" style={{ marginRight: '8px', width: '14px', color: 'var(--accent)' }}></i>
                         Open Bill Manager
                       </button>
-                      <button onClick={() => { closeAllModals(); setShowBulkOperations(true); }} className="btn btn-ghost" style={{ width: '100%', justifyContent: 'flex-start', fontSize: '13px', padding: '8px 12px' }}>
+                      <button onClick={() => { closeAllModals(); setBulkSearchQuery(''); setBulkStatusFilter('all'); setShowBulkOperations(true); }} className="btn btn-ghost" style={{ width: '100%', justifyContent: 'flex-start', fontSize: '13px', padding: '8px 12px' }}>
                         <i className="fas fa-layer-group" style={{ marginRight: '8px', width: '14px', color: 'var(--warning)' }}></i>
                         Bulk Operations
                       </button>
@@ -3239,14 +3241,62 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
                 </div>
 
                 <div style={{ marginBottom: '24px' }}>
+                  {/* Header row */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                     <h3 style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '14px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                       Select Bills
                     </h3>
                     <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-                      <span style={{ color: 'var(--accent)', fontWeight: 'bold' }}>{selectedBills.length}</span> / {[...pendingBills, ...billHistory].length} selected
+                      <span style={{ color: 'var(--accent)', fontWeight: 'bold' }}>{selectedBills.length}</span> / {[...pendingBills, ...billHistory].filter(b => {
+                        const q = bulkSearchQuery.toLowerCase();
+                        const matchSearch = !q || b.customerName?.toLowerCase().includes(q) || b.billNumber?.toLowerCase().includes(q) || b.customerPhone?.includes(q);
+                        const matchStatus = bulkStatusFilter === 'all' || b.status === bulkStatusFilter;
+                        return matchSearch && matchStatus;
+                      }).length} shown
                     </div>
                   </div>
+
+                  {/* Search + Filter bar */}
+                  <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+                    <div style={{ flex: 1, position: 'relative' }}>
+                      <i className="fas fa-search" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: '13px' }}></i>
+                      <input
+                        type="text"
+                        placeholder="Search by name, bill no, phone..."
+                        value={bulkSearchQuery}
+                        onChange={(e) => setBulkSearchQuery(e.target.value)}
+                        style={{
+                          width: '100%', paddingLeft: '36px', paddingRight: '12px',
+                          padding: '9px 12px 9px 36px',
+                          background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)',
+                          borderRadius: 'var(--radius-md)', color: 'var(--text-primary)',
+                          fontSize: '13px', outline: 'none', boxSizing: 'border-box'
+                        }}
+                        onFocus={(e) => e.currentTarget.style.borderColor = 'var(--accent)'}
+                        onBlur={(e) => e.currentTarget.style.borderColor = 'var(--border-subtle)'}
+                      />
+                      {bulkSearchQuery && (
+                        <button onClick={() => setBulkSearchQuery('')} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '13px', padding: '2px' }}>
+                          <i className="fas fa-times"></i>
+                        </button>
+                      )}
+                    </div>
+                    <select
+                      value={bulkStatusFilter}
+                      onChange={(e) => setBulkStatusFilter(e.target.value as any)}
+                      style={{
+                        padding: '9px 12px', background: 'var(--bg-elevated)',
+                        border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)',
+                        color: 'var(--text-primary)', fontSize: '13px', cursor: 'pointer', outline: 'none'
+                      }}
+                    >
+                      <option value="all">All Status</option>
+                      <option value="pending">Pending</option>
+                      <option value="completed">Completed</option>
+                      <option value="delivered">Delivered</option>
+                    </select>
+                  </div>
+
                   <div style={{
                     background: 'var(--bg-base)',
                     borderRadius: 'var(--radius-lg)',
@@ -3254,39 +3304,53 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
                     maxHeight: '340px',
                     overflowY: 'auto'
                   }} className="custom-scrollbar">
-                    {/* Select All Row */}
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '12px',
-                      padding: '12px 16px',
-                      background: 'var(--bg-elevated)',
-                      borderBottom: '1px solid var(--border-subtle)',
-                      position: 'sticky',
-                      top: 0,
-                      zIndex: 1
-                    }}>
-                      <div className="checkbox-wrapper">
-                         <input
-                           type="checkbox"
-                           id="selectAllBillsBulk"
-                           checked={selectedBills.length === [...pendingBills, ...billHistory].length && [...pendingBills, ...billHistory].length > 0}
-                           onChange={(e) => {
-                             if (e.target.checked) {
-                               setSelectedBills([...pendingBills, ...billHistory].map(b => b.id || b._id));
-                             } else {
-                               setSelectedBills([]);
-                             }
-                           }}
-                         />
-                         <label htmlFor="selectAllBillsBulk"></label>
-                      </div>
-                      <span style={{ color: 'var(--text-primary)', fontSize: '14px', fontWeight: '600' }}>Select All Bills</span>
-                    </div>
+                    {/* Select All Row — selects only filtered bills */}
+                    {(() => {
+                      const filteredBills = [...pendingBills, ...billHistory].filter(b => {
+                        const q = bulkSearchQuery.toLowerCase();
+                        const matchSearch = !q || b.customerName?.toLowerCase().includes(q) || b.billNumber?.toLowerCase().includes(q) || b.customerPhone?.includes(q);
+                        const matchStatus = bulkStatusFilter === 'all' || b.status === bulkStatusFilter;
+                        return matchSearch && matchStatus;
+                      });
+                      const filteredIds = filteredBills.map(b => b.id || b._id);
+                      const allFilteredSelected = filteredIds.length > 0 && filteredIds.every(id => selectedBills.includes(id));
+                      return (
+                        <div style={{
+                          display: 'flex', alignItems: 'center', gap: '12px',
+                          padding: '12px 16px', background: 'var(--bg-elevated)',
+                          borderBottom: '1px solid var(--border-subtle)', position: 'sticky', top: 0, zIndex: 1
+                        }}>
+                          <div className="checkbox-wrapper">
+                            <input
+                              type="checkbox"
+                              id="selectAllBillsBulk"
+                              checked={allFilteredSelected}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  const newSelected = [...new Set([...selectedBills, ...filteredIds])];
+                                  setSelectedBills(newSelected);
+                                } else {
+                                  setSelectedBills(selectedBills.filter(id => !filteredIds.includes(id)));
+                                }
+                              }}
+                            />
+                            <label htmlFor="selectAllBillsBulk"></label>
+                          </div>
+                          <span style={{ color: 'var(--text-primary)', fontSize: '14px', fontWeight: '600' }}>
+                            Select All {bulkStatusFilter !== 'all' ? `(${bulkStatusFilter})` : ''} — {filteredBills.length} bills
+                          </span>
+                        </div>
+                      );
+                    })()}
 
-                    {/* Bills List */}
+                    {/* Bills List — filtered */}
                     <div style={{ padding: '8px' }}>
-                      {[...pendingBills, ...billHistory].map(bill => (
+                      {[...pendingBills, ...billHistory].filter(b => {
+                        const q = bulkSearchQuery.toLowerCase();
+                        const matchSearch = !q || b.customerName?.toLowerCase().includes(q) || b.billNumber?.toLowerCase().includes(q) || b.customerPhone?.includes(q);
+                        const matchStatus = bulkStatusFilter === 'all' || b.status === bulkStatusFilter;
+                        return matchSearch && matchStatus;
+                      }).map(bill => (
                         <div key={bill.id || bill._id} 
                           style={{
                             display: 'flex',
@@ -3358,10 +3422,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
                           </div>
                         </div>
                       ))}
-                      {[...pendingBills, ...billHistory].length === 0 && (
+                      {[...pendingBills, ...billHistory].filter(b => {
+                        const q = bulkSearchQuery.toLowerCase();
+                        const matchSearch = !q || b.customerName?.toLowerCase().includes(q) || b.billNumber?.toLowerCase().includes(q) || b.customerPhone?.includes(q);
+                        const matchStatus = bulkStatusFilter === 'all' || b.status === bulkStatusFilter;
+                        return matchSearch && matchStatus;
+                      }).length === 0 && (
                         <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                          <i className="fas fa-inbox" style={{ fontSize: '32px', marginBottom: '12px', opacity: 0.5 }}></i>
-                          <p style={{ margin: 0, fontSize: '14px' }}>No bills available for bulk operations</p>
+                          <i className="fas fa-search" style={{ fontSize: '32px', marginBottom: '12px', opacity: 0.5 }}></i>
+                          <p style={{ margin: 0, fontSize: '14px' }}>
+                            {bulkSearchQuery || bulkStatusFilter !== 'all' ? 'No bills match your search' : 'No bills available'}
+                          </p>
                         </div>
                       )}
                     </div>
