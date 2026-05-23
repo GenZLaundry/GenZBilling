@@ -3257,40 +3257,56 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
                   </div>
 
                   {/* Search + Filter bar */}
-                  <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
-                    <div style={{ flex: 1, position: 'relative' }}>
-                      <i className="fas fa-search" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: '13px' }}></i>
+                  <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', alignItems: 'center' }}>
+                    {/* Search — takes all available space */}
+                    <div style={{ flex: 1, position: 'relative', minWidth: 0 }}>
+                      <i className="fas fa-search" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: '12px', pointerEvents: 'none' }}></i>
                       <input
                         type="text"
-                        placeholder="Search by name, bill no, phone..."
+                        placeholder="Search name, bill no, phone..."
                         value={bulkSearchQuery}
                         onChange={(e) => setBulkSearchQuery(e.target.value)}
                         style={{
-                          width: '100%', paddingLeft: '36px', paddingRight: '12px',
-                          padding: '9px 12px 9px 36px',
-                          background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)',
-                          borderRadius: 'var(--radius-md)', color: 'var(--text-primary)',
-                          fontSize: '13px', outline: 'none', boxSizing: 'border-box'
+                          width: '100%',
+                          padding: '9px 32px 9px 34px',
+                          background: 'var(--bg-elevated)',
+                          border: '1px solid var(--border-subtle)',
+                          borderRadius: 'var(--radius-md)',
+                          color: 'var(--text-primary)',
+                          fontSize: '13px',
+                          outline: 'none',
+                          boxSizing: 'border-box'
                         }}
                         onFocus={(e) => e.currentTarget.style.borderColor = 'var(--accent)'}
                         onBlur={(e) => e.currentTarget.style.borderColor = 'var(--border-subtle)'}
                       />
                       {bulkSearchQuery && (
-                        <button onClick={() => setBulkSearchQuery('')} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '13px', padding: '2px' }}>
+                        <button
+                          onClick={() => setBulkSearchQuery('')}
+                          style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '12px', padding: '2px', lineHeight: 1 }}
+                        >
                           <i className="fas fa-times"></i>
                         </button>
                       )}
                     </div>
+                    {/* Status filter — fixed small width, short labels */}
                     <select
                       value={bulkStatusFilter}
                       onChange={(e) => setBulkStatusFilter(e.target.value as any)}
                       style={{
-                        padding: '9px 12px', background: 'var(--bg-elevated)',
-                        border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)',
-                        color: 'var(--text-primary)', fontSize: '13px', cursor: 'pointer', outline: 'none'
+                        flexShrink: 0,
+                        width: '110px',
+                        padding: '9px 8px',
+                        background: 'var(--bg-elevated)',
+                        border: '1px solid var(--border-subtle)',
+                        borderRadius: 'var(--radius-md)',
+                        color: 'var(--text-primary)',
+                        fontSize: '12px',
+                        cursor: 'pointer',
+                        outline: 'none'
                       }}
                     >
-                      <option value="all">All Status</option>
+                      <option value="all">All</option>
                       <option value="pending">Pending</option>
                       <option value="completed">Completed</option>
                       <option value="delivered">Delivered</option>
