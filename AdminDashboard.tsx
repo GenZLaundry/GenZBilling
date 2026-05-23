@@ -3247,7 +3247,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
                       Select Bills
                     </h3>
                     <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-                      <span style={{ color: 'var(--accent)', fontWeight: 'bold' }}>{selectedBills.length}</span> / {[...pendingBills, ...billHistory].filter(b => {
+                      <span style={{ color: 'var(--accent)', fontWeight: 'bold' }}>{selectedBills.length}</span> / {billHistory.filter(b => {
                         const q = bulkSearchQuery.toLowerCase();
                         const matchSearch = !q || b.customerName?.toLowerCase().includes(q) || b.billNumber?.toLowerCase().includes(q) || b.customerPhone?.includes(q);
                         const matchStatus = bulkStatusFilter === 'all' || (b.status || '').toLowerCase() === bulkStatusFilter;
@@ -3322,7 +3322,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
                   }} className="custom-scrollbar">
                     {/* Select All Row — selects only filtered bills */}
                     {(() => {
-                      const filteredBills = [...pendingBills, ...billHistory].filter(b => {
+                      const filteredBills = billHistory.filter(b => {
                         const q = bulkSearchQuery.toLowerCase();
                         const matchSearch = !q || b.customerName?.toLowerCase().includes(q) || b.billNumber?.toLowerCase().includes(q) || b.customerPhone?.includes(q);
                         const matchStatus = bulkStatusFilter === 'all' || (b.status || '').toLowerCase() === bulkStatusFilter;
@@ -3361,7 +3361,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
 
                     {/* Bills List — filtered */}
                     <div style={{ padding: '8px' }}>
-                      {[...pendingBills, ...billHistory].filter(b => {
+                      {billHistory.filter(b => {
                         const q = bulkSearchQuery.toLowerCase();
                         const matchSearch = !q || b.customerName?.toLowerCase().includes(q) || b.billNumber?.toLowerCase().includes(q) || b.customerPhone?.includes(q);
                         const matchStatus = bulkStatusFilter === 'all' || (b.status || '').toLowerCase() === bulkStatusFilter;
@@ -3438,7 +3438,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
                           </div>
                         </div>
                       ))}
-                      {[...pendingBills, ...billHistory].filter(b => {
+                      {billHistory.filter(b => {
                         const q = bulkSearchQuery.toLowerCase();
                         const matchSearch = !q || b.customerName?.toLowerCase().includes(q) || b.billNumber?.toLowerCase().includes(q) || b.customerPhone?.includes(q);
                         const matchStatus = bulkStatusFilter === 'all' || (b.status || '').toLowerCase() === bulkStatusFilter;
@@ -3546,7 +3546,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
                         <button
                           onClick={() => {
                             if (selectedBills.length > 0) {
-                              const selectedBillsData = [...pendingBills, ...billHistory].filter(bill =>
+                              const selectedBillsData = billHistory.filter(bill =>
                                 selectedBills.includes(bill.id || bill._id)
                               );
                               const csvContent = convertToCSV(selectedBillsData, 'bills');
