@@ -3411,12 +3411,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
                               <div style={{ color: 'var(--text-primary)', fontWeight: '600', fontSize: '14px', marginBottom: '4px' }}>
                                 {bill.customerName}
                               </div>
-                              <div style={{ color: 'var(--text-muted)', fontSize: '12px', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                              <div style={{ color: 'var(--text-muted)', fontSize: '12px', display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
                                 <span style={{ fontFamily: 'monospace', background: 'var(--bg-base)', padding: '2px 6px', borderRadius: '4px' }}>
                                   #{bill.billNumber}
                                 </span>
                                 <span>•</span>
                                 <span style={{ fontWeight: '500', color: 'var(--text-secondary)' }}>₹{bill.grandTotal}</span>
+                                <span>•</span>
+                                <span style={{ color: 'var(--text-muted)' }}>
+                                  <i className="far fa-calendar-alt" style={{ marginRight: '4px', fontSize: '11px' }}></i>
+                                  {bill.createdAt ? new Date(bill.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : (bill.billDate || '—')}
+                                </span>
                               </div>
                             </div>
                             
