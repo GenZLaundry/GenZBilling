@@ -2721,15 +2721,47 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
                             variant="button"
                           />
 
-                          {bill.status !== 'delivered' && (
-                            <button
-                              onClick={() => markBillAsDelivered(bill.id || bill._id)}
-                              className="btn btn-primary"
-                              style={{ borderRadius: 'var(--radius-md)', width: '100%', justifyContent: 'flex-start' }}
-                            >
-                              <i className="fas fa-truck" style={{ width: '20px' }}></i> Deliver
-                            </button>
-                          )}
+                          {/* ── Status Controls ── */}
+                          <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '8px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>
+                              Change Status
+                            </div>
+
+                            {bill.status !== 'pending' && (
+                              <button
+                                onClick={() => showConfirm(`Mark bill #${bill.billNumber} as Pending?`, async () => {
+                                  await apiService.updateBillStatus(bill.id || bill._id, 'pending');
+                                  loadBillHistory(); loadPendingBills();
+                                  showAlert({ message: 'Bill marked as Pending', type: 'success' });
+                                })}
+                                style={{ background: 'rgba(243,156,18,0.12)', border: '1px solid rgba(243,156,18,0.3)', borderRadius: 'var(--radius-sm)', padding: '6px 10px', color: '#f39c12', cursor: 'pointer', fontSize: '12px', fontWeight: '600', textAlign: 'left', display: 'flex', alignItems: 'center', gap: '6px' }}
+                              >
+                                <i className="fas fa-clock" style={{ width: '14px' }}></i> Pending
+                              </button>
+                            )}
+
+                            {bill.status !== 'completed' && (
+                              <button
+                                onClick={() => showConfirm(`Mark bill #${bill.billNumber} as Completed?`, async () => {
+                                  await markBillAsCompleted(bill.id || bill._id);
+                                })}
+                                style={{ background: 'rgba(52,152,219,0.12)', border: '1px solid rgba(52,152,219,0.3)', borderRadius: 'var(--radius-sm)', padding: '6px 10px', color: '#3498db', cursor: 'pointer', fontSize: '12px', fontWeight: '600', textAlign: 'left', display: 'flex', alignItems: 'center', gap: '6px' }}
+                              >
+                                <i className="fas fa-clipboard-check" style={{ width: '14px' }}></i> Completed
+                              </button>
+                            )}
+
+                            {bill.status !== 'delivered' && (
+                              <button
+                                onClick={() => showConfirm(`Mark bill #${bill.billNumber} as Delivered?`, async () => {
+                                  await markBillAsDelivered(bill.id || bill._id);
+                                })}
+                                style={{ background: 'rgba(39,174,96,0.12)', border: '1px solid rgba(39,174,96,0.3)', borderRadius: 'var(--radius-sm)', padding: '6px 10px', color: '#27ae60', cursor: 'pointer', fontSize: '12px', fontWeight: '600', textAlign: 'left', display: 'flex', alignItems: 'center', gap: '6px' }}
+                              >
+                                <i className="fas fa-truck" style={{ width: '14px' }}></i> Delivered
+                              </button>
+                            )}
+                          </div>
 
                         </div>
                       </div>
