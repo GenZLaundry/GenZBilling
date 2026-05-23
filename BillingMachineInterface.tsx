@@ -1202,7 +1202,7 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
               </h3>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1.2fr auto', gap: '16px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1.2fr auto', gap: '16px', alignItems: 'end' }}>
               {/* Item Name Input */}
               <div style={{ position: 'relative' }}>
                 <label style={{
@@ -1465,7 +1465,7 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
                 onClick={addItemToOrder}
                 className="professional-btn"
                 style={{
-                  padding: '8px 16px',
+                  padding: '0 18px',
                   borderRadius: '8px',
                   fontSize: '13px',
                   fontWeight: '600',
@@ -1478,7 +1478,8 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
                   boxShadow: '0 2px 4px rgba(16, 185, 129, 0.3)',
                   whiteSpace: 'nowrap',
                   alignSelf: 'flex-end',
-                  height: '40px'
+                  height: '44px',
+                  marginTop: '8px'
                 }}
               >
                 <i className="fas fa-plus" style={{ fontSize: '11px' }}></i> Add
