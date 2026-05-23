@@ -3250,7 +3250,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
                       <span style={{ color: 'var(--accent)', fontWeight: 'bold' }}>{selectedBills.length}</span> / {[...pendingBills, ...billHistory].filter(b => {
                         const q = bulkSearchQuery.toLowerCase();
                         const matchSearch = !q || b.customerName?.toLowerCase().includes(q) || b.billNumber?.toLowerCase().includes(q) || b.customerPhone?.includes(q);
-                        const matchStatus = bulkStatusFilter === 'all' || b.status === bulkStatusFilter;
+                        const matchStatus = bulkStatusFilter === 'all' || (b.status || '').toLowerCase() === bulkStatusFilter;
                         return matchSearch && matchStatus;
                       }).length} shown
                     </div>
@@ -3325,7 +3325,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
                       const filteredBills = [...pendingBills, ...billHistory].filter(b => {
                         const q = bulkSearchQuery.toLowerCase();
                         const matchSearch = !q || b.customerName?.toLowerCase().includes(q) || b.billNumber?.toLowerCase().includes(q) || b.customerPhone?.includes(q);
-                        const matchStatus = bulkStatusFilter === 'all' || b.status === bulkStatusFilter;
+                        const matchStatus = bulkStatusFilter === 'all' || (b.status || '').toLowerCase() === bulkStatusFilter;
                         return matchSearch && matchStatus;
                       });
                       const filteredIds = filteredBills.map(b => b.id || b._id);
@@ -3364,7 +3364,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
                       {[...pendingBills, ...billHistory].filter(b => {
                         const q = bulkSearchQuery.toLowerCase();
                         const matchSearch = !q || b.customerName?.toLowerCase().includes(q) || b.billNumber?.toLowerCase().includes(q) || b.customerPhone?.includes(q);
-                        const matchStatus = bulkStatusFilter === 'all' || b.status === bulkStatusFilter;
+                        const matchStatus = bulkStatusFilter === 'all' || (b.status || '').toLowerCase() === bulkStatusFilter;
                         return matchSearch && matchStatus;
                       }).map(bill => (
                         <div key={bill.id || bill._id} 
@@ -3441,7 +3441,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
                       {[...pendingBills, ...billHistory].filter(b => {
                         const q = bulkSearchQuery.toLowerCase();
                         const matchSearch = !q || b.customerName?.toLowerCase().includes(q) || b.billNumber?.toLowerCase().includes(q) || b.customerPhone?.includes(q);
-                        const matchStatus = bulkStatusFilter === 'all' || b.status === bulkStatusFilter;
+                        const matchStatus = bulkStatusFilter === 'all' || (b.status || '').toLowerCase() === bulkStatusFilter;
                         return matchSearch && matchStatus;
                       }).length === 0 && (
                         <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-muted)' }}>
