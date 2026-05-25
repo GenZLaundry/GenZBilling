@@ -4,17 +4,22 @@ import apiService from './api';
 
 interface PendingBillSelectorProps {
   customerName: string;
+  initialSelected?: PendingBill[];
   onClose: () => void;
   onSelectBills: (selectedBills: PendingBill[]) => void;
 }
 
 const PendingBillSelector: React.FC<PendingBillSelectorProps> = ({
   customerName,
+  initialSelected = [],
   onClose,
   onSelectBills
 }) => {
   const [allBills, setAllBills] = useState<PendingBill[]>([]);
-  const [selectedBillIds, setSelectedBillIds] = useState<Set<string>>(new Set());
+  const [selectedBillIds, setSelectedBillIds] = useState<Set<string>>(
+    // Pre-populate with already-selected bills
+    new Set(initialSelected.map(b => b.id || b._id))
+  );
   const [searchTerm, setSearchTerm] = useState(customerName || '');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'completed' | 'delivered'>('all');
   const [loading, setLoading] = useState(true);
@@ -43,7 +48,8 @@ const PendingBillSelector: React.FC<PendingBillSelectorProps> = ({
       setAllBills(merged);
       setLoading(false); // Show local data immediately — no spinner
 
-      if (customerName) {
+      // Only auto-select by customer name if nothing was previously selected
+      if (customerName && initialSelected.length === 0) {
         const matched = merged
           .filter(b => b.customerName?.toLowerCase().includes(customerName.toLowerCase()))
           .map(b => b.id || b._id);
@@ -65,7 +71,8 @@ const PendingBillSelector: React.FC<PendingBillSelectorProps> = ({
         setAllBills(bills);
         setLoading(false);
 
-        if (customerName && merged.length === 0) {
+        // Only auto-select if nothing was previously selected and no local data
+        if (customerName && merged.length === 0 && initialSelected.length === 0) {
           const matched = bills
             .filter((b: PendingBill) => b.customerName?.toLowerCase().includes(customerName.toLowerCase()))
             .map((b: PendingBill) => b.id || b._id);

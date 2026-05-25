@@ -2405,6 +2405,7 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
       {showPendingBillSelector && (
         <PendingBillSelector
           customerName={customer.name}
+          initialSelected={selectedPendingBills}
           onClose={() => setShowPendingBillSelector(false)}
           onSelectBills={handlePendingBillsSelected}
         />
