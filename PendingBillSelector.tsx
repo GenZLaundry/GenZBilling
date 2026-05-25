@@ -21,9 +21,15 @@ const PendingBillSelector: React.FC<PendingBillSelectorProps> = ({
   );
   const [searchTerm, setSearchTerm] = useState(customerName || '');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'completed' | 'delivered'>('all');
-  // 'all' = browse all bills | 'selected' = show only selected
   const [viewMode, setViewMode] = useState<'all' | 'selected'>('all');
   const [loading, setLoading] = useState(true);
+
+  // Always sync selection back to parent before closing
+  const handleClose = () => {
+    const selected = allBills.filter(b => selectedBillIds.has(b.id || b._id));
+    onSelectBills(selected);   // update parent with latest selection (including deselections)
+    onClose();
+  };
 
   useEffect(() => { loadAllBills(); }, []);
 
@@ -117,6 +123,7 @@ const PendingBillSelector: React.FC<PendingBillSelectorProps> = ({
   const handleConfirmSelection = () => {
     const selected = allBills.filter(b => selectedBillIds.has(b.id || b._id));
     onSelectBills(selected);
+    onClose();
   };
 
   const calculateSelectedTotal = () =>
@@ -224,7 +231,7 @@ const PendingBillSelector: React.FC<PendingBillSelectorProps> = ({
               All bills — pending, completed, delivered. Select any to merge into current bill.
             </p>
           </div>
-          <button onClick={onClose} style={{
+          <button onClick={handleClose} style={{
             background: 'rgba(255,0,0,0.3)', border: 'none', borderRadius: '8px',
             padding: '8px 14px', color: 'white', cursor: 'pointer', fontSize: '14px'
           }}>✕ Close</button>
@@ -392,7 +399,7 @@ const PendingBillSelector: React.FC<PendingBillSelectorProps> = ({
             </div>
           </div>
           <div style={{ display: 'flex', gap: '10px' }}>
-            <button onClick={onClose} style={{
+            <button onClick={handleClose} style={{
               background: 'rgba(149,165,166,0.6)', border: 'none', borderRadius: '8px',
               padding: '10px 20px', color: 'white', cursor: 'pointer', fontSize: '14px', fontWeight: 'bold'
             }}>Cancel</button>
