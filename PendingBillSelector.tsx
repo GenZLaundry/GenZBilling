@@ -17,25 +17,24 @@ const PendingBillSelector: React.FC<PendingBillSelectorProps> = ({
 }) => {
   const [allBills, setAllBills] = useState<PendingBill[]>([]);
   const [selectedBillIds, setSelectedBillIds] = useState<Set<string>>(
-    // Pre-populate with already-selected bills
     new Set(initialSelected.map(b => b.id || b._id))
   );
   const [searchTerm, setSearchTerm] = useState(customerName || '');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'completed' | 'delivered'>('all');
+  // 'all' = browse all bills | 'selected' = show only selected
+  const [viewMode, setViewMode] = useState<'all' | 'selected'>('all');
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadAllBills();
-  }, []);
+  useEffect(() => { loadAllBills(); }, []);
 
   const loadAllBills = async () => {
     setLoading(true);
 
-    // ── Step 1: Show localStorage data INSTANTLY ──────────────────────────
+    // Step 1: Show localStorage instantly
     const historyRaw = localStorage.getItem('laundry_bill_history');
-    const pendingRaw = localStorage.getItem('laundry_pending_bills');
+    const pendingRaw  = localStorage.getItem('laundry_pending_bills');
     const history: PendingBill[] = historyRaw ? JSON.parse(historyRaw) : [];
-    const pending: PendingBill[] = pendingRaw ? JSON.parse(pendingRaw) : [];
+    const pending: PendingBill[] = pendingRaw  ? JSON.parse(pendingRaw)  : [];
 
     const seen = new Set<string>();
     const merged: PendingBill[] = [];
@@ -46,9 +45,7 @@ const PendingBillSelector: React.FC<PendingBillSelectorProps> = ({
 
     if (merged.length > 0) {
       setAllBills(merged);
-      setLoading(false); // Show local data immediately — no spinner
-
-      // Only auto-select by customer name if nothing was previously selected
+      setLoading(false);
       if (customerName && initialSelected.length === 0) {
         const matched = merged
           .filter(b => b.customerName?.toLowerCase().includes(customerName.toLowerCase()))
@@ -57,21 +54,17 @@ const PendingBillSelector: React.FC<PendingBillSelectorProps> = ({
       }
     }
 
-    // ── Step 2: Refresh from API silently in background ───────────────────
+    // Step 2: Refresh from API in background
     try {
       const response = await apiService.getBills({ limit: 1000 } as any);
       if (response.success && response.data) {
         const bills = Array.isArray(response.data)
           ? response.data
           : (response.data as any).bills || response.data;
-
         bills.sort((a: PendingBill, b: PendingBill) =>
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
         setAllBills(bills);
         setLoading(false);
-
-        // Only auto-select if nothing was previously selected and no local data
         if (customerName && merged.length === 0 && initialSelected.length === 0) {
           const matched = bills
             .filter((b: PendingBill) => b.customerName?.toLowerCase().includes(customerName.toLowerCase()))
@@ -79,27 +72,32 @@ const PendingBillSelector: React.FC<PendingBillSelectorProps> = ({
           setSelectedBillIds(new Set(matched));
         }
       }
-    } catch (error) {
-      console.warn('Background API refresh failed, using localStorage data:', error);
+    } catch {
       setLoading(false);
     }
   };
 
-  const getFilteredBills = () => {
-    return allBills.filter(bill => {
-      const q = searchTerm.toLowerCase();
-      const matchSearch = !q ||
-        bill.customerName?.toLowerCase().includes(q) ||
-        bill.billNumber?.toLowerCase().includes(q) ||
-        bill.customerPhone?.includes(q);
-      const matchStatus = statusFilter === 'all' || (bill.status || '').toLowerCase() === statusFilter;
-      return matchSearch && matchStatus;
-    });
-  };
+  // Bills shown in "All" tab — filtered by search + status
+  const getFilteredBills = () => allBills.filter(bill => {
+    const q = searchTerm.toLowerCase();
+    const matchSearch = !q ||
+      bill.customerName?.toLowerCase().includes(q) ||
+      bill.billNumber?.toLowerCase().includes(q) ||
+      bill.customerPhone?.includes(q);
+    const matchStatus = statusFilter === 'all' || (bill.status || '').toLowerCase() === statusFilter;
+    return matchSearch && matchStatus;
+  });
+
+  // Bills shown in "Selected" tab
+  const getSelectedBills = () => allBills.filter(b => selectedBillIds.has(b.id || b._id));
 
   const toggleBillSelection = (billId: string) => {
     const next = new Set(selectedBillIds);
-    next.has(billId) ? next.delete(billId) : next.add(billId);
+    if (next.has(billId)) {
+      next.delete(billId);
+    } else {
+      next.add(billId);
+    }
     setSelectedBillIds(next);
   };
 
@@ -107,15 +105,13 @@ const PendingBillSelector: React.FC<PendingBillSelectorProps> = ({
     const filtered = getFilteredBills();
     const filteredIds = filtered.map(b => b.id || b._id);
     const allSelected = filteredIds.every(id => selectedBillIds.has(id));
+    const next = new Set(selectedBillIds);
     if (allSelected) {
-      const next = new Set(selectedBillIds);
       filteredIds.forEach(id => next.delete(id));
-      setSelectedBillIds(next);
     } else {
-      const next = new Set(selectedBillIds);
       filteredIds.forEach(id => next.add(id));
-      setSelectedBillIds(next);
     }
+    setSelectedBillIds(next);
   };
 
   const handleConfirmSelection = () => {
@@ -126,16 +122,78 @@ const PendingBillSelector: React.FC<PendingBillSelectorProps> = ({
   const calculateSelectedTotal = () =>
     allBills.filter(b => selectedBillIds.has(b.id || b._id)).reduce((s, b) => s + b.grandTotal, 0);
 
-  const filteredBills = getFilteredBills();
+  const filteredBills  = getFilteredBills();
+  const selectedBills  = getSelectedBills();
+  const displayBills   = viewMode === 'selected' ? selectedBills : filteredBills;
   const allFilteredSelected = filteredBills.length > 0 && filteredBills.every(b => selectedBillIds.has(b.id || b._id));
 
   const statusColor = (status: string) => {
     switch ((status || '').toLowerCase()) {
-      case 'pending': return { bg: 'rgba(243,156,18,0.2)', border: '#f39c12', text: '#f39c12' };
-      case 'completed': return { bg: 'rgba(52,152,219,0.2)', border: '#3498db', text: '#3498db' };
-      case 'delivered': return { bg: 'rgba(39,174,96,0.2)', border: '#27ae60', text: '#27ae60' };
-      default: return { bg: 'rgba(255,255,255,0.1)', border: 'rgba(255,255,255,0.3)', text: 'white' };
+      case 'pending':   return { bg: 'rgba(243,156,18,0.2)',  border: '#f39c12', text: '#f39c12' };
+      case 'completed': return { bg: 'rgba(52,152,219,0.2)',  border: '#3498db', text: '#3498db' };
+      case 'delivered': return { bg: 'rgba(39,174,96,0.2)',   border: '#27ae60', text: '#27ae60' };
+      default:          return { bg: 'rgba(255,255,255,0.1)', border: 'rgba(255,255,255,0.3)', text: 'white' };
     }
+  };
+
+  const BillCard = ({ bill }: { bill: PendingBill }) => {
+    const billId    = bill.id || bill._id;
+    const isSelected = selectedBillIds.has(billId);
+    const sc        = statusColor(bill.status);
+    return (
+      <div
+        onClick={() => toggleBillSelection(billId)}
+        style={{
+          background: isSelected ? 'rgba(46,204,113,0.2)' : 'rgba(255,255,255,0.08)',
+          border: `2px solid ${isSelected ? '#2ecc71' : 'rgba(255,255,255,0.15)'}`,
+          borderRadius: '12px', padding: '14px 18px', cursor: 'pointer',
+          transition: 'all 0.2s ease',
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px'
+        }}
+      >
+        {/* Checkbox circle */}
+        <div style={{
+          width: '24px', height: '24px', borderRadius: '50%', flexShrink: 0,
+          background: isSelected ? '#2ecc71' : 'rgba(255,255,255,0.2)',
+          border: `2px solid ${isSelected ? '#2ecc71' : 'rgba(255,255,255,0.4)'}`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: '13px', fontWeight: 'bold', color: 'white', transition: 'all 0.2s'
+        }}>
+          {isSelected ? '✓' : ''}
+        </div>
+
+        {/* Info */}
+        <div style={{ flex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px', flexWrap: 'wrap' }}>
+            <span style={{ color: 'white', fontWeight: '700', fontSize: '15px' }}>{bill.customerName}</span>
+            <span style={{
+              background: sc.bg, border: `1px solid ${sc.border}`, color: sc.text,
+              padding: '2px 8px', borderRadius: '10px', fontSize: '10px', fontWeight: '700', textTransform: 'uppercase'
+            }}>
+              {bill.status || 'unknown'}
+            </span>
+          </div>
+          <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: '12px', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+            <span>#{bill.billNumber}</span>
+            <span>📦 {bill.items?.length || 0} items</span>
+            <span>📅 {new Date(bill.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+            {bill.customerPhone && <span>📞 {bill.customerPhone}</span>}
+          </div>
+        </div>
+
+        {/* Amount + deselect hint */}
+        <div style={{ textAlign: 'right', flexShrink: 0 }}>
+          <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#f39c12' }}>
+            ₹{bill.grandTotal?.toLocaleString('en-IN')}
+          </div>
+          {isSelected && (
+            <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', marginTop: '2px' }}>
+              tap to remove
+            </div>
+          )}
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -152,7 +210,7 @@ const PendingBillSelector: React.FC<PendingBillSelectorProps> = ({
         overflow: 'hidden', boxShadow: '0 25px 50px rgba(0,0,0,0.4)'
       }}>
 
-        {/* Header */}
+        {/* ── Header ── */}
         <div style={{
           background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(10px)',
           padding: '18px 24px', display: 'flex', justifyContent: 'space-between',
@@ -172,64 +230,141 @@ const PendingBillSelector: React.FC<PendingBillSelectorProps> = ({
           }}>✕ Close</button>
         </div>
 
-        {/* Search + Filter */}
+        {/* ── View Mode Tabs ── */}
         <div style={{
-          padding: '16px 24px', background: 'rgba(255,255,255,0.05)',
-          borderBottom: '1px solid rgba(255,255,255,0.1)',
-          display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap'
+          display: 'flex', gap: '0', background: 'rgba(0,0,0,0.2)',
+          borderBottom: '1px solid rgba(255,255,255,0.1)'
         }}>
-          <div style={{ flex: 1, position: 'relative', minWidth: '200px' }}>
-            <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.5)', fontSize: '14px' }}>🔍</span>
-            <input
-              type="text"
-              placeholder="Search name, bill no, phone..."
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-              style={{
-                width: '100%', padding: '10px 12px 10px 36px',
-                borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)',
-                background: 'rgba(255,255,255,0.15)', color: 'white',
-                fontSize: '14px', outline: 'none', boxSizing: 'border-box'
-              }}
-            />
-          </div>
-
-          {/* Status filter tabs */}
-          <div style={{ display: 'flex', gap: '6px' }}>
-            {(['all', 'pending', 'completed', 'delivered'] as const).map(s => (
-              <button key={s} onClick={() => setStatusFilter(s)} style={{
-                padding: '8px 14px', borderRadius: '20px', border: 'none',
-                background: statusFilter === s ? 'white' : 'rgba(255,255,255,0.15)',
-                color: statusFilter === s ? '#1e3c72' : 'white',
-                fontSize: '12px', fontWeight: '600', cursor: 'pointer',
-                textTransform: 'capitalize'
-              }}>{s}</button>
-            ))}
-          </div>
-
-          <button onClick={handleSelectAll} style={{
-            background: 'rgba(52,152,219,0.7)', border: 'none', borderRadius: '8px',
-            padding: '10px 16px', color: 'white', cursor: 'pointer',
-            fontSize: '13px', fontWeight: 'bold', whiteSpace: 'nowrap'
-          }}>
-            {allFilteredSelected ? '❌ Deselect All' : '✅ Select All'}
+          <button
+            onClick={() => setViewMode('all')}
+            style={{
+              flex: 1, padding: '12px', border: 'none', cursor: 'pointer',
+              background: viewMode === 'all' ? 'rgba(255,255,255,0.15)' : 'transparent',
+              color: viewMode === 'all' ? 'white' : 'rgba(255,255,255,0.5)',
+              fontWeight: viewMode === 'all' ? '700' : '400',
+              fontSize: '14px', borderBottom: viewMode === 'all' ? '3px solid #2ecc71' : '3px solid transparent',
+              transition: 'all 0.2s'
+            }}
+          >
+            🔍 All Bills ({filteredBills.length})
           </button>
-
-          <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: '13px', whiteSpace: 'nowrap' }}>
-            <span style={{ color: '#f39c12', fontWeight: 'bold' }}>{selectedBillIds.size}</span> selected
-            {' · '}
-            <span style={{ color: 'rgba(255,255,255,0.6)' }}>{filteredBills.length} shown</span>
-          </div>
+          <button
+            onClick={() => setViewMode('selected')}
+            style={{
+              flex: 1, padding: '12px', border: 'none', cursor: 'pointer',
+              background: viewMode === 'selected' ? 'rgba(46,204,113,0.2)' : 'transparent',
+              color: viewMode === 'selected' ? '#2ecc71' : 'rgba(255,255,255,0.5)',
+              fontWeight: viewMode === 'selected' ? '700' : '400',
+              fontSize: '14px', borderBottom: viewMode === 'selected' ? '3px solid #2ecc71' : '3px solid transparent',
+              transition: 'all 0.2s'
+            }}
+          >
+            ✅ Selected ({selectedBillIds.size})
+            {selectedBillIds.size > 0 && (
+              <span style={{
+                marginLeft: '8px', background: '#2ecc71', color: '#1e3c72',
+                borderRadius: '10px', padding: '1px 7px', fontSize: '11px', fontWeight: '800'
+              }}>
+                ₹{calculateSelectedTotal().toLocaleString('en-IN')}
+              </span>
+            )}
+          </button>
         </div>
 
-        {/* Bills List */}
+        {/* ── Search + Filter (only in All tab) ── */}
+        {viewMode === 'all' && (
+          <div style={{
+            padding: '12px 24px', background: 'rgba(255,255,255,0.05)',
+            borderBottom: '1px solid rgba(255,255,255,0.1)',
+            display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap'
+          }}>
+            <div style={{ flex: 1, position: 'relative', minWidth: '180px' }}>
+              <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.5)', fontSize: '13px' }}>🔍</span>
+              <input
+                type="text"
+                placeholder="Search name, bill no, phone..."
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                style={{
+                  width: '100%', padding: '9px 12px 9px 34px',
+                  borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)',
+                  background: 'rgba(255,255,255,0.15)', color: 'white',
+                  fontSize: '13px', outline: 'none', boxSizing: 'border-box'
+                }}
+              />
+              {searchTerm && (
+                <button onClick={() => setSearchTerm('')} style={{
+                  position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)',
+                  background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', fontSize: '12px'
+                }}>✕</button>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', gap: '5px' }}>
+              {(['all', 'pending', 'completed', 'delivered'] as const).map(s => (
+                <button key={s} onClick={() => setStatusFilter(s)} style={{
+                  padding: '7px 12px', borderRadius: '20px', border: 'none',
+                  background: statusFilter === s ? 'white' : 'rgba(255,255,255,0.15)',
+                  color: statusFilter === s ? '#1e3c72' : 'white',
+                  fontSize: '11px', fontWeight: '600', cursor: 'pointer', textTransform: 'capitalize'
+                }}>{s}</button>
+              ))}
+            </div>
+
+            <button onClick={handleSelectAll} style={{
+              background: 'rgba(52,152,219,0.7)', border: 'none', borderRadius: '8px',
+              padding: '9px 14px', color: 'white', cursor: 'pointer',
+              fontSize: '12px', fontWeight: 'bold', whiteSpace: 'nowrap'
+            }}>
+              {allFilteredSelected ? '❌ Deselect All' : '✅ Select All'}
+            </button>
+          </div>
+        )}
+
+        {/* ── Selected tab header ── */}
+        {viewMode === 'selected' && selectedBillIds.size > 0 && (
+          <div style={{
+            padding: '10px 24px', background: 'rgba(46,204,113,0.1)',
+            borderBottom: '1px solid rgba(46,204,113,0.2)',
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+          }}>
+            <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: '13px' }}>
+              Click any bill below to <strong style={{ color: '#e74c3c' }}>remove</strong> it from selection
+            </span>
+            <button
+              onClick={() => setSelectedBillIds(new Set())}
+              style={{
+                background: 'rgba(231,76,60,0.3)', border: '1px solid rgba(231,76,60,0.5)',
+                borderRadius: '6px', padding: '5px 12px', color: '#e74c3c',
+                cursor: 'pointer', fontSize: '12px', fontWeight: '600'
+              }}
+            >
+              🗑 Clear All
+            </button>
+          </div>
+        )}
+
+        {/* ── Bills List ── */}
         <div style={{ flex: 1, overflow: 'auto', padding: '16px 24px' }}>
           {loading ? (
             <div style={{ textAlign: 'center', color: 'white', padding: '60px' }}>
               <i className="fas fa-spinner fa-spin fa-2x" style={{ marginBottom: '16px' }}></i>
-              <p>Loading all bills...</p>
+              <p>Loading bills...</p>
             </div>
-          ) : filteredBills.length === 0 ? (
+          ) : viewMode === 'selected' && selectedBillIds.size === 0 ? (
+            <div style={{ textAlign: 'center', color: 'rgba(255,255,255,0.6)', padding: '60px' }}>
+              <div style={{ fontSize: '48px', marginBottom: '12px' }}>📭</div>
+              <h3 style={{ margin: '0 0 8px 0', color: 'white' }}>No bills selected yet</h3>
+              <p style={{ margin: 0, fontSize: '14px' }}>Go to "All Bills" tab and select bills to add</p>
+              <button onClick={() => setViewMode('all')} style={{
+                marginTop: '16px', background: 'rgba(52,152,219,0.7)', border: 'none',
+                borderRadius: '8px', padding: '10px 20px', color: 'white',
+                cursor: 'pointer', fontSize: '14px', fontWeight: 'bold'
+              }}>
+                🔍 Browse All Bills
+              </button>
+            </div>
+          ) : displayBills.length === 0 ? (
             <div style={{ textAlign: 'center', color: 'rgba(255,255,255,0.7)', padding: '60px' }}>
               <div style={{ fontSize: '40px', marginBottom: '12px' }}>🔍</div>
               <h3 style={{ margin: '0 0 8px 0' }}>No bills found</h3>
@@ -237,66 +372,14 @@ const PendingBillSelector: React.FC<PendingBillSelectorProps> = ({
             </div>
           ) : (
             <div style={{ display: 'grid', gap: '10px' }}>
-              {filteredBills.map(bill => {
-                const billId = bill.id || bill._id;
-                const isSelected = selectedBillIds.has(billId);
-                const sc = statusColor(bill.status);
-                return (
-                  <div key={billId} onClick={() => toggleBillSelection(billId)} style={{
-                    background: isSelected ? 'rgba(46,204,113,0.2)' : 'rgba(255,255,255,0.08)',
-                    border: `2px solid ${isSelected ? '#2ecc71' : 'rgba(255,255,255,0.15)'}`,
-                    borderRadius: '12px', padding: '14px 18px', cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px'
-                  }}>
-                    {/* Checkbox */}
-                    <div style={{
-                      width: '22px', height: '22px', borderRadius: '50%', flexShrink: 0,
-                      background: isSelected ? '#2ecc71' : 'rgba(255,255,255,0.2)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: '12px', fontWeight: 'bold', color: 'white'
-                    }}>
-                      {isSelected ? '✓' : ''}
-                    </div>
-
-                    {/* Bill Info */}
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px', flexWrap: 'wrap' }}>
-                        <span style={{ color: 'white', fontWeight: '700', fontSize: '15px' }}>
-                          {bill.customerName}
-                        </span>
-                        <span style={{
-                          background: sc.bg, border: `1px solid ${sc.border}`,
-                          color: sc.text, padding: '2px 8px', borderRadius: '10px',
-                          fontSize: '10px', fontWeight: '700', textTransform: 'uppercase'
-                        }}>
-                          {bill.status || 'unknown'}
-                        </span>
-                      </div>
-                      <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: '12px', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                        <span>#{bill.billNumber}</span>
-                        <span>📦 {bill.items?.length || 0} items</span>
-                        <span>📅 {new Date(bill.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
-                        {bill.customerPhone && <span>📞 {bill.customerPhone}</span>}
-                      </div>
-                    </div>
-
-                    {/* Amount */}
-                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                      <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#f39c12' }}>
-                        ₹{bill.grandTotal?.toLocaleString('en-IN')}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+              {displayBills.map(bill => <BillCard key={bill.id || bill._id} bill={bill} />)}
             </div>
           )}
         </div>
 
-        {/* Footer */}
+        {/* ── Footer ── */}
         <div style={{
-          padding: '16px 24px', background: 'rgba(255,255,255,0.1)',
+          padding: '14px 24px', background: 'rgba(255,255,255,0.1)',
           borderTop: '1px solid rgba(255,255,255,0.2)',
           display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px'
         }}>
