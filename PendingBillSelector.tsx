@@ -25,53 +25,57 @@ const PendingBillSelector: React.FC<PendingBillSelectorProps> = ({
 
   const loadAllBills = async () => {
     setLoading(true);
-    try {
-      // Load ALL bills — not just pending
-      const response = await apiService.getBills({ limit: 1000, sortBy: 'createdAt', sortOrder: 'desc' } as any);
-      if (response.success && response.data) {
-        const bills = Array.isArray(response.data)
-          ? response.data
-          : (response.data as any).bills || response.data;
-        setAllBills(bills);
 
-        // Auto-select bills matching current customer name
-        if (customerName) {
-          const matched = bills
-            .filter((b: PendingBill) => b.customerName?.toLowerCase().includes(customerName.toLowerCase()))
-            .map((b: PendingBill) => b.id || b._id);
-          setSelectedBillIds(new Set(matched));
-        }
-        return;
-      }
-    } catch (error) {
-      console.warn('DB unavailable, falling back to localStorage:', error);
-    }
-
-    // Fallback: merge localStorage sources
+    // ── Step 1: Show localStorage data INSTANTLY ──────────────────────────
     const historyRaw = localStorage.getItem('laundry_bill_history');
     const pendingRaw = localStorage.getItem('laundry_pending_bills');
     const history: PendingBill[] = historyRaw ? JSON.parse(historyRaw) : [];
     const pending: PendingBill[] = pendingRaw ? JSON.parse(pendingRaw) : [];
 
-    // Deduplicate by billNumber
     const seen = new Set<string>();
     const merged: PendingBill[] = [];
     [...history, ...pending].forEach(b => {
-      if (!seen.has(b.billNumber)) {
-        seen.add(b.billNumber);
-        merged.push(b);
-      }
+      if (!seen.has(b.billNumber)) { seen.add(b.billNumber); merged.push(b); }
     });
     merged.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    setAllBills(merged);
 
-    if (customerName) {
-      const matched = merged
-        .filter(b => b.customerName?.toLowerCase().includes(customerName.toLowerCase()))
-        .map(b => b.id || b._id);
-      setSelectedBillIds(new Set(matched));
+    if (merged.length > 0) {
+      setAllBills(merged);
+      setLoading(false); // Show local data immediately — no spinner
+
+      if (customerName) {
+        const matched = merged
+          .filter(b => b.customerName?.toLowerCase().includes(customerName.toLowerCase()))
+          .map(b => b.id || b._id);
+        setSelectedBillIds(new Set(matched));
+      }
     }
-    setLoading(false);
+
+    // ── Step 2: Refresh from API silently in background ───────────────────
+    try {
+      const response = await apiService.getBills({ limit: 1000 } as any);
+      if (response.success && response.data) {
+        const bills = Array.isArray(response.data)
+          ? response.data
+          : (response.data as any).bills || response.data;
+
+        bills.sort((a: PendingBill, b: PendingBill) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+        setAllBills(bills);
+        setLoading(false);
+
+        if (customerName && merged.length === 0) {
+          const matched = bills
+            .filter((b: PendingBill) => b.customerName?.toLowerCase().includes(customerName.toLowerCase()))
+            .map((b: PendingBill) => b.id || b._id);
+          setSelectedBillIds(new Set(matched));
+        }
+      }
+    } catch (error) {
+      console.warn('Background API refresh failed, using localStorage data:', error);
+      setLoading(false);
+    }
   };
 
   const getFilteredBills = () => {
