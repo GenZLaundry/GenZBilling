@@ -63,6 +63,11 @@ const billSchema = new mongoose.Schema({
     default: 0,
     min: 0
   },
+  pointsRedeemed: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
   deliveryCharge: {
     type: Number,
     default: 0,

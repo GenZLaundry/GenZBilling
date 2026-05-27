@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { sendSMS, SMS_TEMPLATES } = require('../services/smsService');
-const { sendBillGeneratedWA, sendReadyPickupWA, sendPaymentReceivedWA, sendWhatsApp } = require('../services/whatsappService');
+const { sendBillGeneratedWA, sendReadyPickupWA, sendPaymentReceivedWA, sendWhatsApp, sendManualEntryWA } = require('../services/whatsappService');
 const Bill = require('../models/Bill');
 
 // Helper: try WhatsApp first, fallback to SMS
@@ -128,6 +128,29 @@ router.get('/customers', async (req, res) => {
 
     const customers = Array.from(customerMap.values());
     res.json({ success: true, data: customers, total: customers.length });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Send manual entry notification
+router.post('/manual-entry-received', async (req, res) => {
+  try {
+    const { phone, customerName, serviceType, quantity, pickupDate, deliveryDate, paymentStatus, partialAmount } = req.body;
+    if (!phone || !customerName || !serviceType || !quantity) {
+      return res.status(400).json({ success: false, message: 'Missing required fields' });
+    }
+    const result = await sendManualEntryWA(
+      phone,
+      customerName,
+      serviceType,
+      quantity,
+      pickupDate,
+      deliveryDate,
+      paymentStatus,
+      partialAmount
+    );
+    res.json(result);
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

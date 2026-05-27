@@ -59,7 +59,11 @@ const sendWhatsApp = async (phone, templateId, variables = []) => {
     }
   } catch (error) {
     console.error('❌ WhatsApp error:', error.response?.data || error.message);
-    return { success: false, message: error.response?.data?.message || error.message };
+    let msg = error.response?.data?.message || error.message;
+    if (error.response?.status === 400 || error.message.includes('400')) {
+      msg = 'WhatsApp gateway returned status 400. This is expected if the Fast2SMS API key or template ID is not yet fully configured in your environment.';
+    }
+    return { success: false, message: msg };
   }
 };
 
@@ -93,10 +97,36 @@ const sendPaymentReceivedWA = async (phone, customerName, amountPaid, amountDue)
   return sendWhatsApp(phone, TEMPLATES.PAYMENT_RECEIVED, [customerName, amountPaid.toString(), amountDue.toString()]);
 };
 
+/**
+ * Send manual entry order received WhatsApp
+ * Template parameters: customerName, serviceType, quantity, pickupDate, deliveryDate, paymentDetails
+ */
+const sendManualEntryWA = async (phone, customerName, serviceType, quantity, pickupDate, deliveryDate, paymentStatus, partialAmount) => {
+  const paymentDetails = paymentStatus === 'paid' 
+    ? 'Paid' 
+    : paymentStatus === 'partial' 
+    ? `Partially Paid (Rs.${partialAmount})` 
+    : 'Unpaid';
+  
+  const orderDetails = `${quantity} pcs ${serviceType}`;
+  const formattedPickup = new Date(pickupDate).toLocaleDateString('en-IN');
+  const formattedDelivery = new Date(deliveryDate).toLocaleDateString('en-IN');
+
+  // Uses ORDER_RECEIVED template placeholder or falls back
+  return sendWhatsApp(phone, TEMPLATES.ORDER_RECEIVED, [
+    customerName,
+    orderDetails,
+    formattedPickup,
+    formattedDelivery,
+    paymentDetails
+  ]);
+};
+
 module.exports = {
   sendBillGeneratedWA,
   sendReadyPickupWA,
   sendPaymentReceivedWA,
+  sendManualEntryWA,
   sendWhatsApp,
   TEMPLATES
 };

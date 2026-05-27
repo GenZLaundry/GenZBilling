@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Bill = require('../models/Bill');
 const moment = require('moment');
+const { syncCustomerStats } = require('../services/customerService');
 
 // Get all bills with pagination and filters
 router.get('/', async (req, res) => {
@@ -252,10 +253,20 @@ router.patch('/bulk-status', async (req, res) => {
       updateData.completedAt = updateData.completedAt || new Date();
     }
 
+    // Fetch phones before updating to sync statistics
+    const billsToSync = await Bill.find({ _id: { $in: billIds } }).select('customerPhone customerName');
+
     const result = await Bill.updateMany(
       { _id: { $in: billIds } },
       updateData
     );
+
+    // Sync all affected customers in background
+    for (const b of billsToSync) {
+      if (b.customerPhone || b.customerName) {
+        syncCustomerStats(b.customerPhone, b.customerName).catch(err => console.error('⚠️ Bulk sync error:', err.message));
+      }
+    }
 
     res.json({
       success: true,
@@ -286,7 +297,17 @@ router.delete('/bulk-delete', async (req, res) => {
       });
     }
 
+    // Fetch phones before deletion to sync statistics
+    const billsToSync = await Bill.find({ _id: { $in: billIds } }).select('customerPhone customerName');
+
     const result = await Bill.deleteMany({ _id: { $in: billIds } });
+
+    // Sync affected customers in background
+    for (const b of billsToSync) {
+      if (b.customerPhone || b.customerName) {
+        syncCustomerStats(b.customerPhone, b.customerName).catch(err => console.error('⚠️ Bulk delete sync error:', err.message));
+      }
+    }
 
     res.json({
       success: true,
@@ -329,6 +350,10 @@ router.post('/', async (req, res) => {
 
     const bill = new Bill(billData);
     await bill.save();
+
+    if (bill.customerPhone || bill.customerName) {
+      syncCustomerStats(bill.customerPhone, bill.customerName).catch(err => console.error('⚠️ Customer sync error:', err.message));
+    }
 
     res.status(201).json({
       success: true,
@@ -391,6 +416,10 @@ router.patch('/:id/status', async (req, res) => {
       });
     }
 
+    if (bill.customerPhone || bill.customerName) {
+      syncCustomerStats(bill.customerPhone, bill.customerName).catch(err => console.error('⚠️ Customer sync error:', err.message));
+    }
+
     res.json({
       success: true,
       message: 'Bill status updated successfully',
@@ -440,6 +469,10 @@ router.patch('/payment/:billNumber', async (req, res) => {
     await bill.save();
     console.log('✅ Payment saved. amountPaid:', bill.amountPaid, 'amountDue:', bill.amountDue);
 
+    if (bill.customerPhone || bill.customerName) {
+      syncCustomerStats(bill.customerPhone, bill.customerName).catch(err => console.error('⚠️ Customer sync error:', err.message));
+    }
+
     res.json({ success: true, message: 'Payment recorded successfully', data: bill });
   } catch (error) {
     console.error('❌ Payment route error:', error);
@@ -474,6 +507,10 @@ router.delete('/payment/:billNumber/:paymentIndex', async (req, res) => {
 
     await bill.save();
     console.log('✅ Payment removed. Removed amount:', removedPayment.amount, 'New amountPaid:', bill.amountPaid);
+
+    if (bill.customerPhone || bill.customerName) {
+      syncCustomerStats(bill.customerPhone, bill.customerName).catch(err => console.error('⚠️ Customer sync error:', err.message));
+    }
 
     res.json({ success: true, message: `Payment of ₹${removedPayment.amount} removed`, data: bill });
   } catch (error) {
@@ -519,6 +556,10 @@ router.patch('/:id/payment', async (req, res) => {
 
     await bill.save();
 
+    if (bill.customerPhone || bill.customerName) {
+      syncCustomerStats(bill.customerPhone, bill.customerName).catch(err => console.error('⚠️ Customer sync error:', err.message));
+    }
+
     res.json({ success: true, message: 'Payment recorded successfully', data: bill });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Error recording payment', error: error.message });
@@ -547,6 +588,10 @@ router.put('/:id', async (req, res) => {
       });
     }
 
+    if (bill.customerPhone || bill.customerName) {
+      syncCustomerStats(bill.customerPhone, bill.customerName).catch(err => console.error('⚠️ Customer sync error:', err.message));
+    }
+
     res.json({
       success: true,
       message: 'Bill updated successfully',
@@ -573,6 +618,10 @@ router.delete('/:id', async (req, res) => {
         success: false,
         message: 'Bill not found'
       });
+    }
+
+    if (bill.customerPhone || bill.customerName) {
+      syncCustomerStats(bill.customerPhone, bill.customerName).catch(err => console.error('⚠️ Customer sync error:', err.message));
     }
 
     res.json({

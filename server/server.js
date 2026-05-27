@@ -27,6 +27,8 @@ const tagHistoryRoutes = require('./routes/tagHistory');
 const smsRoutes = require('./routes/sms');
 const advanceRoutes = require('./routes/advances');
 const incomeRoutes = require('./routes/incomes');
+const manualEntryRoutes = require('./routes/manualEntries');
+const customerRoutes = require('./routes/customers');
 
 // Middleware
 app.use(helmet());
@@ -78,6 +80,11 @@ console.log('ADMIN_USERNAME:', process.env.ADMIN_USERNAME ? 'SET' : 'UNDEFINED')
 mongoose.connect(process.env.MONGODB_URI)
 .then(() => {
   console.log('✅ Connected to MongoDB Atlas');
+  // Trigger one-time customer database sync on startup
+  const { runOneTimeMigration } = require('./services/customerService');
+  setTimeout(() => {
+    runOneTimeMigration().catch(err => console.error('⚠️ Startup migration error:', err));
+  }, 5000);
 })
 .catch((error) => {
   console.error('❌ MongoDB connection error:', error);
@@ -105,6 +112,8 @@ app.use('/api/tag-history', tagHistoryRoutes);
 app.use('/api/sms', smsRoutes);
 app.use('/api/advances', advanceRoutes);
 app.use('/api/incomes', incomeRoutes);
+app.use('/api/manual-entries', manualEntryRoutes);
+app.use('/api/customers', customerRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
