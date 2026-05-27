@@ -7,11 +7,40 @@ import FunctionalQRCode from './FunctionalQRCode';
 import UPISettings from './UPISettings';
 import UPIStatusIndicator from './UPIStatusIndicator';
 import ItemListManager from './ItemListManager';
+import ManualEntry from './ManualEntry';
 import apiService from './api';
 import { useAlert } from './GlobalAlert';
 import BillShareButton from './BillShareButton';
 import { ShareableBillData } from './BillShareUtils';
-import { sendBillGeneratedWA } from './whatsappNotify';
+const COUNTRY_CODES = [
+  { code: '+91', name: 'IN (+91)' },
+  { code: '+1', name: 'US/CA (+1)' },
+  { code: '+44', name: 'UK (+44)' },
+  { code: '+971', name: 'UAE (+971)' },
+  { code: '+966', name: 'SA (+966)' },
+  { code: '+61', name: 'AU (+61)' },
+  { code: '+65', name: 'SG (+65)' },
+  { code: '+880', name: 'BD (+880)' },
+  { code: '+977', name: 'NP (+977)' },
+  { code: '+94', name: 'LK (+94)' },
+  { code: '+968', name: 'OM (+968)' },
+  { code: '+965', name: 'KW (+965)' },
+  { code: '+974', name: 'QA (+974)' }
+];
+
+const parsePhoneNumber = (phoneStr: string) => {
+  const clean = (phoneStr || '').trim();
+  if (clean.startsWith('+')) {
+    const sortedCodes = [...COUNTRY_CODES].sort((a, b) => b.code.length - a.code.length);
+    for (const item of sortedCodes) {
+      if (clean.startsWith(item.code)) {
+        const numberPart = clean.slice(item.code.length).trim();
+        return { countryCode: item.code, number: numberPart };
+      }
+    }
+  }
+  return { countryCode: '+91', number: clean };
+};
 
 interface OrderItem {
   id: string;
@@ -35,6 +64,7 @@ interface BillingMachineInterfaceProps {
 const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLogout, onSwitchToAdmin }) => {
   const { showAlert, showConfirm } = useAlert();
   const [customer, setCustomer] = useState<Customer>({ name: '', phone: '' });
+  const [countryCode, setCountryCode] = useState('+91');
   const [billDate, setBillDate] = useState<string>(new Date().toISOString().split('T')[0]); // Default to today
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [currentItem, setCurrentItem] = useState('');
@@ -60,6 +90,8 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
   const [searchQuery, setSearchQuery] = useState('');
   const [showUPISettings, setShowUPISettings] = useState(false);
   const [showItemListManager, setShowItemListManager] = useState(false);
+  const [showManualEntry, setShowManualEntry] = useState(false);
+  const [reminderTrigger, setReminderTrigger] = useState(0);
   const [showCustomerHistory, setShowCustomerHistory] = useState(false);
   const [customerHistory, setCustomerHistory] = useState<any[]>([]);
   const [customerPendingDue, setCustomerPendingDue] = useState<{amount: number, count: number, bills: PendingBill[]}>({amount: 0, count: 0, bills: []});
@@ -68,6 +100,46 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
   const [customerSuggestions, setCustomerSuggestions] = useState<Array<{name: string, phone: string, lastBill?: string}>>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [lastGeneratedBill, setLastGeneratedBill] = useState<ShareableBillData | null>(null);
+  
+  const [activeNotification, setActiveNotification] = useState<{
+    id: string;
+    entryId: string;
+    title: string;
+    body: string;
+    icon: string;
+    time: string;
+    type: 'pickup' | 'delivery';
+  } | null>(null);
+  const notifiedEntriesRef = useRef<Set<string>>(new Set());
+
+  const playNotificationChime = () => {
+    try {
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const now = audioCtx.currentTime;
+
+      // Soft, smooth, premium glass-like warm chime tone
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(587.33, now); // D5 (pleasant, warm, smooth frequency)
+      
+      // Gentle attack: volume rises smoothly from 0 to 0.08 in 0.05s to eliminate click pop sounds
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(0.08, now + 0.05);
+      
+      // Soft, long acoustic decay: volume falls exponentially to 0.001 in 0.6s
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+      
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      
+      osc.start(now);
+      osc.stop(now + 0.6);
+    } catch (error) {
+      console.error("Audio context failed to play smooth chime:", error);
+    }
+  };
 
   const itemInputRef = useRef<HTMLInputElement>(null);
   const priceInputRef = useRef<HTMLInputElement>(null);
@@ -179,41 +251,107 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
     });
   };
 
-  const searchCustomers = (query: string) => {
-    if (!query || query.length < 3) {
+  const searchCustomers = async (query: string) => {
+    if (!query || query.trim().length < 1) {
       setCustomerSuggestions([]);
       setShowSuggestions(false);
       return;
     }
-    const localHistory = JSON.parse(localStorage.getItem('laundry_bill_history') || '[]');
-    const q = query.toLowerCase();
+    const q = query.toLowerCase().trim();
     const customerMap = new Map<string, { name: string; phone: string; lastBill?: string; count: number }>();
-    localHistory.forEach((bill: any) => {
-      const name = bill.customerName || '';
-      if (name.toLowerCase().includes(q)) {
-        const key = name.toLowerCase();
-        if (!customerMap.has(key)) {
-          customerMap.set(key, { name, phone: bill.customerPhone || '', lastBill: bill.createdAt, count: 1 });
-        } else {
-          const existing = customerMap.get(key)!;
-          existing.count++;
-          if (bill.createdAt > (existing.lastBill || '')) {
-            existing.lastBill = bill.createdAt;
-            existing.phone = bill.customerPhone || existing.phone;
+
+    // 1. Gather suggestions from local storage to work offline/instantly
+    try {
+      const localHistory = JSON.parse(localStorage.getItem('laundry_bill_history') || '[]');
+      if (Array.isArray(localHistory)) {
+        localHistory.forEach((bill: any) => {
+          const name = bill.customerName || '';
+          if (name.toLowerCase().includes(q)) {
+            const key = name.toLowerCase().trim();
+            if (!customerMap.has(key)) {
+              customerMap.set(key, { name, phone: bill.customerPhone || '', lastBill: bill.createdAt, count: 1 });
+            } else {
+              const existing = customerMap.get(key)!;
+              existing.count++;
+              if (bill.createdAt > (existing.lastBill || '')) {
+                existing.lastBill = bill.createdAt;
+                existing.phone = bill.customerPhone || existing.phone;
+              }
+            }
           }
-        }
+        });
       }
-    });
-    const suggestions = Array.from(customerMap.values())
+    } catch (e) {
+      console.error('Error parsing local history for suggestions:', e);
+    }
+
+    try {
+      const localManual = JSON.parse(localStorage.getItem('laundry_manual_entries') || '[]');
+      if (Array.isArray(localManual)) {
+        localManual.forEach((entry: any) => {
+          const name = entry.customerName || '';
+          if (name.toLowerCase().includes(q)) {
+            const key = name.toLowerCase().trim();
+            if (!customerMap.has(key)) {
+              customerMap.set(key, { name, phone: entry.phone || '', lastBill: entry.createdAt, count: 1 });
+            } else {
+              const existing = customerMap.get(key)!;
+              existing.count++;
+              if (entry.createdAt > (existing.lastBill || '')) {
+                existing.lastBill = entry.createdAt;
+                existing.phone = entry.phone || existing.phone;
+              }
+            }
+          }
+        });
+      }
+    } catch (e) {
+      console.error('Error parsing local manual entries for suggestions:', e);
+    }
+
+    let suggestions = Array.from(customerMap.values())
       .sort((a, b) => b.count - a.count)
-      .slice(0, 6)
       .map(c => ({ name: c.name, phone: c.phone, lastBill: c.lastBill }));
-    setCustomerSuggestions(suggestions);
+
+    setCustomerSuggestions(suggestions.slice(0, 6));
     setShowSuggestions(suggestions.length > 0);
+
+    // 2. Fetch from Database Customer CRM API asynchronously (if online)
+    try {
+      const response = await apiService.getCustomers({ search: query, limit: 10 });
+      if (response && response.success && Array.isArray(response.data)) {
+        response.data.forEach((c: any) => {
+          const key = c.name.toLowerCase().trim();
+          if (!customerMap.has(key)) {
+            customerMap.set(key, { name: c.name, phone: c.phone, lastBill: c.lastVisit, count: c.totalOrders || 1 });
+          } else {
+            const existing = customerMap.get(key)!;
+            if (!existing.phone && c.phone) {
+              existing.phone = c.phone;
+            }
+            if (c.lastVisit && c.lastVisit > (existing.lastBill || '')) {
+              existing.lastBill = c.lastVisit;
+            }
+          }
+        });
+
+        suggestions = Array.from(customerMap.values())
+          .sort((a, b) => b.count - a.count)
+          .map(c => ({ name: c.name, phone: c.phone, lastBill: c.lastBill }));
+
+        setCustomerSuggestions(suggestions.slice(0, 8));
+        setShowSuggestions(suggestions.length > 0);
+      }
+    } catch (apiError) {
+      console.log('Customer API search offline or failed:', apiError);
+    }
   };
 
+
   const selectCustomerSuggestion = (suggestion: { name: string; phone: string; lastBill?: string }) => {
-    setCustomer({ name: suggestion.name, phone: suggestion.phone });
+    const parsed = parsePhoneNumber(suggestion.phone);
+    setCountryCode(parsed.countryCode);
+    setCustomer({ name: suggestion.name, phone: parsed.number });
     setShowSuggestions(false);
     setCustomerSuggestions([]);
     if (suggestion.phone) loadCustomerHistory(suggestion.phone);
@@ -240,11 +378,11 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
 
   useEffect(() => {
     if (customer.phone && customer.phone.length >= 10) {
-      loadCustomerHistory(customer.phone);
+      loadCustomerHistory(`${countryCode}${customer.phone}`);
     } else {
       setCustomerPendingDue({ amount: 0, count: 0, bills: [] });
     }
-  }, [customer.phone]);
+  }, [customer.phone, countryCode]);
 
 
   useEffect(() => {
@@ -254,6 +392,179 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
       itemInputRef.current.focus();
     }
   }, []);
+
+  // Polling check for manual entry pickup & delivery reminders
+  useEffect(() => {
+    const checkReminders = async () => {
+      let entries: any[] = [];
+      try {
+        const response = await apiService.getManualEntries();
+        if (response && response.success && Array.isArray(response.data)) {
+          entries = response.data;
+        } else {
+          entries = JSON.parse(localStorage.getItem('laundry_manual_entries') || '[]');
+        }
+      } catch (e) {
+        entries = JSON.parse(localStorage.getItem('laundry_manual_entries') || '[]');
+      }
+
+      if (!Array.isArray(entries) || entries.length === 0) return;
+
+      const now = new Date();
+      const todayStr = now.toISOString().split('T')[0]; // YYYY-MM-DD
+
+      for (const entry of entries) {
+        const isPending = entry.status === 'pending';
+        const isDelivered = entry.status === 'delivered';
+
+        if (isDelivered) continue;
+
+        // check pickup times (for pending manual entries)
+        if (isPending && entry.pickupDate) {
+          const hasTime = !!entry.pickupTime;
+          const pickupDateTimeStr = `${entry.pickupDate}T${entry.pickupTime || '00:00'}:00`;
+          const pickupDateObj = new Date(pickupDateTimeStr);
+          const timeDiffMins = Math.round((pickupDateObj.getTime() - now.getTime()) / (1000 * 60));
+
+          if (entry.pickupDate === todayStr) {
+            if (hasTime) {
+              if (timeDiffMins > 0 && timeDiffMins <= 30) {
+                // 30 min pickup reminder
+                const key = `${entry._id || entry.id}_pickup_soon`;
+                if (!notifiedEntriesRef.current.has(key)) {
+                  notifiedEntriesRef.current.add(key);
+                  playNotificationChime();
+                  setActiveNotification({
+                    id: key,
+                    entryId: entry._id || entry.id,
+                    title: '⏰ Pickup Due Soon',
+                    body: `${entry.customerName} is scheduled for pickup in ${timeDiffMins} mins (${entry.pickupTime})`,
+                    icon: '⏰',
+                    time: 'now',
+                    type: 'pickup'
+                  });
+                  break;
+                }
+              } else if (timeDiffMins <= 0) {
+                // Overdue pickup today
+                const key = `${entry._id || entry.id}_pickup_overdue`;
+                if (!notifiedEntriesRef.current.has(key)) {
+                  notifiedEntriesRef.current.add(key);
+                  playNotificationChime();
+                  setActiveNotification({
+                    id: key,
+                    entryId: entry._id || entry.id,
+                    title: '🚨 Overdue Pickup Alert',
+                    body: `Pickup for ${entry.customerName} was due at ${entry.pickupTime}`,
+                    icon: '🚨',
+                    time: 'now',
+                    type: 'pickup'
+                  });
+                  break;
+                }
+              }
+            }
+          } else if (pickupDateObj.getTime() < now.getTime() && entry.pickupDate < todayStr) {
+            // Overdue pickup past days
+            const key = `${entry._id || entry.id}_pickup_overdue_past`;
+            if (!notifiedEntriesRef.current.has(key)) {
+              notifiedEntriesRef.current.add(key);
+              playNotificationChime();
+              setActiveNotification({
+                id: key,
+                entryId: entry._id || entry.id,
+                title: '🚨 Overdue Pickup Alert',
+                body: `Pickup for ${entry.customerName} was due on ${entry.pickupDate}`,
+                icon: '🚨',
+                time: 'now',
+                type: 'pickup'
+              });
+              break;
+            }
+          }
+        }
+
+        // check delivery times (for pending or completed manual entries)
+        if (!isDelivered && entry.deliveryDate) {
+          const hasTime = !!entry.deliveryTime;
+          const deliveryDateTimeStr = `${entry.deliveryDate}T${entry.deliveryTime || '00:00'}:00`;
+          const deliveryDateObj = new Date(deliveryDateTimeStr);
+          const timeDiffMins = Math.round((deliveryDateObj.getTime() - now.getTime()) / (1000 * 60));
+
+          if (entry.deliveryDate === todayStr) {
+            if (hasTime) {
+              if (timeDiffMins > 0 && timeDiffMins <= 30) {
+                // 30 min delivery reminder
+                const key = `${entry._id || entry.id}_delivery_soon`;
+                if (!notifiedEntriesRef.current.has(key)) {
+                  notifiedEntriesRef.current.add(key);
+                  playNotificationChime();
+                  setActiveNotification({
+                    id: key,
+                    entryId: entry._id || entry.id,
+                    title: '⏰ Delivery Due Soon',
+                    body: `Delivery for ${entry.customerName} is due in ${timeDiffMins} mins (${entry.deliveryTime})`,
+                    icon: '⏰',
+                    time: 'now',
+                    type: 'delivery'
+                  });
+                  break;
+                }
+              } else if (timeDiffMins <= 0) {
+                // Overdue delivery today
+                const key = `${entry._id || entry.id}_delivery_overdue`;
+                if (!notifiedEntriesRef.current.has(key)) {
+                  notifiedEntriesRef.current.add(key);
+                  playNotificationChime();
+                  setActiveNotification({
+                    id: key,
+                    entryId: entry._id || entry.id,
+                    title: '🚨 Overdue Delivery Alert',
+                    body: `Delivery for ${entry.customerName} was due at ${entry.deliveryTime}`,
+                    icon: '🚨',
+                    time: 'now',
+                    type: 'delivery'
+                  });
+                  break;
+                }
+              }
+            }
+          } else if (deliveryDateObj.getTime() < now.getTime() && entry.deliveryDate < todayStr) {
+            // Overdue delivery past days
+            const key = `${entry._id || entry.id}_delivery_overdue_past`;
+            if (!notifiedEntriesRef.current.has(key)) {
+              notifiedEntriesRef.current.add(key);
+              playNotificationChime();
+              setActiveNotification({
+                id: key,
+                entryId: entry._id || entry.id,
+                title: '🚨 Overdue Delivery Alert',
+                body: `Delivery for ${entry.customerName} was due on ${entry.deliveryDate}`,
+                icon: '🚨',
+                time: 'now',
+                type: 'delivery'
+              });
+              break;
+            }
+          }
+        }
+      }
+    };
+
+    checkReminders();
+    const interval = setInterval(checkReminders, 30000);
+    return () => clearInterval(interval);
+  }, [reminderTrigger]);
+
+  // Dismiss notification after 4 seconds
+  useEffect(() => {
+    if (activeNotification) {
+      const timer = setTimeout(() => {
+        setActiveNotification(null);
+      }, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [activeNotification]);
 
   const loadShopConfig = async () => {
     try {
@@ -431,7 +742,7 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
         billNumber,
         billDate,
         customerName: customer.name,
-        customerPhone: customer.phone,
+        customerPhone: customer.phone ? `${countryCode}${customer.phone}` : '',
         items: orderItems.map(item => ({
           name: item.name,
           quantity: item.quantity,
@@ -583,7 +894,7 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
           businessName: shopConfig.shopName,
           billNumber,
           customerName: customer.name,
-          customerPhone: customer.phone,
+          customerPhone: customer.phone ? `${countryCode}${customer.phone}` : '',
           itemName: item.name.toUpperCase(),
           washType: item.washType,
           tagIndex: tagCounter,
@@ -828,6 +1139,7 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
                 setShowSuccess(false);
                 setOrderItems([]);
                 setCustomer({ name: '', phone: '' });
+                setCountryCode('+91');
                 setDiscount(0);
                 setDeliveryCharge(0);
                 setPreviousBalance(0);
@@ -879,11 +1191,12 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
             }}>
               <div style={{
                 width: '36px', height: '36px', borderRadius: '8px',
-                background: '#3b82f6',
+                background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: 'white', fontSize: '16px'
+                color: 'white', fontSize: '14px',
+                boxShadow: '0 2px 8px rgba(59, 130, 246, 0.3)'
               }}>
-                👤
+                <i className="fas fa-user-circle"></i>
               </div>
               <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '600', color: '#f9fafb' }}>
                 Customer Information
@@ -914,10 +1227,10 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
                     top: '50%',
                     transform: 'translateY(-50%)',
                     color: '#9ca3af',
-                    fontSize: '16px',
+                    fontSize: '14px',
                     pointerEvents: 'none'
                   }}>
-                    👤
+                    <i className="fas fa-user"></i>
                   </div>
                   <input
                     type="text"
@@ -928,7 +1241,7 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
                       searchCustomers(e.target.value);
                     }}
                     onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-                    onFocus={() => customer.name.length >= 3 && searchCustomers(customer.name)}
+                    onFocus={() => customer.name.length >= 1 && searchCustomers(customer.name)}
                     className="professional-input"
                     style={{
                       width: '100%',
@@ -971,12 +1284,12 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
                           onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                         >
                           <div>
-                            <div style={{ color: '#f9fafb', fontWeight: '600', fontSize: '14px' }}>
-                              👤 {s.name}
+                            <div style={{ color: '#f9fafb', fontWeight: '600', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <i className="fas fa-user" style={{ color: '#3b82f6', fontSize: '12px' }}></i> {s.name}
                             </div>
                             {s.phone && (
-                              <div style={{ color: '#9ca3af', fontSize: '11px', marginTop: '2px' }}>
-                                📱 {s.phone}
+                              <div style={{ color: '#9ca3af', fontSize: '11px', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <i className="fas fa-phone" style={{ color: '#10b981', fontSize: '10px' }}></i> {s.phone}
                               </div>
                             )}
                           </div>
@@ -993,7 +1306,7 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
                 </div>
               </div>
 
-              {/* Phone Number Input with History */}
+              {/* Phone Number Input with Country Code */}
               <div style={{ position: 'relative' }}>
                 <label style={{
                   position: 'absolute',
@@ -1009,28 +1322,44 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
                 }}>
                   Phone Number
                 </label>
-                <div style={{ position: 'relative' }}>
-                  <div style={{
-                    position: 'absolute',
-                    left: '12px',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    color: '#9ca3af',
-                    fontSize: '16px',
-                    pointerEvents: 'none'
-                  }}>
-                    📱
-                  </div>
+                <div style={{ position: 'relative', display: 'flex', gap: '0' }}>
+                  {/* Country Code Dropdown */}
+                  <select
+                    value={countryCode}
+                    onChange={(e) => setCountryCode(e.target.value)}
+                    style={{
+                      padding: '12px 8px',
+                      borderRadius: '8px 0 0 8px',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      borderRight: 'none',
+                      background: '#2d3748',
+                      color: '#d1d5db',
+                      fontSize: '13px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      outline: 'none',
+                      flexShrink: 0,
+                      minWidth: '90px'
+                    }}
+                  >
+                    {COUNTRY_CODES.map(c => (
+                      <option key={c.code} value={c.code}>{c.name}</option>
+                    ))}
+                  </select>
+                  {/* Phone Number Input */}
                   <input
                     type="tel"
                     placeholder="Enter phone number"
                     value={customer.phone}
-                    onChange={(e) => setCustomer({ ...customer, phone: e.target.value })}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/[^0-9]/g, '');
+                      setCustomer({ ...customer, phone: val });
+                    }}
                     className="professional-input"
                     style={{
-                      width: '100%',
-                      padding: '12px 40px 12px 40px',
-                      borderRadius: '8px',
+                      flex: 1,
+                      padding: '12px 40px 12px 12px',
+                      borderRadius: '0 8px 8px 0',
                       fontSize: '14px',
                       fontWeight: '500',
                       transition: 'all 0.2s ease'
@@ -1084,10 +1413,10 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
                     top: '50%',
                     transform: 'translateY(-50%)',
                     color: '#9ca3af',
-                    fontSize: '16px',
+                    fontSize: '14px',
                     pointerEvents: 'none'
                   }}>
-                    📅
+                    <i className="fas fa-calendar-alt"></i>
                   </div>
                   <input
                     type="date"
@@ -1124,7 +1453,7 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
                   boxShadow: '0 2px 4px rgba(59, 130, 246, 0.3)'
                 }}
               >
-                📅 Today
+                <i className="fas fa-calendar-day"></i> Today
               </button>
             </div>
             
@@ -1191,11 +1520,12 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
             }}>
               <div style={{
                 width: '36px', height: '36px', borderRadius: '8px',
-                background: '#10b981',
+                background: 'linear-gradient(135deg, #10b981, #059669)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: 'white', fontSize: '16px'
+                color: 'white', fontSize: '14px',
+                boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)'
               }}>
-                <i className="fas fa-plus" style={{ fontSize: '14px' }}></i>
+                <i className="fas fa-plus"></i>
               </div>
               <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '600', color: '#f9fafb' }}>
                 Add New Item
@@ -1226,10 +1556,10 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
                     top: '50%',
                     transform: 'translateY(-50%)',
                     color: '#9ca3af',
-                    fontSize: '16px',
+                    fontSize: '14px',
                     pointerEvents: 'none'
                   }}>
-                    🏷️
+                    <i className="fas fa-tag"></i>
                   </div>
                   <input
                     ref={itemInputRef}
@@ -1324,7 +1654,7 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
                       color: currentUnit === 'qty' ? 'white' : '#9ca3af',
                       transition: 'all 0.2s'
                     }}
-                  ># QTY</button>
+                  ><i className="fas fa-hashtag" style={{ marginRight: '4px' }}></i> QTY</button>
                   <button
                     type="button"
                     onClick={() => setCurrentUnit('kg')}
@@ -1340,7 +1670,7 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
                       color: currentUnit === 'kg' ? 'white' : '#9ca3af',
                       transition: 'all 0.2s'
                     }}
-                  >⚖ KG</button>
+                  ><i className="fas fa-weight-hanging" style={{ marginRight: '4px' }}></i> KG</button>
                 </div>
 
                 {/* Number Input below */}
@@ -1428,10 +1758,10 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
                     top: '50%',
                     transform: 'translateY(-50%)',
                     color: '#9ca3af',
-                    fontSize: '16px',
+                    fontSize: '14px',
                     pointerEvents: 'none'
                   }}>
-                    🧺
+                    <i className="fas fa-soap"></i>
                   </div>
                   <select
                     value={currentWashType}
@@ -1452,10 +1782,10 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
                       backgroundSize: '16px'
                     }}
                   >
-                    <option value="WASH">🧺 WASH ONLY</option>
-                    <option value="IRON">🔥 IRON ONLY</option>
-                    <option value="WASH+IRON">🧺🔥 WASH + IRON</option>
-                    <option value="DRY CLEAN">✨ DRY CLEAN</option>
+                    <option value="WASH">WASH ONLY</option>
+                    <option value="IRON">IRON ONLY</option>
+                    <option value="WASH+IRON">WASH + IRON</option>
+                    <option value="DRY CLEAN">DRY CLEAN</option>
                   </select>
                 </div>
               </div>
@@ -1501,10 +1831,10 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
                 width: '36px', height: '36px', borderRadius: '8px',
                 background: 'linear-gradient(135deg, #f59e0b, #d97706)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: 'white', fontSize: '16px',
+                color: 'white', fontSize: '14px',
                 boxShadow: '0 2px 8px rgba(245, 158, 11, 0.3)'
               }}>
-                ⚡
+                <i className="fas fa-bolt"></i>
               </div>
               <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '600', color: '#f9fafb' }}>
                 Quick Add Items
@@ -1690,6 +2020,21 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
               >
                 UPI
               </button>
+
+              <button
+                onClick={() => setShowManualEntry(true)}
+                className="professional-btn"
+                style={{
+                  padding: '6px 8px',
+                  borderRadius: '4px',
+                  background: '#0ea5e9',
+                  color: 'white',
+                  fontSize: '11px',
+                  fontWeight: '500'
+                }}
+              >
+                Entry
+              </button>
             </div>
           </div>
 
@@ -1709,87 +2054,6 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
               </div>
             ) : (
               <div style={{ padding: '16px' }}>
-
-                {/* Current Order Items */}
-                {orderItems.length > 0 && (
-                  <div style={{ marginBottom: '20px' }}>
-                    <div style={{
-                      fontSize: '14px',
-                      fontWeight: '600',
-                      color: '#f9fafb',
-                      marginBottom: '12px',
-                      padding: '8px 12px',
-                      background: '#4b5563',
-                      borderRadius: '4px',
-                      border: '1px solid #6b7280'
-                    }}>
-                      Current Order ({orderItems.reduce((sum, item) => sum + item.quantity, 0)} items)
-                    </div>
-
-                    {orderItems.map((item) => (
-                      <div key={item.id} className="item-list-professional" style={{
-                        borderRadius: '4px',
-                        padding: '12px',
-                        marginBottom: '8px',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center'
-                      }}>
-                        <div style={{ flex: 1 }}>
-                          <div style={{
-                            fontWeight: '500',
-                            fontSize: '14px',
-                            marginBottom: '4px',
-                            color: '#f9fafb'
-                          }}>
-                            {item.name}
-                          </div>
-                          <div style={{
-                            fontSize: '12px',
-                            color: '#d1d5db',
-                            display: 'flex',
-                            gap: '12px'
-                          }}>
-                            <span style={{
-                              background: '#6b7280',
-                              padding: '2px 6px',
-                              borderRadius: '3px',
-                              fontSize: '11px',
-                              fontWeight: '500'
-                            }}>
-                              {item.washType}
-                            </span>
-                            <span>Qty: {item.quantity}</span>
-                            <span>Rate: ₹{item.price}</span>
-                          </div>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                          <div style={{
-                            color: '#10b981',
-                            fontWeight: '600',
-                            fontSize: '16px'
-                          }}>
-                            ₹{item.total}
-                          </div>
-                          <button
-                            onClick={() => removeItem(item.id)}
-                            className="professional-btn"
-                            style={{
-                              background: '#ef4444',
-                              color: 'white',
-                              padding: '4px 8px',
-                              borderRadius: '4px',
-                              fontSize: '12px',
-                              fontWeight: '500'
-                            }}
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
 
                 {/* Selected Pending Bills */}
                 {selectedPendingBills.length > 0 && (
@@ -2117,21 +2381,80 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
               </button>
             </div>
 
+            {/* UPI QR Code Scanner Section */}
+            {calculateTotal() > 0 && (
+              <div style={{
+                background: 'rgba(255, 255, 255, 0.02)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                borderRadius: '12px',
+                padding: '12px',
+                marginBottom: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '16px'
+              }}>
+                <div style={{ flexShrink: 0 }}>
+                  <FunctionalQRCode
+                    amount={calculateTotal()}
+                    billNumber={billNumber}
+                    businessName={shopConfig.shopName}
+                    style={{
+                      width: '76px',
+                      height: '76px',
+                      border: '2px solid #10b981',
+                      borderRadius: '8px',
+                      background: 'white',
+                      padding: '4px',
+                      boxShadow: '0 4px 12px rgba(16, 185, 129, 0.15)'
+                    }}
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{
+                    fontSize: '10px',
+                    fontWeight: '700',
+                    color: '#10b981',
+                    textTransform: 'uppercase',
+                    letterSpacing: '1px',
+                    marginBottom: '3px'
+                  }}>
+                    UPI Scan & Pay
+                  </div>
+                  <div style={{
+                    fontSize: '18px',
+                    fontWeight: '800',
+                    color: '#ffffff',
+                    marginBottom: '3px'
+                  }}>
+                    ₹{calculateTotal()}
+                  </div>
+                  <div style={{
+                    fontSize: '11px',
+                    color: '#a1a1aa',
+                    lineHeight: '1.3'
+                  }}>
+                    Scan with any UPI app to pay
+                  </div>
+                </div>
+              </div>
+            )}
+
             <button
               onClick={processOrder}
               disabled={!customer.name || (orderItems.length === 0 && selectedPendingBills.length === 0 && previousBalance === 0) || isProcessing}
               className="btn btn-success"
               style={{
                 width: '100%',
-                padding: '18px',
-                borderRadius: '16px',
-                fontSize: '16px',
-                letterSpacing: '1px',
+                padding: '16px',
+                borderRadius: '12px',
+                fontSize: '15px',
+                letterSpacing: '1.5px',
                 fontWeight: '800',
                 display: 'flex',
                 justifyContent: 'center',
                 alignItems: 'center',
-                gap: '10px'
+                gap: '10px',
+                boxShadow: '0 4px 12px rgba(16, 185, 129, 0.2)'
               }}
             >
               {isProcessing ? (
@@ -2140,263 +2463,6 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
                 <><i className="fas fa-print"></i> PRINT BILL</>
               )}
             </button>
-
-            {/* Bottom Section - Scanner Left, Controls Right */}
-            <div style={{
-              display: 'flex',
-              gap: '10px',
-              padding: '10px',
-              background: 'linear-gradient(135deg, #34495e, #2c3e50)'
-            }}>
-
-              {/* SCANNER - Bottom Left */}
-              <div style={{
-                width: '140px',
-                background: 'rgba(255, 255, 255, 0.05)',
-                borderRadius: '8px',
-                padding: '10px',
-                border: '2px solid rgba(255, 255, 255, 0.1)',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '8px'
-              }}>
-                <div style={{
-                  fontSize: '12px',
-                  fontWeight: 'bold',
-                  color: 'white',
-                  textAlign: 'center'
-                }}>
-                  SCANNER
-                </div>
-
-                {calculateTotal() > 0 ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                    <FunctionalQRCode
-                      amount={calculateTotal()}
-                      billNumber={billNumber}
-                      businessName={shopConfig.shopName}
-                      style={{
-                        width: '90px',
-                        height: '90px',
-                        border: '3px solid #2ecc71',
-                        borderRadius: '8px',
-                        background: 'white',
-                        padding: '4px',
-                        filter: 'contrast(1.5) brightness(1.1)',
-                        boxShadow: '0 4px 12px rgba(46, 204, 113, 0.3)'
-                      }}
-                    />
-                    <div style={{ textAlign: 'center' }}>
-                      <div style={{
-                        fontSize: '14px',
-                        fontWeight: 'bold',
-                        color: '#2ecc71',
-                        marginBottom: '3px',
-                        textShadow: '0 1px 2px rgba(0, 0, 0, 0.5)'
-                      }}>
-                        ₹{calculateTotal()}
-                      </div>
-                      <div style={{
-                        fontSize: '9px',
-                        color: 'rgba(255,255,255,0.8)',
-                        lineHeight: '1.2',
-                        fontWeight: '500'
-                      }}>
-                        Scan with UPI app<br />
-                        <span style={{ color: '#2ecc71' }}>High Contrast QR</span>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                    <img
-                      src="/scanner.png"
-                      alt="Scanner"
-                      style={{
-                        width: '90px',
-                        height: '90px',
-                        border: '3px solid rgba(255, 255, 255, 0.3)',
-                        borderRadius: '8px',
-                        background: 'white',
-                        padding: '4px',
-                        filter: 'contrast(1.3) brightness(1.1)',
-                        boxShadow: '0 4px 12px rgba(255, 255, 255, 0.1)'
-                      }}
-                    />
-                    <div style={{
-                      fontSize: '9px',
-                      color: 'rgba(255,255,255,0.7)',
-                      textAlign: 'center',
-                      lineHeight: '1.2',
-                      fontWeight: '500'
-                    }}>
-                      Add items to generate<br />
-                      <span style={{ color: '#3498db' }}>High Contrast QR</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Controls - Bottom Right */}
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
-
-                {/* DISCOUNT, DELIVERY, PREVIOUS DUE */}
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: '1fr 1fr 1fr',
-                  gap: '6px'
-                }}>
-                  <div>
-                    <label style={{
-                      display: 'block',
-                      marginBottom: '4px',
-                      fontSize: '10px',
-                      fontWeight: '600',
-                      color: 'rgba(255, 255, 255, 0.8)'
-                    }}>
-                      DISCOUNT
-                    </label>
-                    <input
-                      type="number"
-                      value={discount}
-                      onChange={(e) => setDiscount(Math.max(0, parseFloat(e.target.value) || 0))}
-                      placeholder="₹0"
-                      style={{
-                        width: '100%',
-                        padding: '6px',
-                        borderRadius: '4px',
-                        fontSize: '11px',
-                        outline: 'none',
-                        border: '1px solid rgba(255, 255, 255, 0.2)',
-                        background: 'rgba(255, 255, 255, 0.95)',
-                        color: '#333',
-                        transition: 'all 0.2s ease'
-                      }}
-                      onFocus={(e) => e.target.style.borderColor = '#3498db'}
-                      onBlur={(e) => e.target.style.borderColor = 'rgba(255, 255, 255, 0.2)'}
-                    />
-                  </div>
-                  <div>
-                    <label style={{
-                      display: 'block',
-                      marginBottom: '4px',
-                      fontSize: '10px',
-                      fontWeight: '600',
-                      color: 'rgba(255, 255, 255, 0.8)'
-                    }}>
-                      DELIVERY
-                    </label>
-                    <input
-                      type="number"
-                      value={deliveryCharge}
-                      onChange={(e) => setDeliveryCharge(Math.max(0, parseFloat(e.target.value) || 0))}
-                      placeholder="₹0"
-                      style={{
-                        width: '100%',
-                        padding: '6px',
-                        borderRadius: '4px',
-                        fontSize: '11px',
-                        outline: 'none',
-                        border: '1px solid rgba(255, 255, 255, 0.2)',
-                        background: 'rgba(255, 255, 255, 0.95)',
-                        color: '#333',
-                        transition: 'all 0.2s ease'
-                      }}
-                      onFocus={(e) => e.target.style.borderColor = '#3498db'}
-                      onBlur={(e) => e.target.style.borderColor = 'rgba(255, 255, 255, 0.2)'}
-                    />
-                  </div>
-                  <div>
-                    <label style={{
-                      display: 'block',
-                      marginBottom: '4px',
-                      fontSize: '10px',
-                      fontWeight: '600',
-                      color: '#f39c12'
-                    }}>
-                      PREVIOUS DUE
-                    </label>
-                    <div style={{ display: 'flex', gap: '2px', alignItems: 'center' }}>
-                      <input
-                        type="number"
-                        value={previousBalance}
-                        onChange={(e) => setPreviousBalance(Math.max(0, parseFloat(e.target.value) || 0))}
-                        placeholder="₹0"
-                        style={{
-                          flex: 1,
-                          padding: '6px',
-                          borderRadius: '4px',
-                          fontSize: '11px',
-                          outline: 'none',
-                          border: previousBalance > 0 ? '2px solid #f39c12' : '1px solid rgba(255, 255, 255, 0.2)',
-                          background: 'rgba(255, 255, 255, 0.95)',
-                          color: '#333',
-                          transition: 'all 0.2s ease'
-                        }}
-                      />
-                      <div style={{ display: 'flex', gap: '1px' }}>
-                        {[50, 100].map(amount => (
-                          <button
-                            key={amount}
-                            onClick={() => setPreviousBalance(amount)}
-                            style={{
-                              padding: '3px 4px',
-                              fontSize: '8px',
-                              border: 'none',
-                              borderRadius: '3px',
-                              background: 'rgba(243, 156, 18, 0.8)',
-                              color: 'white',
-                              cursor: 'pointer',
-                              fontWeight: 'bold',
-                              minWidth: '20px',
-                              transition: 'all 0.2s ease'
-                            }}
-                            onMouseOver={(e) => e.target.style.background = 'rgba(243, 156, 18, 1)'}
-                            onMouseOut={(e) => e.target.style.background = 'rgba(243, 156, 18, 0.8)'}
-                          >
-                            {amount}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Bill Totals */}
-                <div style={{
-                  background: 'rgba(255, 255, 255, 0.05)',
-                  borderRadius: '6px',
-                  padding: '10px',
-                  marginBottom: '8px',
-                  border: '1px solid rgba(255, 255, 255, 0.1)'
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontSize: '11px', color: 'rgba(255, 255, 255, 0.8)' }}>
-                    <span>Subtotal:</span>
-                    <span style={{ fontWeight: '600' }}>₹{calculateSubtotal()}</span>
-                  </div>
-                  {discount > 0 && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', color: '#e74c3c', fontSize: '11px' }}>
-                      <span>Discount:</span>
-                      <span style={{ fontWeight: '600' }}>-₹{discount}</span>
-                    </div>
-                  )}
-                  {deliveryCharge > 0 && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', color: '#f39c12', fontSize: '11px' }}>
-                      <span>Delivery:</span>
-                      <span style={{ fontWeight: '600' }}>+₹{deliveryCharge}</span>
-                    </div>
-                  )}
-                  <hr style={{ margin: '6px 0', border: 'none', borderTop: '1px solid rgba(255, 255, 255, 0.2)' }} />
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 'bold', color: 'white' }}>
-                    <span>TOTAL:</span>
-                    <span style={{ color: '#2ecc71' }}>₹{calculateTotal()}</span>
-                  </div>
-                </div>
-
-
-              </div>
-            </div>
           </div>
         </div>
       </div>
@@ -2425,6 +2491,14 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
           onUpdateOrderItems={setOrderItems}
           onClose={() => setShowItemListManager(false)}
         />
+      )}
+
+      {/* Manual Entry Modal */}
+      {showManualEntry && (
+        <ManualEntry onClose={() => {
+          setShowManualEntry(false);
+          setReminderTrigger(prev => prev + 1);
+        }} />
       )}
 
       {/* Customer History Modal */}
@@ -2581,6 +2655,194 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
           </div>
         </div>
       )}
+
+      {/* iOS-Style Push Notification Banner Overlay */}
+      {activeNotification && (
+        <div style={{
+          position: 'fixed',
+          top: '20px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: '390px',
+          maxWidth: '90%',
+          background: 'rgba(31, 41, 55, 0.82)',
+          backdropFilter: 'blur(20px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+          border: '1px solid rgba(255, 255, 255, 0.15)',
+          borderRadius: '20px',
+          padding: '12px 16px',
+          zIndex: 99999,
+          boxShadow: '0 12px 32px rgba(0, 0, 0, 0.5), 0 1px 1px rgba(255,255,255,0.1) inset',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '6px',
+          animation: 'iosSlideDown 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+          cursor: 'pointer',
+          userSelect: 'none'
+        }}
+        onClick={() => setActiveNotification(null)}
+        >
+          {/* Header Row */}
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            width: '100%'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{
+                width: '24px',
+                height: '24px',
+                borderRadius: '6px',
+                background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'white',
+                fontSize: '11px',
+                fontWeight: 'bold',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+              }}>
+                <i className="fas fa-bell"></i>
+              </div>
+              <span style={{
+                color: '#e5e7eb',
+                fontSize: '12px',
+                fontWeight: '600',
+                letterSpacing: '-0.2px',
+                textTransform: 'uppercase',
+                opacity: 0.8
+              }}>
+                GENZ REMINDER
+              </span>
+            </div>
+            <span style={{
+              color: '#9ca3af',
+              fontSize: '11px',
+              fontWeight: '500',
+              opacity: 0.7
+            }}>
+              now
+            </span>
+          </div>
+
+          {/* Body Content */}
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <div style={{
+              color: '#ffffff',
+              fontSize: '14px',
+              fontWeight: '700',
+              lineHeight: '1.2',
+              letterSpacing: '-0.1px',
+              marginBottom: '2px'
+            }}>
+              {activeNotification.title}
+            </div>
+            <div style={{
+              color: '#d1d5db',
+              fontSize: '13px',
+              fontWeight: '500',
+              lineHeight: '1.3',
+              letterSpacing: '-0.1px'
+            }}>
+              {activeNotification.body}
+            </div>
+          </div>
+
+          {/* iOS Push Notification Action Row */}
+          <div style={{
+            display: 'flex',
+            gap: '8px',
+            marginTop: '8px',
+            justifyContent: 'flex-end',
+            width: '100%'
+          }}>
+            <button
+              onMouseDown={async (e) => {
+                e.stopPropagation(); // Avoid triggering top banner onClick
+                try {
+                  const res = await apiService.updateManualEntryStatus(activeNotification.entryId, 'delivered');
+                  if (res && res.success) {
+                    showAlert({ message: 'Entry marked as Done. Reminders stopped.', type: 'success' });
+                    // Prevent this entry from alerting again in the current session
+                    const id = activeNotification.entryId;
+                    notifiedEntriesRef.current.add(`${id}_pickup_soon`);
+                    notifiedEntriesRef.current.add(`${id}_pickup_overdue`);
+                    notifiedEntriesRef.current.add(`${id}_pickup_overdue_past`);
+                    notifiedEntriesRef.current.add(`${id}_delivery_soon`);
+                    notifiedEntriesRef.current.add(`${id}_delivery_overdue`);
+                    notifiedEntriesRef.current.add(`${id}_delivery_overdue_past`);
+                    setActiveNotification(null);
+                  } else {
+                    showAlert({ message: res?.message || 'Failed to update entry status', type: 'error' });
+                  }
+                } catch (err: any) {
+                  showAlert({ message: err.message || 'Error updating status', type: 'error' });
+                }
+              }}
+              style={{
+                background: 'rgba(16, 185, 129, 0.25)',
+                color: '#34d399',
+                border: '1px solid rgba(16, 185, 129, 0.4)',
+                borderRadius: '8px',
+                padding: '5px 12px',
+                fontSize: '11px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(16, 185, 129, 0.35)')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(16, 185, 129, 0.25)')}
+            >
+              ✓ Mark Done
+            </button>
+            <button
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                setActiveNotification(null);
+              }}
+              style={{
+                background: 'rgba(255, 255, 255, 0.1)',
+                color: '#ffffff',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                borderRadius: '8px',
+                padding: '5px 12px',
+                fontSize: '11px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255, 255, 255, 0.18)')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)')}
+            >
+              Dismiss
+            </button>
+          </div>
+
+          {/* Swipe Indicator (iOS Style) */}
+          <div style={{
+            width: '36px',
+            height: '4px',
+            borderRadius: '2px',
+            background: 'rgba(255, 255, 255, 0.2)',
+            margin: '4px auto 0 auto'
+          }} />
+        </div>
+      )}
+
+      {/* Global CSS injection for spring keyframes */}
+      <style>{`
+        @keyframes iosSlideDown {
+          0% {
+            transform: translate(-50%, -100px);
+            opacity: 0;
+          }
+          100% {
+            transform: translate(-50%, 0);
+            opacity: 1;
+          }
+        }
+      `}</style>
     </div>
   );
 };

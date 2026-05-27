@@ -15,19 +15,19 @@ const PendingBillSelector: React.FC<PendingBillSelectorProps> = ({
   onClose,
   onSelectBills
 }) => {
-  const [allBills, setAllBills] = useState<PendingBill[]>([]);
+  const [allBills, setAllBills]           = useState<PendingBill[]>([]);
   const [selectedBillIds, setSelectedBillIds] = useState<Set<string>>(
     new Set(initialSelected.map(b => b.id || b._id))
   );
-  const [searchTerm, setSearchTerm] = useState(customerName || '');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'completed' | 'delivered'>('all');
-  const [viewMode, setViewMode] = useState<'all' | 'selected'>('all');
-  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm]       = useState(customerName || '');
+  const [statusFilter, setStatusFilter]   = useState<'all' | 'pending' | 'completed' | 'delivered'>('all');
+  const [viewMode, setViewMode]           = useState<'all' | 'selected'>('all');
+  const [loading, setLoading]             = useState(true);
 
-  // Always sync selection back to parent before closing
+  // Sync selection back to parent then close
   const handleClose = () => {
     const selected = allBills.filter(b => selectedBillIds.has(b.id || b._id));
-    onSelectBills(selected);   // update parent with latest selection (including deselections)
+    onSelectBills(selected);
     onClose();
   };
 
@@ -35,20 +35,17 @@ const PendingBillSelector: React.FC<PendingBillSelectorProps> = ({
 
   const loadAllBills = async () => {
     setLoading(true);
-
-    // Step 1: Show localStorage instantly
+    // Step 1 — localStorage instantly
     const historyRaw = localStorage.getItem('laundry_bill_history');
     const pendingRaw  = localStorage.getItem('laundry_pending_bills');
     const history: PendingBill[] = historyRaw ? JSON.parse(historyRaw) : [];
     const pending: PendingBill[] = pendingRaw  ? JSON.parse(pendingRaw)  : [];
-
     const seen = new Set<string>();
     const merged: PendingBill[] = [];
     [...history, ...pending].forEach(b => {
       if (!seen.has(b.billNumber)) { seen.add(b.billNumber); merged.push(b); }
     });
     merged.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
     if (merged.length > 0) {
       setAllBills(merged);
       setLoading(false);
@@ -59,8 +56,7 @@ const PendingBillSelector: React.FC<PendingBillSelectorProps> = ({
         setSelectedBillIds(new Set(matched));
       }
     }
-
-    // Step 2: Refresh from API in background
+    // Step 2 — API in background
     try {
       const response = await apiService.getBills({ limit: 1000 } as any);
       if (response.success && response.data) {
@@ -78,12 +74,9 @@ const PendingBillSelector: React.FC<PendingBillSelectorProps> = ({
           setSelectedBillIds(new Set(matched));
         }
       }
-    } catch {
-      setLoading(false);
-    }
+    } catch { setLoading(false); }
   };
 
-  // Bills shown in "All" tab — filtered by search + status
   const getFilteredBills = () => allBills.filter(bill => {
     const q = searchTerm.toLowerCase();
     const matchSearch = !q ||
@@ -94,16 +87,11 @@ const PendingBillSelector: React.FC<PendingBillSelectorProps> = ({
     return matchSearch && matchStatus;
   });
 
-  // Bills shown in "Selected" tab
   const getSelectedBills = () => allBills.filter(b => selectedBillIds.has(b.id || b._id));
 
   const toggleBillSelection = (billId: string) => {
     const next = new Set(selectedBillIds);
-    if (next.has(billId)) {
-      next.delete(billId);
-    } else {
-      next.add(billId);
-    }
+    next.has(billId) ? next.delete(billId) : next.add(billId);
     setSelectedBillIds(next);
   };
 
@@ -112,11 +100,7 @@ const PendingBillSelector: React.FC<PendingBillSelectorProps> = ({
     const filteredIds = filtered.map(b => b.id || b._id);
     const allSelected = filteredIds.every(id => selectedBillIds.has(id));
     const next = new Set(selectedBillIds);
-    if (allSelected) {
-      filteredIds.forEach(id => next.delete(id));
-    } else {
-      filteredIds.forEach(id => next.add(id));
-    }
+    allSelected ? filteredIds.forEach(id => next.delete(id)) : filteredIds.forEach(id => next.add(id));
     setSelectedBillIds(next);
   };
 
@@ -129,73 +113,101 @@ const PendingBillSelector: React.FC<PendingBillSelectorProps> = ({
   const calculateSelectedTotal = () =>
     allBills.filter(b => selectedBillIds.has(b.id || b._id)).reduce((s, b) => s + b.grandTotal, 0);
 
-  const filteredBills  = getFilteredBills();
-  const selectedBills  = getSelectedBills();
-  const displayBills   = viewMode === 'selected' ? selectedBills : filteredBills;
-  const allFilteredSelected = filteredBills.length > 0 && filteredBills.every(b => selectedBillIds.has(b.id || b._id));
+  const filteredBills   = getFilteredBills();
+  const selectedBills   = getSelectedBills();
+  const displayBills    = viewMode === 'selected' ? selectedBills : filteredBills;
+  const allFilteredSel  = filteredBills.length > 0 && filteredBills.every(b => selectedBillIds.has(b.id || b._id));
 
-  const statusColor = (status: string) => {
+  const statusStyle = (status: string) => {
     switch ((status || '').toLowerCase()) {
-      case 'pending':   return { bg: 'rgba(243,156,18,0.2)',  border: '#f39c12', text: '#f39c12' };
-      case 'completed': return { bg: 'rgba(52,152,219,0.2)',  border: '#3498db', text: '#3498db' };
-      case 'delivered': return { bg: 'rgba(39,174,96,0.2)',   border: '#27ae60', text: '#27ae60' };
-      default:          return { bg: 'rgba(255,255,255,0.1)', border: 'rgba(255,255,255,0.3)', text: 'white' };
+      case 'pending':   return { bg: 'rgba(245,158,11,0.12)',  border: 'rgba(245,158,11,0.35)',  color: '#fbbf24' };
+      case 'completed': return { bg: 'rgba(99,102,241,0.12)',  border: 'rgba(99,102,241,0.35)',  color: '#818cf8' };
+      case 'delivered': return { bg: 'rgba(34,197,94,0.12)',   border: 'rgba(34,197,94,0.35)',   color: '#4ade80' };
+      default:          return { bg: 'rgba(255,255,255,0.05)', border: 'rgba(255,255,255,0.1)',  color: '#a1a1aa' };
     }
   };
 
   const BillCard = ({ bill }: { bill: PendingBill }) => {
-    const billId    = bill.id || bill._id;
+    const billId     = bill.id || bill._id;
     const isSelected = selectedBillIds.has(billId);
-    const sc        = statusColor(bill.status);
+    const ss         = statusStyle(bill.status);
     return (
       <div
         onClick={() => toggleBillSelection(billId)}
         style={{
-          background: isSelected ? 'rgba(46,204,113,0.2)' : 'rgba(255,255,255,0.08)',
-          border: `2px solid ${isSelected ? '#2ecc71' : 'rgba(255,255,255,0.15)'}`,
-          borderRadius: '12px', padding: '14px 18px', cursor: 'pointer',
-          transition: 'all 0.2s ease',
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px'
+          background: isSelected
+            ? 'rgba(99,102,241,0.1)'
+            : 'var(--bg-elevated)',
+          border: `1px solid ${isSelected ? 'rgba(99,102,241,0.5)' : 'var(--border-subtle)'}`,
+          borderRadius: 'var(--radius-lg)',
+          padding: '14px 18px',
+          cursor: 'pointer',
+          transition: 'all 0.15s ease',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '14px',
+          boxShadow: isSelected ? '0 0 0 1px rgba(99,102,241,0.3)' : 'none'
         }}
+        onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLDivElement).style.background = 'var(--bg-hover)'; }}
+        onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLDivElement).style.background = 'var(--bg-elevated)'; }}
       >
-        {/* Checkbox circle */}
+        {/* Checkbox */}
         <div style={{
-          width: '24px', height: '24px', borderRadius: '50%', flexShrink: 0,
-          background: isSelected ? '#2ecc71' : 'rgba(255,255,255,0.2)',
-          border: `2px solid ${isSelected ? '#2ecc71' : 'rgba(255,255,255,0.4)'}`,
+          width: '20px', height: '20px', borderRadius: '6px', flexShrink: 0,
+          background: isSelected ? 'var(--accent)' : 'transparent',
+          border: `2px solid ${isSelected ? 'var(--accent)' : 'rgba(255,255,255,0.2)'}`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: '13px', fontWeight: 'bold', color: 'white', transition: 'all 0.2s'
+          transition: 'all 0.15s', fontSize: '11px', color: 'white', fontWeight: 'bold'
         }}>
-          {isSelected ? '✓' : ''}
+          {isSelected && <i className="fas fa-check"></i>}
         </div>
 
         {/* Info */}
-        <div style={{ flex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px', flexWrap: 'wrap' }}>
-            <span style={{ color: 'white', fontWeight: '700', fontSize: '15px' }}>{bill.customerName}</span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '5px', flexWrap: 'wrap' }}>
+            <span style={{ color: 'var(--text-primary)', fontWeight: '600', fontSize: '14px' }}>
+              {bill.customerName}
+            </span>
             <span style={{
-              background: sc.bg, border: `1px solid ${sc.border}`, color: sc.text,
-              padding: '2px 8px', borderRadius: '10px', fontSize: '10px', fontWeight: '700', textTransform: 'uppercase'
+              background: ss.bg, border: `1px solid ${ss.border}`, color: ss.color,
+              padding: '1px 7px', borderRadius: '4px', fontSize: '10px',
+              fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.04em'
             }}>
               {bill.status || 'unknown'}
             </span>
           </div>
-          <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: '12px', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-            <span>#{bill.billNumber}</span>
-            <span>📦 {bill.items?.length || 0} items</span>
-            <span>📅 {new Date(bill.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
-            {bill.customerPhone && <span>📞 {bill.customerPhone}</span>}
+          <div style={{
+            color: 'var(--text-muted)', fontSize: '12px',
+            display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center'
+          }}>
+            <span style={{
+              fontFamily: 'monospace', background: 'rgba(255,255,255,0.05)',
+              padding: '1px 6px', borderRadius: '4px', fontSize: '11px',
+              color: 'var(--text-secondary)'
+            }}>
+              #{bill.billNumber}
+            </span>
+            <span><i className="fas fa-box" style={{ marginRight: '4px', fontSize: '10px' }}></i>{bill.items?.length || 0} items</span>
+            <span><i className="far fa-calendar-alt" style={{ marginRight: '4px', fontSize: '10px' }}></i>
+              {new Date(bill.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+            </span>
+            {bill.customerPhone && (
+              <span><i className="fas fa-phone" style={{ marginRight: '4px', fontSize: '10px' }}></i>{bill.customerPhone}</span>
+            )}
           </div>
         </div>
 
-        {/* Amount + deselect hint */}
+        {/* Amount */}
         <div style={{ textAlign: 'right', flexShrink: 0 }}>
-          <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#f39c12' }}>
+          <div style={{
+            fontSize: '16px', fontWeight: '700',
+            color: isSelected ? 'var(--accent-text)' : 'var(--text-primary)'
+          }}>
             ₹{bill.grandTotal?.toLocaleString('en-IN')}
           </div>
           {isSelected && (
-            <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', marginTop: '2px' }}>
-              tap to remove
+            <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>
+              click to remove
             </div>
           )}
         </div>
@@ -206,179 +218,207 @@ const PendingBillSelector: React.FC<PendingBillSelectorProps> = ({
   return (
     <div style={{
       position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-      background: 'rgba(0,0,0,0.85)', display: 'flex',
-      justifyContent: 'center', alignItems: 'center',
-      zIndex: 1000, backdropFilter: 'blur(10px)'
+      background: 'rgba(0,0,0,0.75)',
+      display: 'flex', justifyContent: 'center', alignItems: 'center',
+      zIndex: 1000, backdropFilter: 'blur(12px)'
     }}>
       <div style={{
-        background: 'linear-gradient(135deg, #1e3c72 0%, #2a5298 50%, #3b82f6 100%)',
-        borderRadius: '20px', width: '92%', maxWidth: '860px',
-        height: '85vh', display: 'flex', flexDirection: 'column',
-        overflow: 'hidden', boxShadow: '0 25px 50px rgba(0,0,0,0.4)'
+        background: 'var(--bg-surface)',
+        border: '1px solid var(--border-default)',
+        borderRadius: 'var(--radius-xl)',
+        width: '92%', maxWidth: '820px',
+        height: '88vh',
+        display: 'flex', flexDirection: 'column',
+        overflow: 'hidden',
+        boxShadow: '0 24px 64px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.05)'
       }}>
 
         {/* ── Header ── */}
         <div style={{
-          background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(10px)',
-          padding: '18px 24px', display: 'flex', justifyContent: 'space-between',
-          alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.2)'
+          padding: '20px 24px',
+          borderBottom: '1px solid var(--border-subtle)',
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          background: 'var(--bg-elevated)'
         }}>
-          <div>
-            <h2 style={{ color: 'white', margin: 0, fontSize: '20px', fontWeight: '700' }}>
-              📋 Select Bills to Add
-            </h2>
-            <p style={{ color: 'rgba(255,255,255,0.7)', margin: '4px 0 0 0', fontSize: '13px' }}>
-              All bills — pending, completed, delivered. Select any to merge into current bill.
-            </p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{
+              width: '38px', height: '38px', borderRadius: '10px',
+              background: 'var(--accent-muted)', border: '1px solid rgba(99,102,241,0.3)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: 'var(--accent)', fontSize: '16px'
+            }}>
+              <i className="fas fa-layer-group"></i>
+            </div>
+            <div>
+              <h2 style={{ color: 'var(--text-primary)', margin: 0, fontSize: '17px', fontWeight: '700' }}>
+                Select Bills to Add
+              </h2>
+              <p style={{ color: 'var(--text-muted)', margin: '2px 0 0 0', fontSize: '12px' }}>
+                All bills — pending, completed, delivered
+              </p>
+            </div>
           </div>
-          <button onClick={handleClose} style={{
-            background: 'rgba(255,0,0,0.3)', border: 'none', borderRadius: '8px',
-            padding: '8px 14px', color: 'white', cursor: 'pointer', fontSize: '14px'
-          }}>✕ Close</button>
+          <button
+            onClick={handleClose}
+            className="btn btn-ghost btn-sm"
+            style={{ borderRadius: 'var(--radius-md)' }}
+          >
+            <i className="fas fa-times"></i>
+          </button>
         </div>
 
         {/* ── View Mode Tabs ── */}
         <div style={{
-          display: 'flex', gap: '0', background: 'rgba(0,0,0,0.2)',
-          borderBottom: '1px solid rgba(255,255,255,0.1)'
+          display: 'flex',
+          background: 'var(--bg-base)',
+          borderBottom: '1px solid var(--border-subtle)'
         }}>
-          <button
-            onClick={() => setViewMode('all')}
-            style={{
-              flex: 1, padding: '12px', border: 'none', cursor: 'pointer',
-              background: viewMode === 'all' ? 'rgba(255,255,255,0.15)' : 'transparent',
-              color: viewMode === 'all' ? 'white' : 'rgba(255,255,255,0.5)',
-              fontWeight: viewMode === 'all' ? '700' : '400',
-              fontSize: '14px', borderBottom: viewMode === 'all' ? '3px solid #2ecc71' : '3px solid transparent',
-              transition: 'all 0.2s'
-            }}
-          >
-            🔍 All Bills ({filteredBills.length})
-          </button>
-          <button
-            onClick={() => setViewMode('selected')}
-            style={{
-              flex: 1, padding: '12px', border: 'none', cursor: 'pointer',
-              background: viewMode === 'selected' ? 'rgba(46,204,113,0.2)' : 'transparent',
-              color: viewMode === 'selected' ? '#2ecc71' : 'rgba(255,255,255,0.5)',
-              fontWeight: viewMode === 'selected' ? '700' : '400',
-              fontSize: '14px', borderBottom: viewMode === 'selected' ? '3px solid #2ecc71' : '3px solid transparent',
-              transition: 'all 0.2s'
-            }}
-          >
-            ✅ Selected ({selectedBillIds.size})
-            {selectedBillIds.size > 0 && (
+          {[
+            { key: 'all',      label: `All Bills`,  count: filteredBills.length,    icon: 'fa-list' },
+            { key: 'selected', label: `Selected`,   count: selectedBillIds.size,    icon: 'fa-check-square' }
+          ].map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => setViewMode(tab.key as any)}
+              style={{
+                flex: 1, padding: '12px 16px', border: 'none', cursor: 'pointer',
+                background: viewMode === tab.key ? 'var(--bg-elevated)' : 'transparent',
+                color: viewMode === tab.key ? 'var(--text-primary)' : 'var(--text-muted)',
+                fontWeight: viewMode === tab.key ? '600' : '400',
+                fontSize: '13px',
+                borderBottom: viewMode === tab.key ? '2px solid var(--accent)' : '2px solid transparent',
+                transition: 'all 0.2s',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
+              }}
+            >
+              <i className={`fas ${tab.icon}`} style={{ fontSize: '12px' }}></i>
+              {tab.label}
               <span style={{
-                marginLeft: '8px', background: '#2ecc71', color: '#1e3c72',
-                borderRadius: '10px', padding: '1px 7px', fontSize: '11px', fontWeight: '800'
+                background: viewMode === tab.key ? 'var(--accent-muted)' : 'rgba(255,255,255,0.06)',
+                color: viewMode === tab.key ? 'var(--accent-text)' : 'var(--text-muted)',
+                border: viewMode === tab.key ? '1px solid rgba(99,102,241,0.3)' : '1px solid transparent',
+                borderRadius: '10px', padding: '1px 8px', fontSize: '11px', fontWeight: '700'
               }}>
-                ₹{calculateSelectedTotal().toLocaleString('en-IN')}
+                {tab.count}
               </span>
-            )}
-          </button>
+              {tab.key === 'selected' && selectedBillIds.size > 0 && (
+                <span style={{
+                  background: 'rgba(34,197,94,0.15)', color: '#4ade80',
+                  border: '1px solid rgba(34,197,94,0.3)',
+                  borderRadius: '10px', padding: '1px 8px', fontSize: '11px', fontWeight: '700'
+                }}>
+                  ₹{calculateSelectedTotal().toLocaleString('en-IN')}
+                </span>
+              )}
+            </button>
+          ))}
         </div>
 
-        {/* ── Search + Filter (only in All tab) ── */}
+        {/* ── Search + Filter (All tab only) ── */}
         {viewMode === 'all' && (
           <div style={{
-            padding: '12px 24px', background: 'rgba(255,255,255,0.05)',
-            borderBottom: '1px solid rgba(255,255,255,0.1)',
-            display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap'
+            padding: '12px 20px',
+            borderBottom: '1px solid var(--border-subtle)',
+            display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap',
+            background: 'var(--bg-elevated)'
           }}>
+            {/* Search */}
             <div style={{ flex: 1, position: 'relative', minWidth: '180px' }}>
-              <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.5)', fontSize: '13px' }}>🔍</span>
+              <i className="fas fa-search" style={{
+                position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)',
+                color: 'var(--text-muted)', fontSize: '12px', pointerEvents: 'none'
+              }}></i>
               <input
                 type="text"
                 placeholder="Search name, bill no, phone..."
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
-                style={{
-                  width: '100%', padding: '9px 12px 9px 34px',
-                  borderRadius: '8px', border: '1px solid rgba(255,255,255,0.2)',
-                  background: 'rgba(255,255,255,0.15)', color: 'white',
-                  fontSize: '13px', outline: 'none', boxSizing: 'border-box'
-                }}
+                className="professional-input"
+                style={{ width: '100%', padding: '8px 32px 8px 34px', fontSize: '13px', boxSizing: 'border-box' }}
               />
               {searchTerm && (
                 <button onClick={() => setSearchTerm('')} style={{
                   position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)',
-                  background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', fontSize: '12px'
-                }}>✕</button>
+                  background: 'none', border: 'none', color: 'var(--text-muted)',
+                  cursor: 'pointer', fontSize: '11px', padding: '2px'
+                }}>
+                  <i className="fas fa-times"></i>
+                </button>
               )}
             </div>
 
-            <div style={{ display: 'flex', gap: '5px' }}>
+            {/* Status pills */}
+            <div style={{ display: 'flex', gap: '4px' }}>
               {(['all', 'pending', 'completed', 'delivered'] as const).map(s => (
                 <button key={s} onClick={() => setStatusFilter(s)} style={{
-                  padding: '7px 12px', borderRadius: '20px', border: 'none',
-                  background: statusFilter === s ? 'white' : 'rgba(255,255,255,0.15)',
-                  color: statusFilter === s ? '#1e3c72' : 'white',
-                  fontSize: '11px', fontWeight: '600', cursor: 'pointer', textTransform: 'capitalize'
-                }}>{s}</button>
+                  padding: '6px 12px', borderRadius: 'var(--radius-full)', border: 'none',
+                  background: statusFilter === s ? 'var(--accent-muted)' : 'rgba(255,255,255,0.05)',
+                  color: statusFilter === s ? 'var(--accent-text)' : 'var(--text-secondary)',
+                  fontSize: '11px', fontWeight: '600', cursor: 'pointer',
+                  textTransform: 'capitalize',
+                  border: statusFilter === s ? '1px solid rgba(99,102,241,0.3)' : '1px solid transparent'
+                } as React.CSSProperties}>{s}</button>
               ))}
             </div>
 
-            <button onClick={handleSelectAll} style={{
-              background: 'rgba(52,152,219,0.7)', border: 'none', borderRadius: '8px',
-              padding: '9px 14px', color: 'white', cursor: 'pointer',
-              fontSize: '12px', fontWeight: 'bold', whiteSpace: 'nowrap'
-            }}>
-              {allFilteredSelected ? '❌ Deselect All' : '✅ Select All'}
+            {/* Select All */}
+            <button onClick={handleSelectAll} className="btn btn-ghost btn-sm" style={{ whiteSpace: 'nowrap', fontSize: '12px' }}>
+              <i className={`fas ${allFilteredSel ? 'fa-times-circle' : 'fa-check-circle'}`} style={{ marginRight: '6px' }}></i>
+              {allFilteredSel ? 'Deselect All' : 'Select All'}
             </button>
+
+            <span style={{ color: 'var(--text-muted)', fontSize: '12px', whiteSpace: 'nowrap' }}>
+              {filteredBills.length} shown
+            </span>
           </div>
         )}
 
-        {/* ── Selected tab header ── */}
+        {/* ── Selected tab info bar ── */}
         {viewMode === 'selected' && selectedBillIds.size > 0 && (
           <div style={{
-            padding: '10px 24px', background: 'rgba(46,204,113,0.1)',
-            borderBottom: '1px solid rgba(46,204,113,0.2)',
+            padding: '10px 20px',
+            borderBottom: '1px solid var(--border-subtle)',
+            background: 'rgba(99,102,241,0.06)',
             display: 'flex', justifyContent: 'space-between', alignItems: 'center'
           }}>
-            <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: '13px' }}>
-              Click any bill below to <strong style={{ color: '#e74c3c' }}>remove</strong> it from selection
+            <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>
+              <i className="fas fa-info-circle" style={{ marginRight: '6px', color: 'var(--accent)' }}></i>
+              Click any bill to <strong style={{ color: '#f87171' }}>remove</strong> it from selection
             </span>
             <button
               onClick={() => setSelectedBillIds(new Set())}
-              style={{
-                background: 'rgba(231,76,60,0.3)', border: '1px solid rgba(231,76,60,0.5)',
-                borderRadius: '6px', padding: '5px 12px', color: '#e74c3c',
-                cursor: 'pointer', fontSize: '12px', fontWeight: '600'
-              }}
+              className="btn btn-ghost btn-sm"
+              style={{ color: '#f87171', fontSize: '12px' }}
             >
-              🗑 Clear All
+              <i className="fas fa-trash" style={{ marginRight: '6px' }}></i>Clear All
             </button>
           </div>
         )}
 
         {/* ── Bills List ── */}
-        <div style={{ flex: 1, overflow: 'auto', padding: '16px 24px' }}>
+        <div style={{ flex: 1, overflow: 'auto', padding: '16px 20px' }} className="custom-scrollbar">
           {loading ? (
-            <div style={{ textAlign: 'center', color: 'white', padding: '60px' }}>
-              <i className="fas fa-spinner fa-spin fa-2x" style={{ marginBottom: '16px' }}></i>
-              <p>Loading bills...</p>
+            <div style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '60px' }}>
+              <div className="loading-spinner" style={{ margin: '0 auto 16px' }}></div>
+              <p style={{ margin: 0, fontSize: '14px' }}>Loading bills...</p>
             </div>
           ) : viewMode === 'selected' && selectedBillIds.size === 0 ? (
-            <div style={{ textAlign: 'center', color: 'rgba(255,255,255,0.6)', padding: '60px' }}>
-              <div style={{ fontSize: '48px', marginBottom: '12px' }}>📭</div>
-              <h3 style={{ margin: '0 0 8px 0', color: 'white' }}>No bills selected yet</h3>
-              <p style={{ margin: 0, fontSize: '14px' }}>Go to "All Bills" tab and select bills to add</p>
-              <button onClick={() => setViewMode('all')} style={{
-                marginTop: '16px', background: 'rgba(52,152,219,0.7)', border: 'none',
-                borderRadius: '8px', padding: '10px 20px', color: 'white',
-                cursor: 'pointer', fontSize: '14px', fontWeight: 'bold'
-              }}>
-                🔍 Browse All Bills
+            <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '60px 20px' }}>
+              <i className="fas fa-inbox" style={{ fontSize: '40px', marginBottom: '16px', opacity: 0.3, display: 'block' }}></i>
+              <h3 style={{ color: 'var(--text-secondary)', margin: '0 0 8px 0', fontSize: '16px' }}>No bills selected</h3>
+              <p style={{ margin: '0 0 20px 0', fontSize: '13px' }}>Go to All Bills tab and select bills to add</p>
+              <button onClick={() => setViewMode('all')} className="btn btn-primary btn-sm">
+                <i className="fas fa-list" style={{ marginRight: '6px' }}></i>Browse All Bills
               </button>
             </div>
           ) : displayBills.length === 0 ? (
-            <div style={{ textAlign: 'center', color: 'rgba(255,255,255,0.7)', padding: '60px' }}>
-              <div style={{ fontSize: '40px', marginBottom: '12px' }}>🔍</div>
-              <h3 style={{ margin: '0 0 8px 0' }}>No bills found</h3>
-              <p style={{ margin: 0, fontSize: '14px' }}>Try a different search or filter</p>
+            <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '60px 20px' }}>
+              <i className="fas fa-search" style={{ fontSize: '36px', marginBottom: '12px', opacity: 0.3, display: 'block' }}></i>
+              <h3 style={{ color: 'var(--text-secondary)', margin: '0 0 8px 0', fontSize: '15px' }}>No bills found</h3>
+              <p style={{ margin: 0, fontSize: '13px' }}>Try a different search or filter</p>
             </div>
           ) : (
-            <div style={{ display: 'grid', gap: '10px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {displayBills.map(bill => <BillCard key={bill.id || bill._id} bill={bill} />)}
             </div>
           )}
@@ -386,32 +426,33 @@ const PendingBillSelector: React.FC<PendingBillSelectorProps> = ({
 
         {/* ── Footer ── */}
         <div style={{
-          padding: '14px 24px', background: 'rgba(255,255,255,0.1)',
-          borderTop: '1px solid rgba(255,255,255,0.2)',
+          padding: '14px 20px',
+          borderTop: '1px solid var(--border-subtle)',
+          background: 'var(--bg-elevated)',
           display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px'
         }}>
-          <div style={{ color: 'white' }}>
-            <div style={{ fontSize: '15px', fontWeight: 'bold' }}>
+          <div>
+            <div style={{ fontSize: '14px', fontWeight: '600', color: 'var(--text-primary)' }}>
               {selectedBillIds.size} bill{selectedBillIds.size !== 1 ? 's' : ''} selected
             </div>
-            <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.7)' }}>
-              Total: ₹{calculateSelectedTotal().toLocaleString('en-IN')}
+            <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
+              Total: <span style={{ color: 'var(--text-secondary)', fontWeight: '600' }}>
+                ₹{calculateSelectedTotal().toLocaleString('en-IN')}
+              </span>
             </div>
           </div>
           <div style={{ display: 'flex', gap: '10px' }}>
-            <button onClick={handleClose} style={{
-              background: 'rgba(149,165,166,0.6)', border: 'none', borderRadius: '8px',
-              padding: '10px 20px', color: 'white', cursor: 'pointer', fontSize: '14px', fontWeight: 'bold'
-            }}>Cancel</button>
-            <button onClick={handleConfirmSelection} disabled={selectedBillIds.size === 0} style={{
-              background: selectedBillIds.size === 0
-                ? 'rgba(189,195,199,0.4)'
-                : 'linear-gradient(135deg, #27ae60, #2ecc71)',
-              border: 'none', borderRadius: '8px', padding: '10px 24px',
-              color: 'white', cursor: selectedBillIds.size === 0 ? 'not-allowed' : 'pointer',
-              fontSize: '14px', fontWeight: 'bold'
-            }}>
-              ✅ Add {selectedBillIds.size > 0 ? `${selectedBillIds.size} ` : ''}Selected Bills
+            <button onClick={handleClose} className="btn btn-ghost">
+              Cancel
+            </button>
+            <button
+              onClick={handleConfirmSelection}
+              disabled={selectedBillIds.size === 0}
+              className="btn btn-primary"
+              style={{ opacity: selectedBillIds.size === 0 ? 0.4 : 1 }}
+            >
+              <i className="fas fa-check" style={{ marginRight: '8px' }}></i>
+              Add {selectedBillIds.size > 0 ? `${selectedBillIds.size} ` : ''}Bills
             </button>
           </div>
         </div>
