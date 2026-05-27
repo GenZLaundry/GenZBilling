@@ -2365,7 +2365,8 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
                 alignItems: 'center',
                 gap: '16px'
               }}>
-                <div style={{ flexShrink: 0 }}>
+                {/* QR + download button stacked */}
+                <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px' }}>
                   <FunctionalQRCode
                     amount={calculateTotal()}
                     billNumber={billNumber}
@@ -2380,6 +2381,48 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
                       boxShadow: '0 4px 12px rgba(16, 185, 129, 0.15)'
                     }}
                   />
+                  {/* Download QR as JPG */}
+                  <button
+                    title="Download QR as JPG"
+                    onClick={async () => {
+                      try {
+                        const { getUPIConfig } = await import('./upiConfig');
+                        const config = getUPIConfig();
+                        const total = calculateTotal();
+                        const note = `Bill ${billNumber} - ${shopConfig.shopName}`;
+                        const upiString = `upi://pay?pa=${config.upiId}&pn=${encodeURIComponent(config.payeeName)}&am=${total}&cu=INR&tn=${encodeURIComponent(note)}`;
+                        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(upiString)}&ecc=H&margin=10&color=000000&bgcolor=FFFFFF`;
+
+                        // Fetch and download
+                        const resp = await fetch(qrUrl);
+                        const blob = await resp.blob();
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `UPI_QR_${billNumber}_₹${total}.jpg`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                      } catch {
+                        showAlert({ message: 'Could not download QR. Check internet connection.', type: 'error' });
+                      }
+                    }}
+                    style={{
+                      background: 'rgba(16,185,129,0.12)',
+                      border: '1px solid rgba(16,185,129,0.3)',
+                      borderRadius: '5px',
+                      padding: '3px 8px',
+                      color: '#10b981',
+                      fontSize: '10px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    <i className="fas fa-download" style={{ fontSize: '9px' }}></i> Save QR
+                  </button>
                 </div>
                 <div style={{ flex: 1 }}>
                   <div style={{
