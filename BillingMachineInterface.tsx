@@ -409,12 +409,13 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
         // check pickup times (for pending manual entries)
         if (isPending && entry.pickupDate) {
           const hasTime = !!entry.pickupTime;
-          const pickupDateTimeStr = `${entry.pickupDate}T${entry.pickupTime || '00:00'}:00`;
+          const pickupDateTimeStr = `${entry.pickupDate}T${entry.pickupTime || '23:59'}:00`;
           const pickupDateObj = new Date(pickupDateTimeStr);
           const timeDiffMins = Math.round((pickupDateObj.getTime() - now.getTime()) / (1000 * 60));
 
           if (entry.pickupDate === todayStr) {
             if (hasTime) {
+              // Only fire reminders if a specific time was set
               if (timeDiffMins > 0 && timeDiffMins <= 30) {
                 // 30 min pickup reminder
                 const key = `${entry._id || entry.id}_pickup_soon`;
@@ -433,7 +434,7 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
                   break;
                 }
               } else if (timeDiffMins <= 0) {
-                // Overdue pickup today
+                // Overdue pickup today — only if time was explicitly set
                 const key = `${entry._id || entry.id}_pickup_overdue`;
                 if (!notifiedEntriesRef.current.has(key)) {
                   notifiedEntriesRef.current.add(key);
@@ -451,8 +452,9 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
                 }
               }
             }
-          } else if (pickupDateObj.getTime() < now.getTime() && entry.pickupDate < todayStr) {
-            // Overdue pickup past days
+            // No time set for today — no reminder, admin didn't specify a time
+          } else if (entry.pickupDate < todayStr) {
+            // Overdue pickup from a past date — only fire if time was set OR it's been past the full day
             const key = `${entry._id || entry.id}_pickup_overdue_past`;
             if (!notifiedEntriesRef.current.has(key)) {
               notifiedEntriesRef.current.add(key);
@@ -461,7 +463,9 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
                 id: key,
                 entryId: entry._id || entry.id,
                 title: '🚨 Overdue Pickup Alert',
-                body: `Pickup for ${entry.customerName} was due on ${entry.pickupDate}`,
+                body: hasTime
+                  ? `Pickup for ${entry.customerName} was due on ${entry.pickupDate} at ${entry.pickupTime}`
+                  : `Pickup for ${entry.customerName} was due on ${entry.pickupDate}`,
                 icon: '🚨',
                 time: 'now',
                 type: 'pickup'
@@ -474,14 +478,14 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
         // check delivery times (for pending or completed manual entries)
         if (!isDelivered && entry.deliveryDate) {
           const hasTime = !!entry.deliveryTime;
-          const deliveryDateTimeStr = `${entry.deliveryDate}T${entry.deliveryTime || '00:00'}:00`;
+          const deliveryDateTimeStr = `${entry.deliveryDate}T${entry.deliveryTime || '23:59'}:00`;
           const deliveryDateObj = new Date(deliveryDateTimeStr);
           const timeDiffMins = Math.round((deliveryDateObj.getTime() - now.getTime()) / (1000 * 60));
 
           if (entry.deliveryDate === todayStr) {
             if (hasTime) {
+              // Only fire if a specific time was set
               if (timeDiffMins > 0 && timeDiffMins <= 30) {
-                // 30 min delivery reminder
                 const key = `${entry._id || entry.id}_delivery_soon`;
                 if (!notifiedEntriesRef.current.has(key)) {
                   notifiedEntriesRef.current.add(key);
@@ -498,7 +502,6 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
                   break;
                 }
               } else if (timeDiffMins <= 0) {
-                // Overdue delivery today
                 const key = `${entry._id || entry.id}_delivery_overdue`;
                 if (!notifiedEntriesRef.current.has(key)) {
                   notifiedEntriesRef.current.add(key);
@@ -516,8 +519,9 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
                 }
               }
             }
-          } else if (deliveryDateObj.getTime() < now.getTime() && entry.deliveryDate < todayStr) {
-            // Overdue delivery past days
+            // No time set for today — no reminder
+          } else if (entry.deliveryDate < todayStr) {
+            // Past date overdue
             const key = `${entry._id || entry.id}_delivery_overdue_past`;
             if (!notifiedEntriesRef.current.has(key)) {
               notifiedEntriesRef.current.add(key);
@@ -526,7 +530,9 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
                 id: key,
                 entryId: entry._id || entry.id,
                 title: '🚨 Overdue Delivery Alert',
-                body: `Delivery for ${entry.customerName} was due on ${entry.deliveryDate}`,
+                body: hasTime
+                  ? `Delivery for ${entry.customerName} was due on ${entry.deliveryDate} at ${entry.deliveryTime}`
+                  : `Delivery for ${entry.customerName} was due on ${entry.deliveryDate}`,
                 icon: '🚨',
                 time: 'now',
                 type: 'delivery'
