@@ -1328,22 +1328,22 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
                     value={countryCode}
                     onChange={(e) => setCountryCode(e.target.value)}
                     style={{
-                      padding: '12px 8px',
+                      padding: '12px 6px',
                       borderRadius: '8px 0 0 8px',
                       border: '1px solid rgba(255,255,255,0.1)',
                       borderRight: 'none',
                       background: '#2d3748',
                       color: '#d1d5db',
-                      fontSize: '13px',
+                      fontSize: '12px',
                       fontWeight: '600',
                       cursor: 'pointer',
                       outline: 'none',
                       flexShrink: 0,
-                      minWidth: '90px'
+                      width: '72px'
                     }}
                   >
                     {COUNTRY_CODES.map(c => (
-                      <option key={c.code} value={c.code}>{c.name}</option>
+                      <option key={c.code} value={c.code}>{c.code}</option>
                     ))}
                   </select>
                   {/* Phone Number Input */}
