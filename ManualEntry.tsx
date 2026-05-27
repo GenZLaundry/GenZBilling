@@ -7,6 +7,7 @@ interface ManualEntryItem {
   serviceType: 'WASH' | 'IRON' | 'WASH+IRON' | 'DRY CLEAN';
   quantity: number;
   unit: 'pcs' | 'kg';
+  itemName?: string;
 }
 
 interface ManualEntryData {
@@ -54,6 +55,7 @@ const ManualEntry: React.FC<ManualEntryProps> = ({ onClose }) => {
   // States for adding items to the current manual entry
   const [serviceType, setServiceType] = useState<ManualEntryItem['serviceType']>('WASH');
   const [quantity, setQuantity] = useState<string | number>(1);
+  const [itemName, setItemName] = useState('');
   const [unit, setUnit] = useState<ManualEntryItem['unit']>('pcs');
   const [items, setItems] = useState<ManualEntryItem[]>([]);
 
@@ -240,6 +242,7 @@ const ManualEntry: React.FC<ManualEntryProps> = ({ onClose }) => {
     setDeliveryTime('');
     setServiceType('WASH');
     setQuantity(1);
+    setItemName('');
     setUnit('pcs');
     setItems([]);
     setPaymentStatus('unpaid');
@@ -256,18 +259,23 @@ const ManualEntry: React.FC<ManualEntryProps> = ({ onClose }) => {
       return;
     }
     
-    // Check duplicate serviceType and unit to merge them
-    const existingIndex = items.findIndex(item => item.serviceType === serviceType && item.unit === unit);
+    // Check duplicate serviceType, unit and itemName to merge them
+    const existingIndex = items.findIndex(item =>
+      item.serviceType === serviceType &&
+      item.unit === unit &&
+      (item.itemName || '') === (itemName.trim() || '')
+    );
+
     if (existingIndex !== -1) {
       const updatedItems = [...items];
       updatedItems[existingIndex].quantity = parseFloat((updatedItems[existingIndex].quantity + qty).toFixed(2));
       setItems(updatedItems);
     } else {
-      setItems([...items, { serviceType, quantity: qty, unit }]);
+      setItems([...items, { serviceType, quantity: qty, unit, itemName: itemName.trim() || undefined }]);
     }
     
-    // Reset quantity input
     setQuantity(1);
+    setItemName('');
   };
 
   const removeItem = (index: number) => {
@@ -848,7 +856,28 @@ const ManualEntry: React.FC<ManualEntryProps> = ({ onClose }) => {
                 <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', fontWeight: '600', color: '#e5e7eb' }}>
                   🧺 Add Items to Order
                 </label>
-                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr 0.8fr auto', gap: '10px', alignItems: 'end' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 0.7fr 0.7fr auto', gap: '8px', alignItems: 'end' }}>
+                  {/* Item Name — optional */}
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '4px', fontSize: '11px', color: '#9ca3af' }}>
+                      Item Name <span style={{ color: '#6b7280' }}>(optional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={itemName}
+                      onChange={(e) => setItemName(e.target.value)}
+                      placeholder="e.g. Shirt, Jeans..."
+                      style={{
+                        width: '100%', padding: '8px', borderRadius: '6px',
+                        border: '1px solid rgba(255,255,255,0.1)', fontSize: '13px',
+                        background: 'rgba(9,9,11,0.8)', color: '#fff', outline: 'none',
+                        boxSizing: 'border-box'
+                      }}
+                      onFocus={e => e.target.style.borderColor = '#6366f1'}
+                      onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
+                    />
+                  </div>
+                  {/* Service Type */}
                   <div>
                     <label style={{ display: 'block', marginBottom: '4px', fontSize: '11px', color: '#9ca3af' }}>Service Type</label>
                     <select
@@ -862,12 +891,13 @@ const ManualEntry: React.FC<ManualEntryProps> = ({ onClose }) => {
                     >
                       <option value="WASH">🧺 Wash</option>
                       <option value="IRON">🔥 Iron</option>
-                      <option value="WASH+IRON">🧺🔥 Wash + Iron</option>
+                      <option value="WASH+IRON">🧺🔥 Wash+Iron</option>
                       <option value="DRY CLEAN">✨ Dry Clean</option>
                     </select>
                   </div>
+                  {/* Qty */}
                   <div>
-                    <label style={{ display: 'block', marginBottom: '4px', fontSize: '11px', color: '#9ca3af' }}>Qty / Weight</label>
+                    <label style={{ display: 'block', marginBottom: '4px', fontSize: '11px', color: '#9ca3af' }}>Qty</label>
                     <input
                       type="number"
                       step="any"
@@ -881,6 +911,7 @@ const ManualEntry: React.FC<ManualEntryProps> = ({ onClose }) => {
                       }}
                     />
                   </div>
+                  {/* Unit */}
                   <div>
                     <label style={{ display: 'block', marginBottom: '4px', fontSize: '11px', color: '#9ca3af' }}>Unit</label>
                     <select
@@ -892,8 +923,8 @@ const ManualEntry: React.FC<ManualEntryProps> = ({ onClose }) => {
                         background: 'rgba(9,9,11,0.8)', color: '#fff', outline: 'none'
                       }}
                     >
-                      <option value="pcs">Pieces (pcs)</option>
-                      <option value="kg">Kilograms (kg)</option>
+                      <option value="pcs">pcs</option>
+                      <option value="kg">kg</option>
                     </select>
                   </div>
                   <button
@@ -902,7 +933,8 @@ const ManualEntry: React.FC<ManualEntryProps> = ({ onClose }) => {
                     style={{
                       background: 'rgba(14, 165, 233, 0.2)', color: '#38bdf8',
                       border: '1px solid rgba(14, 165, 233, 0.3)', borderRadius: '6px',
-                      padding: '8px 12px', cursor: 'pointer', fontSize: '13px', fontWeight: '600'
+                      padding: '8px 12px', cursor: 'pointer', fontSize: '13px', fontWeight: '600',
+                      whiteSpace: 'nowrap'
                     }}
                   >
                     + Add
@@ -947,6 +979,9 @@ const ManualEntry: React.FC<ManualEntryProps> = ({ onClose }) => {
                         }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <span style={{ color: '#0ea5e9', fontWeight: 'bold' }}>#{idx + 1}</span>
+                            {item.itemName && (
+                              <span style={{ color: '#e5e7eb', fontWeight: '600' }}>{item.itemName}</span>
+                            )}
                             <span style={{ color: '#fff', fontWeight: '500' }}>
                               {item.serviceType}
                             </span>
@@ -1292,7 +1327,7 @@ const ManualEntry: React.FC<ManualEntryProps> = ({ onClose }) => {
                             border: `1px solid ${serviceTypeColors[item.serviceType] || '#9ca3af'}25`,
                             padding: '2px 8px', borderRadius: '5px', fontSize: '11px', fontWeight: '600'
                           }}>
-                            {item.serviceType}: {item.quantity} {item.unit || 'pcs'}
+                            {item.itemName ? `${item.itemName} · ` : ''}{item.serviceType}: {item.quantity} {item.unit || 'pcs'}
                           </span>
                         ))}
                       </div>
