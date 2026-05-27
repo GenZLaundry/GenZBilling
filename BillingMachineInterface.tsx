@@ -12,21 +12,8 @@ import apiService from './api';
 import { useAlert } from './GlobalAlert';
 import BillShareButton from './BillShareButton';
 import { ShareableBillData } from './BillShareUtils';
-const COUNTRY_CODES = [
-  { code: '+91', name: 'IN (+91)' },
-  { code: '+1', name: 'US/CA (+1)' },
-  { code: '+44', name: 'UK (+44)' },
-  { code: '+971', name: 'UAE (+971)' },
-  { code: '+966', name: 'SA (+966)' },
-  { code: '+61', name: 'AU (+61)' },
-  { code: '+65', name: 'SG (+65)' },
-  { code: '+880', name: 'BD (+880)' },
-  { code: '+977', name: 'NP (+977)' },
-  { code: '+94', name: 'LK (+94)' },
-  { code: '+968', name: 'OM (+968)' },
-  { code: '+965', name: 'KW (+965)' },
-  { code: '+974', name: 'QA (+974)' }
-];
+import CountryCodePicker, { ALL_COUNTRIES } from './CountryCodePicker';
+const COUNTRY_CODES = ALL_COUNTRIES; // for parsePhoneNumber compatibility
 
 const parsePhoneNumber = (phoneStr: string) => {
   const clean = (phoneStr || '').trim();
@@ -1323,29 +1310,8 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
                   Phone Number
                 </label>
                 <div style={{ position: 'relative', display: 'flex', gap: '0' }}>
-                  {/* Country Code Dropdown */}
-                  <select
-                    value={countryCode}
-                    onChange={(e) => setCountryCode(e.target.value)}
-                    style={{
-                      padding: '12px 6px',
-                      borderRadius: '8px 0 0 8px',
-                      border: '1px solid rgba(255,255,255,0.1)',
-                      borderRight: 'none',
-                      background: '#2d3748',
-                      color: '#d1d5db',
-                      fontSize: '12px',
-                      fontWeight: '600',
-                      cursor: 'pointer',
-                      outline: 'none',
-                      flexShrink: 0,
-                      width: '72px'
-                    }}
-                  >
-                    {COUNTRY_CODES.map(c => (
-                      <option key={c.code} value={c.code}>{c.code}</option>
-                    ))}
-                  </select>
+                  {/* Country Code Picker */}
+                  <CountryCodePicker value={countryCode} onChange={setCountryCode} />
                   {/* Phone Number Input */}
                   <input
                     type="tel"
