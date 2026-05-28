@@ -127,7 +127,7 @@ const PendingBillSelector: React.FC<PendingBillSelectorProps> = ({
     }
   };
 
-  const BillCard = ({ bill }: { bill: PendingBill }) => {
+  const BillCard: React.FC<{ bill: PendingBill }> = ({ bill }) => {
     const billId     = bill.id || bill._id;
     const isSelected = selectedBillIds.has(billId);
     const ss         = statusStyle(bill.status);
@@ -351,7 +351,7 @@ const PendingBillSelector: React.FC<PendingBillSelectorProps> = ({
             <div style={{ display: 'flex', gap: '4px' }}>
               {(['all', 'pending', 'completed', 'delivered'] as const).map(s => (
                 <button key={s} onClick={() => setStatusFilter(s)} style={{
-                  padding: '6px 12px', borderRadius: 'var(--radius-full)', border: 'none',
+                  padding: '6px 12px', borderRadius: 'var(--radius-full)',
                   background: statusFilter === s ? 'var(--accent-muted)' : 'rgba(255,255,255,0.05)',
                   color: statusFilter === s ? 'var(--accent-text)' : 'var(--text-secondary)',
                   fontSize: '11px', fontWeight: '600', cursor: 'pointer',

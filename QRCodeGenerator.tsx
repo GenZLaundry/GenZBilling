@@ -128,8 +128,6 @@ const QRCodeGenerator: React.FC<QRCodeGeneratorProps> = ({
           borderRadius: '8px',
           background: 'white',
           imageRendering: 'pixelated', // Ensures sharp QR code
-          imageRendering: '-moz-crisp-edges', // Firefox support
-          imageRendering: 'crisp-edges', // Better edge rendering
           filter: 'contrast(2.0) brightness(1.3)', // Enhanced contrast for thermal printing
           WebkitFilter: 'contrast(2.0) brightness(1.3)', // Safari support
           ...style

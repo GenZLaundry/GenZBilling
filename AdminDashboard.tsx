@@ -8,10 +8,12 @@ import BillManager from './BillManager';
 import TagHistoryViewer from './TagHistoryViewer';
 import RevenueDashboard from './RevenueDashboard';
 import ComprehensiveRevenueDashboard from './ComprehensiveRevenueDashboard';
+import CustomerCRMManager from './CustomerCRMManager';
 import BillShareButton from './BillShareButton';
 import apiService from './api';
 import { useAlert } from './GlobalAlert';
 import { sendReadyPickupWA, sendDeliveredWA, sendPaymentReceivedWA } from './whatsappNotify';
+import StaffHustleTracker from './StaffHustleTracker';
 
 interface AdminDashboardProps {
   onBackToBilling: () => void;
@@ -20,7 +22,7 @@ interface AdminDashboardProps {
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogout }) => {
   const { showAlert, showConfirm } = useAlert();
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'settings' | 'pending' | 'history' | 'analytics' | 'expenses' | 'manage' | 'tags' | 'revenue'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'settings' | 'pending' | 'history' | 'analytics' | 'expenses' | 'manage' | 'tags' | 'revenue' | 'customers' | 'staff'>('dashboard');
   const [shopConfig, setShopConfig] = useState<ShopConfig>({
     shopName: 'GenZ Laundry',
     address: 'Sabji Mandi Circle,Ratanada, Jodhpur (342011)',
@@ -188,14 +190,101 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
     loadDashboardAnalytics();
   }, []);
 
-  // Update notifications when bill data changes
+  // State for manual entries
+  const [manualEntries, setManualEntries] = useState<any[]>([]);
+  const prevNotificationCountRef = React.useRef(0);
+
+  // Load manual entries
+  const loadManualEntries = async () => {
+    try {
+      const res = await apiService.getManualEntries();
+      if (res && res.success && Array.isArray(res.data)) {
+        setManualEntries(res.data);
+      }
+    } catch (err) {
+      console.warn('Failed to load manual entries for dashboard:', err);
+    }
+  };
+
+  // Synthesize clean chime audio alert using browser Web Audio API
+  const playNotificationSound = () => {
+    if (!systemPrefs.soundAlerts) return;
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      
+      const playTone = (freq: number, start: number, duration: number) => {
+        const osc = ctx.createOscillator();
+        const gainNode = ctx.createGain();
+        osc.connect(gainNode);
+        gainNode.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, start);
+        gainNode.gain.setValueAtTime(0, start);
+        gainNode.gain.linearRampToValueAtTime(0.12, start + 0.05);
+        gainNode.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+        osc.start(start);
+        osc.stop(start + duration);
+      };
+      
+      const now = ctx.currentTime;
+      playTone(659.25, now, 0.3); // E5 Chime 1
+      playTone(880.00, now + 0.12, 0.4); // A5 Chime 2
+    } catch (e) {
+      console.warn('Audio synthesis error:', e);
+    }
+  };
+
+  // Update time every second
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Load data on component mount
+  useEffect(() => {
+    loadShopConfig();
+    loadPendingBills();
+    loadBillHistory();
+    loadManualEntries();
+    testDatabaseConnection();
+    loadDashboardAnalytics();
+  }, []);
+
+  // Polling for new manual entries & pending bills every 30 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      loadPendingBills();
+      loadManualEntries();
+    }, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Update notifications when data changes
   useEffect(() => {
     loadNotifications();
-  }, [pendingBills, billHistory]);
+  }, [pendingBills, billHistory, manualEntries]);
+
+  // Trigger synthesized chime sound if active warning/alert notification count increases
+  useEffect(() => {
+    const activeCount = notifications.filter(n => 
+      n.type === 'warning' || 
+      n.type === 'error' || 
+      (n.message && (n.message.includes('⏰') || n.message.includes('🚨') || n.message.includes('📅')))
+    ).length;
+
+    if (activeCount > prevNotificationCountRef.current) {
+      playNotificationSound();
+    }
+    prevNotificationCountRef.current = activeCount;
+  }, [notifications]);
 
   // Load real business notifications
   const loadNotifications = () => {
-    const today = new Date().toDateString();
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0]; // YYYY-MM-DD
+    const today = now.toDateString();
 
     // Calculate metrics
     const totalPendingBills = pendingBills.length;
@@ -208,9 +297,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
       new Date(bill.createdAt).toDateString() === today
     ).length;
 
-    const businessNotifications = [];
+    const businessNotifications: any[] = [];
+    let noteId = 10;
 
-    // Pending bills notification
+    // 1. Pending bills notification
     if (totalPendingBills > 0) {
       businessNotifications.push({
         id: 1,
@@ -221,7 +311,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
       });
     }
 
-    // Today's delivered bills
+    // 2. Today's delivered bills
     if (todayDeliveredBills > 0) {
       businessNotifications.push({
         id: 2,
@@ -232,7 +322,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
       });
     }
 
-    // Today's completed bills
+    // 3. Today's completed bills
     if (todayCompletedBills > 0) {
       businessNotifications.push({
         id: 3,
@@ -242,6 +332,123 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
         count: todayCompletedBills
       });
     }
+
+    // 4. SCAN MANUAL ENTRIES FOR TIME-BASED REMINDERS & ALERTS
+    manualEntries.forEach((entry: any) => {
+      const isPending = entry.status === 'pending';
+      const isCompleted = entry.status === 'completed';
+      const isDelivered = entry.status === 'delivered';
+
+      if (isDelivered) return; // Ignore delivered items
+
+      // a) Parse pickup date and time
+      if (isPending && entry.pickupDate) {
+        const hasTime = !!entry.pickupTime;
+        const pickupDateTimeStr = `${entry.pickupDate}T${entry.pickupTime || '00:00'}:00`;
+        const pickupDateObj = new Date(pickupDateTimeStr);
+        const timeDiffMins = Math.round((pickupDateObj.getTime() - now.getTime()) / (1000 * 60));
+
+        if (entry.pickupDate === todayStr) {
+          if (hasTime) {
+            if (timeDiffMins > 0 && timeDiffMins <= 30) {
+              // 30 Min Reminder Before Same-time
+              businessNotifications.push({
+                id: noteId++,
+                type: 'warning',
+                message: `⏰ Pickup: ${entry.customerName} in ${timeDiffMins} mins (${entry.pickupTime})`,
+                time: new Date()
+              });
+            } else if (timeDiffMins <= 0) {
+              // Past due today (Overdue Alert)
+              businessNotifications.push({
+                id: noteId++,
+                type: 'error',
+                message: `🚨 Overdue Pickup: ${entry.customerName} was due @ ${entry.pickupTime}`,
+                time: new Date()
+              });
+            } else {
+              // Today scheduled
+              businessNotifications.push({
+                id: noteId++,
+                type: 'info',
+                message: `📅 Pickup Today: ${entry.customerName} scheduled @ ${entry.pickupTime}`,
+                time: new Date()
+              });
+            }
+          } else {
+            // General Today
+            businessNotifications.push({
+              id: noteId++,
+              type: 'info',
+              message: `📅 Pickup Scheduled Today: ${entry.customerName}`,
+              time: new Date()
+            });
+          }
+        } else if (pickupDateObj.getTime() < now.getTime() && entry.pickupDate < todayStr) {
+          // Past days overdue
+          businessNotifications.push({
+            id: noteId++,
+            type: 'error',
+            message: `🚨 Overdue Pickup: ${entry.customerName} (due ${entry.pickupDate}${entry.pickupTime ? ` @ ${entry.pickupTime}` : ''})`,
+            time: new Date()
+          });
+        }
+      }
+
+      // b) Parse delivery date and time
+      if (!isDelivered && entry.deliveryDate) {
+        const hasTime = !!entry.deliveryTime;
+        const deliveryDateTimeStr = `${entry.deliveryDate}T${entry.deliveryTime || '00:00'}:00`;
+        const deliveryDateObj = new Date(deliveryDateTimeStr);
+        const timeDiffMins = Math.round((deliveryDateObj.getTime() - now.getTime()) / (1000 * 60));
+
+        if (entry.deliveryDate === todayStr) {
+          if (hasTime) {
+            if (timeDiffMins > 0 && timeDiffMins <= 30) {
+              // 30 Min Reminder Before Same-time
+              businessNotifications.push({
+                id: noteId++,
+                type: 'warning',
+                message: `⏰ Delivery: ${entry.customerName} in ${timeDiffMins} mins (${entry.deliveryTime})`,
+                time: new Date()
+              });
+            } else if (timeDiffMins <= 0) {
+              // Past due today (Overdue Alert)
+              businessNotifications.push({
+                id: noteId++,
+                type: 'error',
+                message: `🚨 Overdue Delivery: ${entry.customerName} was due @ ${entry.deliveryTime}`,
+                time: new Date()
+              });
+            } else {
+              // Today scheduled
+              businessNotifications.push({
+                id: noteId++,
+                type: 'info',
+                message: `📅 Delivery Today: ${entry.customerName} scheduled @ ${entry.deliveryTime}`,
+                time: new Date()
+              });
+            }
+          } else {
+            // General Today
+            businessNotifications.push({
+              id: noteId++,
+              type: 'info',
+              message: `📅 Delivery Scheduled Today: ${entry.customerName}`,
+              time: new Date()
+            });
+          }
+        } else if (deliveryDateObj.getTime() < now.getTime() && entry.deliveryDate < todayStr) {
+          // Past days overdue
+          businessNotifications.push({
+            id: noteId++,
+            type: 'error',
+            message: `🚨 Overdue Delivery: ${entry.customerName} (due ${entry.deliveryDate}${entry.deliveryTime ? ` @ ${entry.deliveryTime}` : ''})`,
+            time: new Date()
+          });
+        }
+      }
+    });
 
     // If no activity, show a default message
     if (businessNotifications.length === 0) {
@@ -816,22 +1023,53 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
         const localRaw = localStorage.getItem('laundry_bill_history');
         const localBills: any[] = localRaw ? JSON.parse(localRaw) : [];
 
+        // Load deleted bills to prevent offline re-syncing of deleted bills
+        const deletedRaw = localStorage.getItem('laundry_deleted_bills');
+        const deletedList = deletedRaw ? JSON.parse(deletedRaw) : [];
+        const deletedSet = new Set(deletedList);
+
+        // Filter out any locally cached bills that were deleted
+        const filteredLocalBills = localBills.filter((b: any) => !deletedSet.has(b.billNumber));
+        if (filteredLocalBills.length !== localBills.length) {
+          localStorage.setItem('laundry_bill_history', JSON.stringify(filteredLocalBills));
+        }
+
         // Build a map of local bills by billNumber for quick lookup
-        const localBillMap = new Map(localBills.map((b: any) => [b.billNumber, b]));
+        const localBillMap = new Map(filteredLocalBills.map((b: any) => [b.billNumber, b]));
 
         // Find local bills that are NOT in DB (unsynced offline bills)
         const dbBillNumbers = new Set(dbBills.map((b: any) => b.billNumber));
-        const unsyncedLocal = localBills.filter((b: any) => !dbBillNumbers.has(b.billNumber));
+        // Only treat as unsynced if explicitly offline (_syncedToDb === false or id/_id starts with local_)
+        const unsyncedLocal = filteredLocalBills.filter((b: any) => 
+          (b._syncedToDb === false || (b._id && b._id.toString().startsWith('local_'))) && 
+          !dbBillNumbers.has(b.billNumber)
+        );
 
         if (unsyncedLocal.length > 0) {
           console.log(`🔄 Found ${unsyncedLocal.length} unsynced local bills — attempting to sync to DB...`);
+          let syncedCount = 0;
+          const updatedLocalBills = [...filteredLocalBills];
           for (const bill of unsyncedLocal) {
             try {
-              await apiService.createBill(bill);
-              console.log(`✅ Synced bill ${bill.billNumber} to DB`);
+              const res = await apiService.createBill(bill);
+              if (res.success) {
+                console.log(`✅ Synced bill ${bill.billNumber} to DB`);
+                syncedCount++;
+                const idx = updatedLocalBills.findIndex((b: any) => b.billNumber === bill.billNumber);
+                if (idx !== -1) {
+                  updatedLocalBills[idx] = {
+                    ...updatedLocalBills[idx],
+                    _syncedToDb: true,
+                    _id: res.data?._id || updatedLocalBills[idx]._id
+                  };
+                }
+              }
             } catch (e) {
               console.warn(`⚠️ Could not sync bill ${bill.billNumber}:`, e);
             }
+          }
+          if (syncedCount > 0) {
+            localStorage.setItem('laundry_bill_history', JSON.stringify(updatedLocalBills));
           }
         }
 
@@ -1307,9 +1545,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
               { key: 'analytics', label: 'Analytics', icon: 'fa-chart-pie' },
               { key: 'manage', label: 'Data Manager', icon: 'fa-database' },
               { key: 'finance', label: 'Finance Center', icon: 'fa-landmark' },
+              { key: 'customers', label: 'Customers', icon: 'fa-users' },
               { key: 'pending', label: 'Pending', icon: 'fa-clock' },
               { key: 'history', label: 'History', icon: 'fa-list-check' },
               { key: 'tags', label: 'Tag History', icon: 'fa-tag' },
+              { key: 'staff', label: 'Staff Hustlers', icon: 'fa-bolt' },
               { key: 'settings', label: 'Settings', icon: 'fa-gear' }
             ].map((tab) => (
               <button
@@ -1776,6 +2016,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
               />
             )}
 
+            {activeTab === 'customers' && (
+              <CustomerCRMManager />
+            )}
+
             {activeTab === 'analytics' && (
               <AnalyticsDashboard />
             )}
@@ -2075,6 +2319,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
               <TagHistoryViewer />
             )}
 
+            {activeTab === 'staff' && (
+              <StaffHustleTracker />
+            )}
+
             {activeTab === 'settings' && (
               <div>
                 <h2 style={{ color: 'white', marginBottom: '20px', fontSize: '24px' }}>⚙️ Settings</h2>
@@ -2267,37 +2515,51 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
             {activeTab === 'pending' && (
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                  <h2 style={{ color: 'white', margin: 0, fontSize: '18px' }}>📋 Pending Bills ({pendingBills.length})</h2>
+                  <h2 style={{ color: 'white', margin: 0, fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <i className="fas fa-clock" style={{ color: '#0ea5e9' }}></i> Pending Bills ({pendingBills.length})
+                  </h2>
                   <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                     <button
                       onClick={loadPendingBills}
                       style={{
-                        background: 'linear-gradient(135deg, #27ae60, #2ecc71)',
-                        border: 'none',
+                        background: 'rgba(16, 185, 129, 0.08)',
+                        border: '1px solid rgba(16, 185, 129, 0.25)',
                         borderRadius: '8px',
                         padding: '10px 20px',
-                        color: 'white',
+                        color: '#34d399',
                         cursor: 'pointer',
-                        fontSize: '14px',
-                        fontWeight: 'bold'
+                        fontSize: '13px',
+                        fontWeight: '600',
+                        transition: 'all 0.15s ease',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
                       }}
+                      onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(16, 185, 129, 0.18)'; }}
+                      onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(16, 185, 129, 0.08)'; }}
                     >
-                      🔄 Refresh
+                      <i className="fas fa-sync-alt"></i> Refresh
                     </button>
                     <button
                       onClick={() => setShowAddPreviousBill(true)}
                       style={{
-                        background: 'linear-gradient(135deg, #3498db, #2980b9)',
-                        border: 'none',
+                        background: 'rgba(14, 165, 233, 0.08)',
+                        border: '1px solid rgba(14, 165, 233, 0.25)',
                         borderRadius: '8px',
                         padding: '10px 20px',
-                        color: 'white',
+                        color: '#38bdf8',
                         cursor: 'pointer',
-                        fontSize: '14px',
-                        fontWeight: 'bold'
+                        fontSize: '13px',
+                        fontWeight: '600',
+                        transition: 'all 0.15s ease',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
                       }}
+                      onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(14, 165, 233, 0.18)'; }}
+                      onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(14, 165, 233, 0.08)'; }}
                     >
-                      ➕ Add Previous Bill
+                      <i className="fas fa-plus"></i> Add Previous Bill
                     </button>
                     <input
                       type="text"
@@ -2305,12 +2567,18 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       style={{
-                        padding: '10px',
+                        padding: '10px 14px',
                         borderRadius: '8px',
-                        border: 'none',
-                        background: 'rgba(255, 255, 255, 0.9)',
-                        width: '300px'
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                        background: 'rgba(9, 9, 11, 0.6)',
+                        color: 'white',
+                        width: '300px',
+                        fontSize: '13px',
+                        outline: 'none',
+                        transition: 'all 0.15s ease'
                       }}
+                      onFocus={(e) => e.target.style.borderColor = '#0ea5e9'}
+                      onBlur={(e) => e.target.style.borderColor = 'rgba(255, 255, 255, 0.1)'}
                     />
                   </div>
                 </div>
@@ -2327,67 +2595,148 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
                       const amountDue = bill.amountDue !== undefined ? bill.amountDue : bill.grandTotal;
                       const paymentStatus = bill.paymentStatus || 'unpaid';
                       const paymentPercent = bill.grandTotal > 0 ? Math.min(100, (amountPaid / bill.grandTotal) * 100) : 0;
-                      // Only show badge for partial payments - paid/unpaid are not useful in pending view
                       const showPartialBadge = paymentStatus === 'partial' && amountPaid > 0;
 
                       return (
                       <div key={bill.id || bill._id} style={{
-                        background: 'rgba(255, 255, 255, 0.1)',
-                        borderRadius: '8px',
-                        padding: '12px',
-                        border: showPartialBadge ? '1px solid #f59e0b' : '1px solid rgba(255,255,255,0.1)'
-                      }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        background: 'rgba(255, 255, 255, 0.02)',
+                        borderRadius: '12px',
+                        padding: '16px 20px',
+                        border: showPartialBadge ? '1px solid #f59e0b' : '1px solid rgba(255, 255, 255, 0.06)',
+                        transition: 'border-color 0.15s ease'
+                      }}
+                      onMouseOver={(e) => { e.currentTarget.style.borderColor = showPartialBadge ? '#f59e0b' : 'rgba(255, 255, 255, 0.12)'; }}
+                      onMouseOut={(e) => { e.currentTarget.style.borderColor = showPartialBadge ? '#f59e0b' : 'rgba(255, 255, 255, 0.06)'; }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <div style={{ color: 'white', flex: 1 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '3px' }}>
-                              <h4 style={{ margin: 0, fontSize: '14px' }}>{bill.customerName}</h4>
-                              {/* Only show badge for partial payments */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                              <h4 style={{ margin: 0, fontSize: '15px', fontWeight: '600' }}>{bill.customerName}</h4>
                               {showPartialBadge && (
                                 <span style={{
-                                  fontSize: '10px', fontWeight: 'bold', padding: '2px 8px', borderRadius: '10px',
-                                  background: '#f59e0b', color: 'white'
+                                  fontSize: '10px', fontWeight: '700', padding: '2px 8px', borderRadius: '10px',
+                                  background: 'rgba(245, 158, 11, 0.15)', color: '#fbbf24', border: '1px solid rgba(245, 158, 11, 0.3)'
                                 }}>
                                   ⚡ PARTIAL
                                 </span>
                               )}
                             </div>
-                            <p style={{ margin: '0 0 2px 0', opacity: 0.8, fontSize: '11px' }}>Bill: {bill.billNumber}</p>
-                            <p style={{ margin: '0 0 4px 0', opacity: 0.8, fontSize: '11px' }}>
-                              Items: {bill.items?.length || 0} | Total: ₹{bill.grandTotal}
+                            <p style={{ margin: '0 0 2px 0', opacity: 0.8, fontSize: '12px', color: '#9ca3af' }}>Bill: {bill.billNumber}</p>
+                            <p style={{ margin: '0 0 6px 0', opacity: 0.8, fontSize: '12px', color: '#d1d5db' }}>
+                              Items: {bill.items?.length || 0} | Total: <strong style={{ color: '#fff' }}>₹{bill.grandTotal}</strong>
                             </p>
-                            {/* Payment progress - only show when partial payment exists */}
                             {amountPaid > 0 && (
-                              <div style={{ marginBottom: '4px' }}>
+                              <div style={{ marginBottom: '6px', maxWidth: '300px' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '3px' }}>
-                                  <span style={{ color: '#10b981' }}>Paid: ₹{amountPaid}</span>
-                                  <span style={{ color: '#ef4444' }}>Due: ₹{amountDue}</span>
+                                  <span style={{ color: '#34d399', fontWeight: '500' }}>Paid: ₹{amountPaid}</span>
+                                  <span style={{ color: '#f87171', fontWeight: '500' }}>Due: ₹{amountDue}</span>
                                 </div>
-                                <div style={{ background: 'rgba(255,255,255,0.2)', borderRadius: '4px', height: '6px', overflow: 'hidden' }}>
+                                <div style={{ background: 'rgba(255,255,255,0.08)', borderRadius: '4px', height: '6px', overflow: 'hidden' }}>
                                   <div style={{ width: `${paymentPercent}%`, height: '100%', background: '#10b981', borderRadius: '4px', transition: 'width 0.3s' }} />
                                 </div>
                               </div>
                             )}
-                            <p style={{ margin: 0, opacity: 0.6, fontSize: '10px' }}>
-                              {new Date(bill.createdAt).toLocaleDateString()}
+                            <p style={{ margin: 0, opacity: 0.6, fontSize: '11px', color: '#6b7280' }}>
+                              <i className="far fa-calendar-alt" style={{ marginRight: '4px' }}></i> {new Date(bill.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                             </p>
                           </div>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginLeft: '10px' }}>
                             <button
                               onClick={() => reprintBill(bill)}
-                              style={{ background: 'rgba(0,123,255,0.8)', border: 'none', borderRadius: '6px', padding: '6px 12px', color: 'white', cursor: 'pointer', fontSize: '11px' }}
-                            >🖨️ Reprint</button>
+                              style={{
+                                background: 'rgba(59, 130, 246, 0.08)',
+                                border: '1px solid rgba(59, 130, 246, 0.2)',
+                                borderRadius: '6px',
+                                padding: '5px 12px',
+                                color: '#60a5fa',
+                                cursor: 'pointer',
+                                fontSize: '11px',
+                                fontWeight: '600',
+                                textAlign: 'center',
+                                transition: 'all 0.15s ease',
+                                width: '100px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '6px'
+                              }}
+                              onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(59, 130, 246, 0.18)'; }}
+                              onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(59, 130, 246, 0.08)'; }}
+                            >
+                              <i className="fas fa-print" style={{ fontSize: '10px' }}></i> Reprint
+                            </button>
                             <button
                               onClick={() => { setSelectedBillForPayment(bill); setShowPaymentModal(true); }}
-                              style={{ background: 'rgba(245,158,11,0.9)', border: 'none', borderRadius: '6px', padding: '6px 12px', color: 'white', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}
-                            >💰 Payment</button>
+                              style={{
+                                background: 'rgba(245, 158, 11, 0.08)',
+                                border: '1px solid rgba(245, 158, 11, 0.2)',
+                                borderRadius: '6px',
+                                padding: '5px 12px',
+                                color: '#fbbf24',
+                                cursor: 'pointer',
+                                fontSize: '11px',
+                                fontWeight: '600',
+                                textAlign: 'center',
+                                transition: 'all 0.15s ease',
+                                width: '100px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '6px'
+                              }}
+                              onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(245, 158, 11, 0.18)'; }}
+                              onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(245, 158, 11, 0.08)'; }}
+                            >
+                              <i className="fas fa-wallet" style={{ fontSize: '10px' }}></i> Payment
+                            </button>
                             <button
                               onClick={() => markBillAsCompleted(bill.id || bill._id)}
-                              style={{ background: 'rgba(40,167,69,0.8)', border: 'none', borderRadius: '6px', padding: '6px 12px', color: 'white', cursor: 'pointer', fontSize: '11px' }}
-                            >✅ Complete</button>
+                              style={{
+                                background: 'rgba(16, 185, 129, 0.08)',
+                                border: '1px solid rgba(16, 185, 129, 0.2)',
+                                borderRadius: '6px',
+                                padding: '5px 12px',
+                                color: '#34d399',
+                                cursor: 'pointer',
+                                fontSize: '11px',
+                                fontWeight: '600',
+                                textAlign: 'center',
+                                transition: 'all 0.15s ease',
+                                width: '100px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '6px'
+                              }}
+                              onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(16, 185, 129, 0.18)'; }}
+                              onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(16, 185, 129, 0.08)'; }}
+                            >
+                              <i className="fas fa-check-circle" style={{ fontSize: '10px' }}></i> Complete
+                            </button>
                             <button
                               onClick={() => markBillAsDelivered(bill.id || bill._id)}
-                              style={{ background: 'rgba(255,193,7,0.8)', border: 'none', borderRadius: '6px', padding: '6px 12px', color: 'white', cursor: 'pointer', fontSize: '11px' }}
-                            >🚚 Deliver</button>
+                              style={{
+                                background: 'rgba(139, 92, 246, 0.08)',
+                                border: '1px solid rgba(139, 92, 246, 0.2)',
+                                borderRadius: '6px',
+                                padding: '5px 12px',
+                                color: '#a78bfa',
+                                cursor: 'pointer',
+                                fontSize: '11px',
+                                fontWeight: '600',
+                                textAlign: 'center',
+                                transition: 'all 0.15s ease',
+                                width: '100px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '6px'
+                              }}
+                              onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(139, 92, 246, 0.18)'; }}
+                              onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(139, 92, 246, 0.08)'; }}
+                            >
+                              <i className="fas fa-shipping-fast" style={{ fontSize: '10px' }}></i> Deliver
+                            </button>
                           </div>
                         </div>
                       </div>
