@@ -119,6 +119,7 @@ export interface BillData {
   thankYouMessage?: string;
   termsAndConditions?: string;
   status?: 'pending' | 'completed' | 'delivered';
+  printLogo?: boolean;
   createdAt?: string;
   deliveredAt?: string;
 }

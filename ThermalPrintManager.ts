@@ -35,6 +35,7 @@ export interface BillData {
   status?: string;
   thankYouMessage?: string;
   termsAndConditions?: string;
+  printLogo?: boolean;
 }
 
 // Method 1: Pure Thermal Window Print (No A4 behavior)
@@ -61,6 +62,24 @@ export const printThermalBill = (billData: BillData, onError?: (message: string)
   // Generate UPI payment URL with exact bill amount
   const upiConfig = getUPIConfig();
   let qrCodeUrl = '/scanner.png'; // Default to original image
+
+  // Determine if logo should be printed
+  let printLogo = true;
+  if (billData.printLogo !== undefined) {
+    printLogo = billData.printLogo;
+  } else {
+    try {
+      const savedPrefs = localStorage.getItem('genz_system_prefs');
+      if (savedPrefs) {
+        const prefs = JSON.parse(savedPrefs);
+        if (prefs.printLogo !== undefined) {
+          printLogo = prefs.printLogo;
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to load printLogo preference from localStorage:', e);
+    }
+  }
   
   // Generate functional QR with exact bill amount
   if (upiConfig.upiId && billData.grandTotal > 0) {
@@ -170,7 +189,13 @@ export const printThermalBill = (billData: BillData, onError?: (message: string)
   <div class="receipt">
     <!-- Business Header -->
     <div class="center spacer">
+      ${printLogo ? `
+      <div style="margin-bottom: 3mm; text-align: center;">
+        <img src="/bill_logo.jpg" alt="Logo" style="max-width: 34mm; height: auto; display: block; margin: 0 auto; filter: grayscale(100%) contrast(1.8) brightness(1.05); -webkit-filter: grayscale(100%) contrast(1.8) brightness(1.05);" onerror="this.style.display='none';">
+      </div>
+      ` : `
       <div class="large bold upper">${billData.businessName}</div>
+      `}
       <div class="small">${billData.address}</div>
       <div class="small">Ph: ${billData.phone}</div>
     </div>
@@ -204,14 +229,28 @@ export const printThermalBill = (billData: BillData, onError?: (message: string)
       <div class="small bold center" style="margin: 2mm 0;">PREVIOUS BILLS</div>
       ${billData.previousBills.map(prevBill => `
         <div class="small bold" style="margin: 1mm 0;">Bill: ${prevBill.billNumber}</div>
-        ${prevBill.items.map(item => `
+        ${prevBill.items.map(item => {
+          const kgMatch = item.name.match(/^(.+?)\s*\((\d+\.?\d*)\s*kg\s*@\s*(?:₹|Rs\.?|Rs)?\s*(\d+\.?\d*)\/kg\)$/i);
+          if (kgMatch) {
+            const itemName = kgMatch[1];
+            const kg = kgMatch[2];
+            const ratePerKg = kgMatch[3];
+            return `
+        <div class="item-row small">
+          <span class="col-40" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${itemName}</span>
+          <span class="col-15">${kg}kg</span>
+          <span class="col-20">₹${ratePerKg}/kg</span>
+          <span class="col-25">₹${item.amount}</span>
+        </div>`;
+          }
+          return `
         <div class="item-row small">
           <span class="col-40" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${item.name}</span>
           <span class="col-15">${item.quantity}</span>
           <span class="col-20">₹${item.rate}</span>
           <span class="col-25">₹${item.amount}</span>
-        </div>
-        `).join('')}
+        </div>`;
+        }).join('')}
         <div class="row small bold" style="margin: 1mm 0;">
           <span>Previous Bill Total:</span>
           <span>₹${prevBill.total}</span>
@@ -223,14 +262,28 @@ export const printThermalBill = (billData: BillData, onError?: (message: string)
     <!-- Current Items -->
     ${billData.items.length > 0 ? `
       <div class="small bold center" style="margin: 2mm 0;">CURRENT ORDER</div>
-      ${billData.items.map(item => `
+      ${billData.items.map(item => {
+        const kgMatch = item.name.match(/^(.+?)\s*\((\d+\.?\d*)\s*kg\s*@\s*(?:₹|Rs\.?|Rs)?\s*(\d+\.?\d*)\/kg\)$/i);
+        if (kgMatch) {
+          const itemName = kgMatch[1];
+          const kg = kgMatch[2];
+          const ratePerKg = kgMatch[3];
+          return `
+      <div class="item-row small">
+        <span class="col-40" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${itemName}</span>
+        <span class="col-15">${kg}kg</span>
+        <span class="col-20">₹${ratePerKg}/kg</span>
+        <span class="col-25">₹${item.amount}</span>
+      </div>`;
+        }
+        return `
       <div class="item-row small">
         <span class="col-40" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${item.name}</span>
         <span class="col-15">${item.quantity}</span>
         <span class="col-20">₹${item.rate}</span>
         <span class="col-25">₹${item.amount}</span>
-      </div>
-      `).join('')}
+      </div>`;
+      }).join('')}
     ` : ''}
     
     <!-- Divider -->
@@ -377,9 +430,18 @@ export const generateThermalESCPOS = (billData: BillData): string => {
     billData.previousBills.forEach(prevBill => {
       commands += `Bill: ${prevBill.billNumber}\n`;
       prevBill.items.forEach(item => {
-        const itemName = item.name.length > 16 ? item.name.substring(0, 16) : item.name.padEnd(16);
-        const qty = item.quantity.toString().padStart(4);
-        const rate = ('₹' + item.rate).padStart(6);
+        const kgMatch = item.name.match(/^(.+?)\s*\((\d+\.?\d*)\s*kg\s*@\s*(?:₹|Rs\.?|Rs)?\s*(\d+\.?\d*)\/kg\)$/i);
+        let nameToPrint = item.name;
+        let qtyToPrint = item.quantity.toString();
+        let rateToPrint = '₹' + item.rate;
+        if (kgMatch) {
+          nameToPrint = kgMatch[1];
+          qtyToPrint = kgMatch[2] + 'kg';
+          rateToPrint = '₹' + kgMatch[3] + '/kg';
+        }
+        const itemName = nameToPrint.length > 16 ? nameToPrint.substring(0, 16) : nameToPrint.padEnd(16);
+        const qty = qtyToPrint.padStart(4);
+        const rate = rateToPrint.padStart(6);
         const amt = ('₹' + item.amount).padStart(6);
         commands += itemName + qty + rate + amt + '\n';
       });
@@ -395,9 +457,18 @@ export const generateThermalESCPOS = (billData: BillData): string => {
     commands += ESC + 'a' + '\x00'; // Left align
     
     billData.items.forEach(item => {
-      const itemName = item.name.length > 16 ? item.name.substring(0, 16) : item.name.padEnd(16);
-      const qty = item.quantity.toString().padStart(4);
-      const rate = ('₹' + item.rate).padStart(6);
+      const kgMatch = item.name.match(/^(.+?)\s*\((\d+\.?\d*)\s*kg\s*@\s*(?:₹|Rs\.?|Rs)?\s*(\d+\.?\d*)\/kg\)$/i);
+      let nameToPrint = item.name;
+      let qtyToPrint = item.quantity.toString();
+      let rateToPrint = '₹' + item.rate;
+      if (kgMatch) {
+        nameToPrint = kgMatch[1];
+        qtyToPrint = kgMatch[2] + 'kg';
+        rateToPrint = '₹' + kgMatch[3] + '/kg';
+      }
+      const itemName = nameToPrint.length > 16 ? nameToPrint.substring(0, 16) : nameToPrint.padEnd(16);
+      const qty = qtyToPrint.padStart(4);
+      const rate = rateToPrint.padStart(6);
       const amt = ('₹' + item.amount).padStart(6);
       commands += itemName + qty + rate + amt + '\n';
     });

@@ -728,6 +728,20 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
         total: bill.grandTotal
       }));
 
+      // Load system preferences for thank you message, terms & conditions, and logo print setting
+      const savedPrefs = localStorage.getItem('genz_system_prefs');
+      let thankYou = 'Thank you for choosing Gen-z laundry!';
+      let terms = '';
+      let printLogo = true;
+      if (savedPrefs) {
+        try {
+          const prefs = JSON.parse(savedPrefs);
+          if (prefs.thankYouMessage) thankYou = prefs.thankYouMessage;
+          if (prefs.termsAndConditions) terms = prefs.termsAndConditions;
+          if (prefs.printLogo !== undefined) printLogo = prefs.printLogo;
+        } catch (e) {}
+      }
+
       const billData: BillData = {
         businessName: shopConfig.shopName,
         address: shopConfig.address,
@@ -749,7 +763,9 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
         previousBalance,
         grandTotal: calculateTotal(),
         status: 'completed',
-        thankYouMessage: 'Thank you for choosing Gen-z laundry!'
+        thankYouMessage: thankYou,
+        termsAndConditions: terms || undefined,
+        printLogo: printLogo
       };
 
       console.log('🧾 Processing bill:', billData);

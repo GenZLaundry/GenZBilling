@@ -171,6 +171,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
   const [systemPrefs, setSystemPrefs] = useState({
     autoPrint: true,
     soundAlerts: true,
+    printLogo: true,
     thankYouMessage: 'Thank you for choosing us!',
     termsAndConditions: '1. Not responsible for color bleeding.\n2. Collect within 15 days.'
   });
@@ -1252,7 +1253,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
       paymentStatus: fullBill.paymentStatus || (fullBill.amountPaid ? 'partial' : 'unpaid'),
       paymentHistory: fullBill.paymentHistory || [],
       thankYouMessage: systemPrefs?.thankYouMessage || 'Thank you for choosing us!',
-      termsAndConditions: systemPrefs?.termsAndConditions
+      termsAndConditions: systemPrefs?.termsAndConditions,
+      printLogo: systemPrefs?.printLogo !== false
     };
 
     import('./CleanThermalPrint').then(({ printCleanThermalBill }) => {
@@ -2464,6 +2466,19 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
                         <input type="checkbox" checked={systemPrefs.soundAlerts} onChange={(e) => setSystemPrefs({ ...systemPrefs, soundAlerts: e.target.checked })} style={{ opacity: 0, width: 0, height: 0 }} />
                         <span style={{ position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: systemPrefs.soundAlerts ? '#4CAF50' : '#ccc', transition: '.4s', borderRadius: '34px' }}>
                           <span style={{ position: 'absolute', content: '""', height: '18px', width: '18px', left: systemPrefs.soundAlerts ? '28px' : '4px', bottom: '4px', backgroundColor: 'white', transition: '.4s', borderRadius: '50%' }}></span>
+                        </span>
+                      </label>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(255, 255, 255, 0.05)', padding: '15px', borderRadius: '8px' }}>
+                      <div>
+                        <div style={{ color: 'white', fontWeight: '500' }}>Print Logo on Receipts</div>
+                        <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '12px' }}>Include the store logo (/logo.png) at the top of printed thermal bills</div>
+                      </div>
+                      <label style={{ position: 'relative', display: 'inline-block', width: '50px', height: '26px' }}>
+                        <input type="checkbox" checked={systemPrefs.printLogo !== false} onChange={(e) => setSystemPrefs({ ...systemPrefs, printLogo: e.target.checked })} style={{ opacity: 0, width: 0, height: 0 }} />
+                        <span style={{ position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: (systemPrefs.printLogo !== false) ? '#4CAF50' : '#ccc', transition: '.4s', borderRadius: '34px' }}>
+                          <span style={{ position: 'absolute', content: '""', height: '18px', width: '18px', left: (systemPrefs.printLogo !== false) ? '28px' : '4px', bottom: '4px', backgroundColor: 'white', transition: '.4s', borderRadius: '50%' }}></span>
                         </span>
                       </label>
                     </div>
