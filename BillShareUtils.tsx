@@ -47,38 +47,37 @@ const W      = 380;        // receipt width in logical px
 const SIDE   = 18;         // left/right padding
 const BLACK  = '#000000';
 const WHITE  = '#ffffff';
-const MONO   = '700 {SIZE}px "Courier New", Courier, monospace';
 
-function font(size: number, bold = true) {
-  return `${bold ? '900' : '700'} ${size}px "Courier New", Courier, monospace`;
+function font(size: number, weight: 'normal' | 'semibold' | 'bold' | 'extra-bold' | 'black-bold' = 'semibold') {
+  let w = '600';
+  if (weight === 'normal') w = '500';
+  else if (weight === 'semibold') w = '600';
+  else if (weight === 'bold') w = '700';
+  else if (weight === 'extra-bold') w = '800';
+  else if (weight === 'black-bold') w = '900';
+  return `${w} ${size}px Arial, Helvetica, "Liberation Sans", sans-serif`;
 }
 
 // Measure canvas height by doing a dry-run draw
-async function measureHeight(d: ShareableBillData, qrImg: HTMLImageElement | null): Promise<number> {
+async function measureHeight(d: ShareableBillData, qrImg: HTMLImageElement | null, logoImg: HTMLImageElement | null): Promise<number> {
   const c = document.createElement('canvas');
   c.width = 1; c.height = 1;
   const ctx = c.getContext('2d')!;
-  return drawReceipt(ctx, d, qrImg, true);
+  return drawReceipt(ctx, d, qrImg, logoImg, true);
 }
 
-// Draw the full receipt. Returns the final Y position (= total height).
-// If `measure` is true, skips all actual drawing (just tracks Y).
-// Draw the full receipt. Returns the final Y position (= total height).
-// If `measure` is true, skips all actual drawing (just tracks Y).
 // Draw the full receipt. Returns the final Y position (= total height).
 // If `measure` is true, skips all actual drawing (just tracks Y).
 async function drawReceipt(
   ctx: CanvasRenderingContext2D,
   d: ShareableBillData,
   qrImg: HTMLImageElement | null,
+  logoImg: HTMLImageElement | null,
   measure: boolean
 ): Promise<number> {
   const w = W;
   const pad = SIDE;
   let y = 16;
-
-  const fill = (color: string) => { if (!measure) ctx.fillStyle = color; };
-  const stroke = (color: string, lw: number) => { if (!measure) { ctx.strokeStyle = color; ctx.lineWidth = lw; } };
 
   // Draw horizontal line
   const hline = (yy: number, lw = 2, dash: number[] = []) => {
@@ -91,19 +90,44 @@ async function drawReceipt(
     ctx.restore();
   };
 
-  // Draw rectangle border
-  const box = (yy: number, h: number, lw = 2) => {
+  // Draw double horizontal line
+  const doubleHline = (yy: number, lw = 1.2) => {
     if (measure) return;
     ctx.save();
-    ctx.strokeStyle = BLACK; ctx.lineWidth = lw;
-    ctx.strokeRect(pad, yy, w - pad * 2, h);
+    ctx.strokeStyle = BLACK;
+    ctx.lineWidth = lw;
+    ctx.beginPath(); ctx.moveTo(pad, yy); ctx.lineTo(w - pad, yy); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(pad, yy + 3); ctx.lineTo(w - pad, yy + 3); ctx.stroke();
+    ctx.restore();
+  };
+
+  // Draw rounded card frame
+  const drawCardFrame = (yy: number, h: number, r = 6) => {
+    if (measure) return;
+    ctx.save();
+    ctx.strokeStyle = BLACK;
+    ctx.lineWidth = 1.2;
+    const x = pad;
+    const width = w - pad * 2;
+    ctx.beginPath();
+    ctx.moveTo(x + r, yy);
+    ctx.lineTo(x + width - r, yy);
+    ctx.quadraticCurveTo(x + width, yy, x + width, yy + r);
+    ctx.lineTo(x + width, yy + h - r);
+    ctx.quadraticCurveTo(x + width, yy + h, x + width - r, yy + h);
+    ctx.lineTo(x + r, yy + h);
+    ctx.quadraticCurveTo(x, yy + h, x, yy + h - r);
+    ctx.lineTo(x, yy + r);
+    ctx.quadraticCurveTo(x, yy, x + r, yy);
+    ctx.closePath();
+    ctx.stroke();
     ctx.restore();
   };
 
   // Draw centered text, returns new Y
-  const ctext = (text: string, yy: number, size: number, bold = true, letterSpacing = 0): number => {
+  const ctext = (text: string, yy: number, size: number, weight: 'normal' | 'semibold' | 'bold' | 'extra-bold' | 'black-bold' = 'bold', letterSpacing = 0): number => {
     if (!measure) {
-      ctx.font = font(size, bold);
+      ctx.font = font(size, weight);
       ctx.fillStyle = BLACK;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'top';
@@ -119,13 +143,16 @@ async function drawReceipt(
   };
 
   // Draw left+right text on same line, returns new Y
-  const lrtext = (left: string, right: string, yy: number, size: number, bold = true): number => {
+  const lrtext = (left: string, right: string, yy: number, size: number, leftWeight: 'normal' | 'semibold' | 'bold' = 'bold', rightWeight: 'normal' | 'semibold' | 'bold' | 'extra-bold' = 'extra-bold'): number => {
     if (!measure) {
-      ctx.font = font(size, bold);
       ctx.fillStyle = BLACK;
-      ctx.textAlign = 'left';
       ctx.textBaseline = 'top';
-      ctx.fillText(left,  pad + 6, yy);
+      
+      ctx.font = font(size, leftWeight);
+      ctx.textAlign = 'left';
+      ctx.fillText(left, pad + 6, yy);
+      
+      ctx.font = font(size, rightWeight);
       ctx.textAlign = 'right';
       ctx.fillText(right, w - pad - 6, yy);
     }
@@ -133,89 +160,106 @@ async function drawReceipt(
   };
 
   // Draw 4-column item row
-  const itemRow = (name: string, qty: string, price: string, total: string, yy: number, size: number, bold = true): number => {
+  const itemRow = (name: string, qty: string, price: string, total: string, yy: number, size: number, isHeader = false): number => {
     if (!measure) {
-      ctx.font = font(size, bold);
       ctx.fillStyle = BLACK;
-      ctx.textAlign = 'left';
       ctx.textBaseline = 'top';
-      const maxNameLen = 18;
-      const displayStr = name.length > maxNameLen ? name.substring(0, maxNameLen-1) + '…' : name;
-      ctx.fillText(displayStr,  pad + 6,       yy);
-      ctx.textAlign = 'center'; ctx.fillText(qty,   w * 0.55,      yy);
-      ctx.textAlign = 'right';  ctx.fillText(price, w * 0.75,      yy);
-      ctx.textAlign = 'right';  ctx.fillText(total, w - pad - 6,   yy);
+      const nameLen = 18;
+      const displayName = name.length > nameLen ? name.substring(0, nameLen - 1) + '…' : name;
+      
+      ctx.font = font(size, isHeader ? 'extra-bold' : 'bold');
+      ctx.textAlign = 'left';
+      ctx.fillText(displayName, pad + 6, yy);
+      
+      ctx.font = font(size, isHeader ? 'extra-bold' : 'bold');
+      ctx.textAlign = 'center';
+      ctx.fillText(qty, w * 0.55, yy);
+      
+      ctx.font = font(size, isHeader ? 'extra-bold' : 'bold');
+      ctx.textAlign = 'right';
+      ctx.fillText(price, w * 0.75, yy);
+      
+      ctx.font = font(size, isHeader ? 'extra-bold' : 'extra-bold');
+      ctx.textAlign = 'right';
+      ctx.fillText(total, w - pad - 6, yy);
     }
     return yy + size + 8;
   };
 
-  // ── PROFESSIONAL HEADER ─────────────────────────────────────────────────────
-  const businessName = "GEN-Z";
-  const businessSubtitle = "LAUNDRY & DRY CLEANERS";
+  // ── PREMIUM HEADER ──────────────────────────────────────────────────────────
   const address = d.businessAddress || 'Sabji Mandi Circle, Ratanada, Jodhpur';
-  const phone = `📞 ${d.businessPhone}`;
 
-  let boxY = y;
-  y += 16;
-  y = ctext(businessName, y, 32, true, 2);
-  y += 8;
-  y = ctext(businessSubtitle, y, 14, true, 1);
-  y += 12;
-  y = ctext(address, y, 11, true);
-  y += 4;
-  y = ctext(phone, y, 11, true);
-  y += 12;
-  box(boxY, y - boxY, 2);
-  y += 16;
-
-  // ── BILL INFO BOX ─────────────────────────────────────────────────────────
-  const infoRows: [string, string][] = [];
-  if (d.customerName)  infoRows.push(['Customer Name:', d.customerName]);
-  infoRows.push(['Bill No:', d.billNumber]);
-  infoRows.push(['Date:', fmtDate(d.billDate)]);
-  infoRows.push(['Time:', fmtTime()]);
-  
-  boxY = y;
-  y += 12;
-  for (let i = 0; i < infoRows.length; i++) {
-    y = lrtext(infoRows[i][0], infoRows[i][1], y, 12, true);
-    if (i < infoRows.length - 1) {
-      y += 4;
-      hline(y, 1, [2, 2]);
-      y += 8;
+  if (logoImg) {
+    const logoWidth = 200;
+    const logoScale = logoWidth / logoImg.width;
+    const logoHeight = logoImg.height * logoScale;
+    
+    y += 8;
+    if (!measure) {
+      ctx.drawImage(logoImg, (w - logoWidth) / 2, y, logoWidth, logoHeight);
     }
+    y += logoHeight + 10;
+    y = ctext(address, y, 9.5, 'semibold');
+    y = ctext(`PH: ${d.businessPhone}`, y, 9.5, 'semibold');
+    y += 12;
+  } else {
+    const businessName = "GEN-Z";
+    const businessSubtitle = "LAUNDRY & DRY CLEANERS";
+
+    y += 8;
+    y = ctext(businessName, y, 22, 'black-bold', 1.5);
+    y += 2;
+    y = ctext(businessSubtitle, y, 11, 'extra-bold', 0.5);
+    y += 6;
+    y = ctext(address, y, 9.5, 'semibold');
+    y = ctext(`PH: ${d.businessPhone}`, y, 9.5, 'semibold');
+    y += 12;
   }
+
+  // ── BILL INFO SECTION ───────────────────────────────────────────────────────
+  hline(y, 1.2);
   y += 8;
-  box(boxY, y - boxY, 2);
+  if (d.customerName) {
+    y = lrtext('CUSTOMER NAME:', d.customerName.toUpperCase(), y, 11, 'bold', 'extra-bold');
+  }
+  if (d.customerPhone) {
+    y = lrtext('CUSTOMER PHONE:', d.customerPhone, y, 10, 'semibold', 'bold');
+  }
+  y = lrtext('BILL NUMBER:', d.billNumber, y, 10, 'bold', 'extra-bold');
+  y = lrtext('DATE & TIME:', `${fmtDate(d.billDate)} • ${fmtTime()}`, y, 10, 'semibold', 'bold');
+  y += 2;
+  hline(y, 1.2);
   y += 16;
 
   // ── SECTION HEADER ────────────────────────────────────────────────────────
-  hline(y, 2); y += 8;
-  y = ctext('ORDER DETAILS', y, 14, true, 1); y += 4;
-  hline(y, 2); y += 16;
+  hline(y, 1.2); y += 6;
+  y = ctext('ORDER DETAILS', y, 11, 'extra-bold', 1.5); y += 2;
+  hline(y, 1.2); y += 14;
 
   // ── CURRENT ITEMS ─────────────────────────────────────────────────────────
   if (d.items.length > 0) {
     const totalQty = d.items.reduce((s, i) => s + i.quantity, 0);
-    boxY = y;
-    y += 8;
-    y = ctext(`\uD83D\uDED2 CURRENT ORDER (${totalQty} item${totalQty !== 1 ? 's' : ''})`, y, 11, true);
-    y += 4;
-    box(boxY, y - boxY, 1);
-    y += 16;
+    y = ctext(`CURRENT ORDER — ${totalQty} ITEMS`, y, 10.5, 'extra-bold', 0.5);
+    y += 6;
+    hline(y, 1);
+    y += 10;
     
-    y = itemRow('ITEM', 'QTY', 'PRICE', 'TOTAL', y, 11, true);
-    y += 4;
-    hline(y, 2); y += 8;
+    y = itemRow('ITEM', 'QTY', 'PRICE', 'TOTAL', y, 9.5, true);
+    y += 2;
+    hline(y, 1.2);
+    y += 8;
     
     for (let i = 0; i < d.items.length; i++) {
       const item = d.items[i];
-      const kg = item.name.match(/^(.+?)\s*\((\d+\.?\d*)\s*kg\s*@\s*\u20B9(\d+\.?\d*)\/kg\)$/);
-      if (kg) y = itemRow(kg[1], `${kg[2]}kg`, `\u20B9${kg[3]}/kg`, `\u20B9${item.amount}`, y, 11, true);
-      else    y = itemRow(item.name, `${item.quantity}`, `\u20B9${item.rate}`, `\u20B9${item.amount}`, y, 11, true);
+      const kgMatch = item.name.match(/^(.+?)\s*\((\d+\.?\d*)\s*kg\s*@\s*(?:₹|Rs\.?|Rs)?\s*(\d+\.?\d*)\/kg\)$/i);
+      if (kgMatch) {
+        y = itemRow(kgMatch[1], `${kgMatch[2]}kg`, `₹${kgMatch[3]}/kg`, `₹${item.amount}`, y, 9.5, false);
+      } else {
+        y = itemRow(item.name, `${item.quantity}`, `₹${item.rate}`, `₹${item.amount}`, y, 9.5, false);
+      }
       if (i < d.items.length - 1) {
         y += 4;
-        hline(y, 1, [2, 2]);
+        hline(y, 1, [1, 2]); // dotted line
         y += 8;
       }
     }
@@ -224,35 +268,47 @@ async function drawReceipt(
 
   // ── PREVIOUS BILLS ────────────────────────────────────────────────────────
   if (d.previousBills && d.previousBills.length > 0) {
-    boxY = y;
-    y += 8;
-    y = ctext(`\uD83D\uDCCB PREVIOUS BILLS (${d.previousBills.length})`, y, 11, true);
-    y += 4;
-    box(boxY, y - boxY, 1);
-    y += 16;
+    y = ctext(`PREVIOUS BILLS — ${d.previousBills.length} RECORD(S)`, y, 10.5, 'extra-bold', 0.5);
+    y += 6;
+    hline(y, 1);
+    y += 12;
     
     for (const pb of d.previousBills) {
-      const pbStartY = y;
-      y += 12;
+      let pbStartY = y;
+      y += 10;
       if (!measure) {
-        ctx.font = font(11, true); ctx.fillStyle = BLACK; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-        ctx.fillText(`Bill: ${pb.billNumber}`, pad + 6, y);
+        ctx.font = font(10.5, 'extra-bold');
+        ctx.fillStyle = BLACK;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+        ctx.fillText(`BILL: ${pb.billNumber.toUpperCase()}`, pad + 6, y);
       }
-      y += 18;
-      y = itemRow('ITEM', 'QTY', 'PRICE', 'TOTAL', y, 11, true);
-      y += 4; hline(y, 2); y += 8;
+      y += 16;
+      y = itemRow('ITEM', 'QTY', 'PRICE', 'TOTAL', y, 9.5, true);
+      y += 2;
+      hline(y, 1.2);
+      y += 8;
       
       for (let i = 0; i < pb.items.length; i++) {
         const item = pb.items[i];
-        y = itemRow(item.name, `${item.quantity}`, `\u20B9${item.rate}`, `\u20B9${item.amount}`, y, 11, true);
+        const kgMatch = item.name.match(/^(.+?)\s*\((\d+\.?\d*)\s*kg\s*@\s*(?:₹|Rs\.?|Rs)?\s*(\d+\.?\d*)\/kg\)$/i);
+        if (kgMatch) {
+          y = itemRow(kgMatch[1], `${kgMatch[2]}kg`, `₹${kgMatch[3]}/kg`, `₹${item.amount}`, y, 9.5, false);
+        } else {
+          y = itemRow(item.name, `${item.quantity}`, `₹${item.rate}`, `₹${item.amount}`, y, 9.5, false);
+        }
         if (i < pb.items.length - 1) {
-          y += 4; hline(y, 1, [2, 2]); y += 8;
+          y += 4;
+          hline(y, 1, [1, 2]);
+          y += 8;
         }
       }
-      y += 8; hline(y, 2); y += 12;
-      y = lrtext('Previous Bill Total:', `\u20B9${pb.total}`, y, 12, true);
       y += 8;
-      box(pbStartY, y - pbStartY, 1);
+      hline(y, 1.2);
+      y += 10;
+      y = lrtext('PREVIOUS TOTAL:', `₹${pb.total}`, y, 10, 'bold', 'extra-bold');
+      y += 8;
+      hline(y, 1.2);
       y += 16;
     }
   }
@@ -260,102 +316,141 @@ async function drawReceipt(
   // ── TOTALS BOX ────────────────────────────────────────────────────────────
   const totRows: [string, string][] = [];
   if (d.previousBills && d.previousBills.length > 0)
-    totRows.push(['Previous Bills Total:', `\u20B9${d.previousBills.reduce((s, b) => s + b.total, 0)}`]);
+    totRows.push(['PREVIOUS BILLS TOTAL:', `₹${d.previousBills.reduce((s, b) => s + b.total, 0)}`]);
   if (d.previousBalance && d.previousBalance > 0)
-    totRows.push(['Previous Due:', `\u20B9${d.previousBalance}`]);
+    totRows.push(['PREVIOUS DUE:', `₹${d.previousBalance}`]);
   if (d.items.length > 0)
-    totRows.push(['Current Order:', `\u20B9${d.items.reduce((s, i) => s + i.amount, 0)}`]);
-  totRows.push(['Subtotal:', `\u20B9${d.subtotal}`]);
-  if (d.discount && d.discount > 0)          totRows.push(['Discount:', `-\u20B9${d.discount}`]);
-  if (d.deliveryCharge && d.deliveryCharge > 0) totRows.push(['Delivery:', `+\u20B9${d.deliveryCharge}`]);
+    totRows.push(['CURRENT ORDER:', `₹${d.items.reduce((s, i) => s + i.amount, 0)}`]);
+  totRows.push(['SUBTOTAL:', `₹${d.subtotal}`]);
+  if (d.discount && d.discount > 0)          totRows.push(['DISCOUNT:', `-₹${d.discount}`]);
+  if (d.deliveryCharge && d.deliveryCharge > 0) totRows.push(['DELIVERY:', `+₹${d.deliveryCharge}`]);
   
-  boxY = y;
-  y += 12;
-  for (const [l, r] of totRows) { y = lrtext(l, r, y, 12, true); y += 4; }
-  y += 8;
-  box(boxY, y - boxY, 2);
+  let totalsStartY = y;
+  hline(y, 1.2);
+  y += 10;
+  for (const [l, r] of totRows) { y = lrtext(l, r, y, 10, 'bold', 'extra-bold'); y += 4; }
+  y += 6;
+  hline(y, 1.2);
   y += 16;
 
   // ── GRAND TOTAL ───────────────────────────────────────────────────────────
-  hline(y, 3); y += 12;
-  y = ctext(`TOTAL: \u20B9${d.grandTotal}`, y, 24, true, 1);
-  y += 8;
-  hline(y, 3); y += 16;
+  hline(y, 1.2); y += 12;
+  y = ctext(`TOTAL: ₹${d.grandTotal}`, y, 15, 'black-bold', 1.5);
+  y += 6;
+  doubleHline(y, 1.2); y += 16;
 
   // ── PAYMENT DETAILS ───────────────────────────────────────────────────────
   const amountPaid = d.amountPaid || 0;
   const amountDue  = d.amountDue !== undefined && d.amountDue !== null ? Number(d.amountDue) : d.grandTotal - amountPaid;
   if (amountPaid > 0 || d.paymentStatus === 'partial' || d.paymentStatus === 'paid') {
-    boxY = y;
-    y += 12;
-    y = ctext('PAYMENT DETAILS', y, 13, true);
-    y += 6; hline(y, 1, [4, 4]); y += 12;
+    let detailsStartY = y;
+    y += 10;
+    y = ctext('PAYMENT DETAILS', y, 10, 'extra-bold', 1);
+    y += 6; hline(y, 1.2); y += 10;
     
-    y = lrtext('Bill Total:', `\u20B9${d.grandTotal}`, y, 13, true); y += 4;
-    y = lrtext('Amount Paid:', `\u20B9${amountPaid}`, y, 13, true); y += 8;
+    y = lrtext('BILL TOTAL:', `₹${d.grandTotal}`, y, 9.5, 'semibold', 'extra-bold'); y += 2;
+    y = lrtext('AMOUNT PAID:', `₹${amountPaid}`, y, 9.5, 'semibold', 'extra-bold'); y += 6;
     
     if (d.paymentHistory) {
       for (const p of d.paymentHistory) {
          if (!measure) {
-           ctx.font = font(10, true); ctx.fillStyle = BLACK;
+           ctx.font = font(9, 'semibold'); ctx.fillStyle = BLACK;
            ctx.textAlign = 'left'; ctx.textBaseline = 'top'; 
-           ctx.fillText(`${new Date(p.date).toLocaleDateString('en-IN')}${p.note ? ' (' + p.note + ')' : ''}`, pad + 16, y);
+           ctx.fillText(`• ${new Date(p.date).toLocaleDateString('en-IN')}${p.note ? ' (' + p.note + ')' : ''}`, pad + 12, y);
            ctx.textAlign = 'right'; 
-           ctx.fillText(`\u20B9${p.amount}`, w - pad - 6, y);
+           ctx.fillText(`₹${p.amount}`, w - pad - 12, y);
          }
-         y += 18;
+         y += 16;
       }
-      y += 8;
+      y += 6;
     }
     
-    hline(y, 2); y += 12;
-    y = lrtext('BALANCE DUE:', `\u20B9${amountDue}`, y, 16, true);
-    y += 12;
-    box(boxY, y - boxY, 2);
+    hline(y, 1, [2, 2]); y += 10;
+    y = lrtext('BALANCE DUE:', `₹${amountDue}`, y, 11, 'bold', 'extra-bold');
+    y += 10;
+    drawCardFrame(detailsStartY, y - detailsStartY, 8);
     y += 16;
   }
 
-  // ── QR / FULLY PAID ───────────────────────────────────────────────────────
-  const qrAmount = amountDue > 0 ? amountDue : amountPaid === 0 ? d.grandTotal : 0;
+  // ── QR / SCAN TO PAY ──────────────────────────────────────────────────────
   const upiConfig = getUPIConfig();
+  const qrAmount = amountDue > 0 ? amountDue : amountPaid === 0 ? d.grandTotal : 0;
   if (qrAmount > 0 && qrImg) {
-    const qrSize = 180;
-    boxY = y;
-    y += 24;
-    y = ctext('SCAN TO PAY', y, 16, true);
-    y = ctext(`\u20B9${qrAmount}${amountDue > 0 && amountPaid > 0 ? ' (Due)' : ''}`, y, 22, true);
+    const qrSize = 160;
+    let payCardStartY = y;
     y += 12;
+    y = ctext('SCAN TO PAY', y, 10.5, 'extra-bold', 1.5);
+    y = ctext(`₹${qrAmount}${amountDue > 0 && amountPaid > 0 ? ' (Due)' : ''}`, y, 16, 'black-bold');
+    y += 10;
     if (!measure) {
-      ctx.lineWidth = 2; ctx.strokeStyle = BLACK;
+      ctx.lineWidth = 1.2; ctx.strokeStyle = BLACK;
       ctx.strokeRect((w - qrSize) / 2 - 2, y - 2, qrSize + 4, qrSize + 4);
       ctx.drawImage(qrImg, (w - qrSize) / 2, y, qrSize, qrSize);
     }
-    y += qrSize + 20;
-    y = ctext('PhonePe | GPay | Paytm | UPI', y, 12, true);
+    y += qrSize + 12;
+    y = ctext('PhonePe | GPay | Paytm | UPI', y, 9.5, 'extra-bold', 0.5);
     y += 4;
-    y = ctext(`UPI: ${upiConfig.upiId || '6367493127@ybl'}`, y, 10, true);
-    y += 16;
-    box(boxY, y - boxY, 3);
+    y = ctext(`UPI: ${upiConfig.upiId || '6367493127@ybl'}`, y, 9, 'bold');
+    y += 12;
+    drawCardFrame(payCardStartY, y - payCardStartY, 8);
     y += 16;
   }
 
   // ── FOOTER ────────────────────────────────────────────────────────────────
-  hline(y, 2); y += 16;
-  y = ctext(d.thankYouMessage || 'Thank you for choosing Gen-Z Laundry!', y, 12, true);
+  hline(y, 1.2); y += 12;
+  y = ctext(d.thankYouMessage || 'Thank you for choosing Gen-Z Laundry!', y, 10.5, 'extra-bold');
   y += 6;
-  y = ctext('Website: www.genzlaundry.com', y, 10, true);
+  y = ctext('Website: www.genzlaundry.com', y, 9.5, 'semibold');
   y += 4;
-  y = ctext('Visit us again \u2022 Gen-Z Laundry & Dry Cleaners', y, 10, true);
+  y = ctext('Visit us again \u2022 Gen-Z Laundry & Dry Cleaners', y, 9.5, 'bold', 0.5);
   y += 24;
 
   return y;
 }
 
-async function generateBillPNG(d: ShareableBillData): Promise<Blob> {
+async function generateBillJPEG(d: ShareableBillData): Promise<Blob> {
   const upiConfig = getUPIConfig();
   const amountPaid = d.amountPaid || 0;
   const amountDue  = d.amountDue !== undefined ? d.amountDue : d.grandTotal - amountPaid;
   const qrAmount   = amountDue > 0 ? amountDue : amountPaid === 0 ? d.grandTotal : 0;
+
+  // Load logo image if printLogo is enabled in system prefs
+  let logoImg: HTMLImageElement | null = null;
+  let printLogo = true;
+  try {
+    const savedPrefs = localStorage.getItem('genz_system_prefs');
+    if (savedPrefs) {
+      const prefs = JSON.parse(savedPrefs);
+      if (prefs.printLogo !== undefined) {
+        printLogo = prefs.printLogo;
+      }
+    }
+  } catch (e) {
+    console.warn('Failed to load printLogo preference:', e);
+  }
+
+  if (printLogo) {
+    try {
+      logoImg = await new Promise<HTMLImageElement>((res, rej) => {
+        const img = new Image();
+        img.onload = () => res(img);
+        img.onerror = rej;
+        img.src = '/bill_logo.jpg';
+      });
+    } catch (e) {
+      console.warn('Failed to load bill logo /bill_logo.jpg, checking fallback /logo.png', e);
+      try {
+        logoImg = await new Promise<HTMLImageElement>((res, rej) => {
+          const img = new Image();
+          img.onload = () => res(img);
+          img.onerror = rej;
+          img.src = '/logo.png';
+        });
+      } catch (e2) {
+        console.warn('All logo loads failed, falling back to text header', e2);
+      }
+    }
+  }
 
   // Generate QR locally — no external fetch, no canvas taint
   let qrImg: HTMLImageElement | null = null;
@@ -380,7 +475,7 @@ async function generateBillPNG(d: ShareableBillData): Promise<Blob> {
   const dummy = document.createElement('canvas');
   dummy.width = W; dummy.height = 10;
   const mCtx = dummy.getContext('2d')!;
-  const totalH = await drawReceipt(mCtx, d, qrImg, true);
+  const totalH = await drawReceipt(mCtx, d, qrImg, logoImg, true);
 
   // Render at SCALE× for crisp output
   const canvas = document.createElement('canvas');
@@ -390,10 +485,10 @@ async function generateBillPNG(d: ShareableBillData): Promise<Blob> {
   ctx.scale(SCALE, SCALE);
   ctx.fillStyle = WHITE;
   ctx.fillRect(0, 0, W, totalH + 20);
-  await drawReceipt(ctx, d, qrImg, false);
+  await drawReceipt(ctx, d, qrImg, logoImg, false);
 
   return new Promise((resolve, reject) => {
-    canvas.toBlob(b => b ? resolve(b) : reject(new Error('toBlob failed')), 'image/png');
+    canvas.toBlob(b => b ? resolve(b) : reject(new Error('toBlob failed')), 'image/jpeg', 0.95);
   });
 }
 
@@ -443,27 +538,16 @@ export class BillShareService {
     return t;
   }
 
-  /** Generate crisp PNG receipt image — pure canvas, no popups, no external fetches */
+  /** Generate crisp JPEG receipt image — pure canvas, no popups, no external fetches */
   static async generateBillImageBlob(billData: ShareableBillData): Promise<Blob> {
-    return generateBillPNG(billData);
+    return generateBillJPEG(billData);
   }
 
-  /** WhatsApp: image on mobile (native share), download image + open WhatsApp on desktop */
+  /** WhatsApp: image on mobile (native share), download image + copy text on desktop without new tab */
   static async shareOnWhatsApp(billData: ShareableBillData, phoneNumber?: string) {
-    const buildWaUrl = (msg: string) => {
-      let url = 'https://wa.me/';
-      if (phoneNumber) {
-        const clean = phoneNumber.replace(/\D/g, '');
-        url += `${clean.startsWith('91') ? clean : '91' + clean}?text=${encodeURIComponent(msg)}`;
-      } else {
-        url += `?text=${encodeURIComponent(msg)}`;
-      }
-      return url;
-    };
-
     try {
       const blob = await this.generateBillImageBlob(billData);
-      const file = new File([blob], `Bill_${billData.billNumber}.png`, { type: 'image/png' });
+      const file = new File([blob], `Bill_${billData.billNumber}.jpg`, { type: 'image/jpeg' });
 
       // Mobile: native share sheet with image file — picks WhatsApp directly
       if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -475,29 +559,35 @@ export class BillShareService {
         return;
       }
 
-      // Desktop: download the image, then open WhatsApp with a short message
+      // Desktop: download the image
       const imgUrl = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = imgUrl;
-      a.download = `Bill_${billData.billNumber}.png`;
+      a.download = `Bill_${billData.billNumber}.jpg`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(imgUrl);
 
-      // Open WhatsApp after a short delay so download starts first
-      const msg = `Bill #${billData.billNumber} — ₹${billData.grandTotal}\nCustomer: ${billData.customerName}\n\n📎 Bill image downloaded. Please attach it to this chat.`;
-      setTimeout(() => {
-        const win = window.open('', '_blank');
-        if (win) win.location.href = buildWaUrl(msg);
-      }, 800);
+      // Copy message text to clipboard (and DO NOT open wa.me / window.open)
+      const msg = this.generateBillText(billData);
+      try {
+        await navigator.clipboard.writeText(msg);
+        alert('Bill JPEG image downloaded and message text copied to clipboard!');
+      } catch (err) {
+        alert('Bill JPEG image downloaded!');
+      }
 
     } catch (e: any) {
       if (e?.name === 'AbortError') return;
-      // Fallback: just open WhatsApp with text
-      const win = window.open('', '_blank');
+      // Fallback: copy text to clipboard
       const msg = this.generateBillText(billData);
-      if (win) win.location.href = buildWaUrl(msg);
+      try {
+        await navigator.clipboard.writeText(msg);
+        alert('Bill text copied to clipboard!');
+      } catch (err) {
+        alert('Failed to share bill.');
+      }
     }
   }
 
@@ -505,7 +595,7 @@ export class BillShareService {
   static async shareViaSystem(billData: ShareableBillData) {
     try {
       const blob = await this.generateBillImageBlob(billData);
-      const file = new File([blob], `Bill_${billData.billNumber}.png`, { type: 'image/png' });
+      const file = new File([blob], `Bill_${billData.billNumber}.jpg`, { type: 'image/jpeg' });
 
       // Mobile: native share sheet with image — shows ALL apps (WhatsApp, Telegram, Gmail, etc.)
       if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -521,11 +611,20 @@ export class BillShareService {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `Bill_${billData.billNumber}.png`;
+      a.download = `Bill_${billData.billNumber}.jpg`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
+
+      // Copy text to clipboard
+      const msg = this.generateBillText(billData);
+      try {
+        await navigator.clipboard.writeText(msg);
+        alert('Bill JPEG image downloaded and text copied to clipboard!');
+      } catch (err) {
+        alert('Bill JPEG image downloaded!');
+      }
       return true;
     } catch (e: any) {
       if (e?.name === 'AbortError') return false;
@@ -555,7 +654,7 @@ export class BillShareService {
       const blob = await this.generateBillImageBlob(billData);
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = url; a.download = `Bill_${billData.billNumber}.png`; a.click();
+      a.href = url; a.download = `Bill_${billData.billNumber}.jpg`; a.click();
       URL.revokeObjectURL(url);
     } catch {
       alert('Failed to download bill image');

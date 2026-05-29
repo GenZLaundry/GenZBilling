@@ -29,8 +29,10 @@ export interface BillData {
   discount?: number;
   deliveryCharge?: number;
   previousBalance?: number;
+  gst?: number;
   grandTotal: number;
   thankYouMessage?: string;
+  termsAndConditions?: string;
   amountPaid?: number;
   amountDue?: number;
   paymentStatus?: 'paid' | 'unpaid' | 'partial';
@@ -117,99 +119,144 @@ export const printCleanThermalBill = (billData: BillData, onError?: (message: st
     
     body {
       width: 80mm !important; padding: 4mm !important;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
-      font-size: 8.5pt !important;
+      font-family: Arial, Helvetica, "Liberation Sans", sans-serif !important;
+      font-size: 10pt !important;
       line-height: 1.4 !important; background: #ffffff !important; color: #000000 !important;
+      font-weight: 600 !important;
       -webkit-print-color-adjust: exact !important;
       print-color-adjust: exact !important;
+      -webkit-font-smoothing: antialiased !important;
     }
     
     .center { text-align: center !important; }
     .left { text-align: left !important; }
     .right { text-align: right !important; }
     .bold { font-weight: 700 !important; }
+    .extra-bold { font-weight: 800 !important; }
+    .black-bold { font-weight: 900 !important; }
     .normal { font-weight: normal !important; }
     
     /* HEADER */
     .header {
       text-align: center !important;
-      padding: 0 0 3mm 0 !important;
+      padding: 0 0 2mm 0 !important;
       margin-bottom: 2mm !important;
     }
     
     .logo-container {
-      margin-bottom: 3mm !important;
+      margin-bottom: 2.5mm !important;
       text-align: center !important;
     }
     
     .logo-img {
-      max-width: 34mm !important;
+      max-width: 42mm !important;
       height: auto !important;
       display: block !important;
       margin: 0 auto !important;
-      filter: grayscale(100%) contrast(1.8) brightness(1.05) !important;
-      -webkit-filter: grayscale(100%) contrast(1.8) brightness(1.05) !important;
+      filter: grayscale(100%) contrast(2.0) brightness(1.0) !important;
+      -webkit-filter: grayscale(100%) contrast(2.0) brightness(1.0) !important;
     }
     
     .business-name {
       font-size: 15pt !important;
-      font-weight: 800 !important;
-      letter-spacing: 1px !important;
-      margin-bottom: 1mm !important;
+      font-weight: 900 !important;
+      letter-spacing: 1.5px !important;
+      margin-bottom: 1px !important;
       text-transform: uppercase !important;
     }
     
     .business-subtitle {
-      font-size: 9pt !important;
-      font-weight: 600 !important;
+      font-size: 9.5pt !important;
+      font-weight: 800 !important;
       letter-spacing: 0.5px !important;
       margin-bottom: 2mm !important;
       text-transform: uppercase !important;
     }
     
     .business-info {
-      font-size: 8pt !important;
+      font-size: 9pt !important;
       line-height: 1.4 !important;
       color: #000000 !important;
-      font-weight: 500 !important;
+      font-weight: 600 !important;
     }
     
-    /* BILL INFO */
-    .bill-info-box {
-      border-top: 1px dashed #000000 !important;
-      border-bottom: 1px dashed #000000 !important;
-      padding: 2.5mm 0 !important;
+    /* VALUED CUSTOMER CARD */
+    .customer-card {
+      border: 1.2px solid #000000 !important;
+      border-radius: 6px !important;
+      padding: 2.5mm 3mm !important;
+      margin: 1.5mm 0 3mm 0 !important;
+      text-align: center !important;
+      background: #ffffff !important;
+    }
+    .customer-subtitle {
+      font-size: 8pt !important;
+      font-weight: 700 !important;
+      letter-spacing: 1.5px !important;
+      color: #000000 !important;
+      text-transform: uppercase !important;
+      margin-bottom: 0.8mm !important;
+    }
+    .customer-title {
+      font-size: 12.5pt !important;
+      font-weight: 900 !important;
+      letter-spacing: 0.5px !important;
+      color: #000000 !important;
+      text-transform: uppercase !important;
+    }
+    
+    /* BILL INFO TABLE */
+    .info-table {
+      width: 100% !important;
+      border-collapse: collapse !important;
+      border-top: 1.2px solid #000000 !important;
+      border-bottom: 1.2px solid #000000 !important;
+      padding: 2mm 0 !important;
       margin: 2mm 0 !important;
     }
     
-    .bill-info-row {
-      display: flex !important;
-      justify-content: space-between !important;
-      padding: 0.5mm 0 !important;
-      font-size: 8.5pt !important;
+    .info-table td {
+      padding: 1mm 0 !important;
+      font-size: 9.5pt !important;
+    }
+    
+    .info-label {
+      text-align: left !important;
+      font-weight: 600 !important;
+      color: #000000 !important;
+      text-transform: uppercase !important;
+      letter-spacing: 0.5px !important;
+    }
+    
+    .info-value {
+      text-align: right !important;
+      font-weight: 800 !important;
+      color: #000000 !important;
     }
     
     /* SECTION HEADERS */
     .section-header {
       padding: 2mm 0 !important;
       text-align: center !important;
-      font-size: 9.5pt !important;
-      font-weight: 700 !important;
-      margin: 3mm 0 1.5mm 0 !important;
+      font-size: 10.5pt !important;
+      font-weight: 800 !important;
+      margin: 3mm 0 2mm 0 !important;
       letter-spacing: 2px !important;
-      border-top: 1px solid #000000 !important;
-      border-bottom: 1px solid #000000 !important;
+      border-top: 1.2px solid #000000 !important;
+      border-bottom: 1.2px solid #000000 !important;
       text-transform: uppercase !important;
     }
     
     /* ORDER BOX TILES */
     .order-category-title {
-      font-size: 8.5pt !important;
-      font-weight: 700 !important;
+      font-size: 10pt !important;
+      font-weight: 800 !important;
       padding: 1.5mm 0 !important;
       text-align: center !important;
       margin-bottom: 2mm !important;
       border-bottom: 1px dashed #000000 !important;
+      text-transform: uppercase !important;
+      letter-spacing: 0.5px !important;
     }
     
     /* ITEM TABLE */
@@ -217,18 +264,19 @@ export const printCleanThermalBill = (billData: BillData, onError?: (message: st
       display: flex !important;
       justify-content: space-between !important;
       padding: 1.5mm 0 !important;
-      font-size: 8pt !important;
-      font-weight: 700 !important;
-      border-bottom: 1px solid #000000 !important;
+      font-size: 9pt !important;
+      font-weight: 800 !important;
+      border-bottom: 1.2px solid #000000 !important;
       margin-bottom: 1mm !important;
+      letter-spacing: 0.5px !important;
     }
     
     .item-table-row {
       display: flex !important;
       justify-content: space-between !important;
-      padding: 1.5mm 0 !important;
-      font-size: 8pt !important;
-      border-bottom: 1px dotted #e0e0e0 !important;
+      padding: 1.8mm 0 !important;
+      font-size: 9.5pt !important;
+      border-bottom: 1px dotted #000000 !important;
       align-items: flex-start !important;
     }
     
@@ -236,14 +284,14 @@ export const printCleanThermalBill = (billData: BillData, onError?: (message: st
       border-bottom: none !important;
     }
     
-    .item-name { width: 50% !important; font-weight: 500 !important; }
-    .item-qty { width: 15% !important; text-align: center !important; font-weight: 500 !important; }
-    .item-price { width: 17.5% !important; text-align: right !important; font-weight: 500 !important; }
-    .item-total { width: 17.5% !important; text-align: right !important; font-weight: 600 !important; }
+    .item-name { width: 50% !important; font-weight: 700 !important; text-transform: uppercase !important; }
+    .item-qty { width: 15% !important; text-align: center !important; font-weight: 700 !important; }
+    .item-price { width: 17.5% !important; text-align: right !important; font-weight: 700 !important; }
+    .item-total { width: 17.5% !important; text-align: right !important; font-weight: 800 !important; }
     
     /* TOTALS SECTION */
     .totals-box {
-      border-top: 1px dashed #000000 !important;
+      border-top: 1.2px solid #000000 !important;
       padding: 2.5mm 0 1mm 0 !important;
       margin-top: 3mm !important;
     }
@@ -251,51 +299,55 @@ export const printCleanThermalBill = (billData: BillData, onError?: (message: st
     .total-line {
       display: flex !important;
       justify-content: space-between !important;
-      padding: 0.5mm 0 !important;
-      font-size: 8.5pt !important;
+      padding: 0.8mm 0 !important;
+      font-size: 9.5pt !important;
+      font-weight: 600 !important;
     }
     
     .grand-total-box {
       padding: 3mm 0 !important;
       text-align: center !important;
-      margin: 2mm 0 !important;
+      margin: 2.5mm 0 !important;
       font-size: 14pt !important;
-      font-weight: 800 !important;
+      font-weight: 900 !important;
       letter-spacing: 1px !important;
-      border-top: 1px solid #000000 !important;
-      border-bottom: 1px solid #000000 !important;
+      border-top: 1.2px solid #000000 !important;
+      border-bottom: 3.5px double #000000 !important;
     }
     
     /* PAYMENT SECTION */
     .payment-box {
-      border: 1px dashed #000000 !important;
+      border: 1.2px solid #000000 !important;
       padding: 4mm 2mm !important;
       text-align: center !important;
       margin: 3mm 0 !important;
-      border-radius: 4px !important;
+      border-radius: 8px !important;
     }
     
     .qr-code {
-      width: 35mm !important;
-      height: 35mm !important;
-      border: 1px solid #000000 !important;
+      width: 36mm !important;
+      height: 36mm !important;
+      border: 1.2px solid #000000 !important;
+      border-radius: 4px !important;
       background: #ffffff !important;
       padding: 1mm !important;
       margin: 2.5mm auto !important;
       display: block !important;
       image-rendering: pixelated !important;
-      filter: contrast(1.8) brightness(1.0) !important;
+      image-rendering: -moz-crisp-edges !important;
+      image-rendering: crisp-edges !important;
+      filter: grayscale(100%) contrast(2.5) brightness(1.0) !important;
     }
     
     /* FOOTER */
     .footer-box {
-      border-top: 1px dashed #000000 !important;
+      border-top: 1.2px solid #000000 !important;
       padding-top: 3mm !important;
       margin-top: 4mm !important;
       text-align: center !important;
-      font-size: 7.5pt !important;
+      font-size: 8.5pt !important;
       line-height: 1.4 !important;
-      color: #555555 !important;
+      color: #000000 !important;
     }
   </style>
 </head>
@@ -313,27 +365,33 @@ export const printCleanThermalBill = (billData: BillData, onError?: (message: st
     `}
     <div class="business-info">
       ${billData.address}<br>
-      📞 ${billData.phone}
+      PH: ${billData.phone}
     </div>
   </div>
   
   <!-- BILL INFORMATION -->
-  <div class="bill-info-box">
+  <table class="info-table">
     ${billData.customerName ? `
-    <div class="bill-info-row">
-      <span>Customer Name:</span>
-      <span class="bold">${billData.customerName}</span>
-    </div>
+    <tr>
+      <td class="info-label" style="white-space: nowrap;">CUSTOMER NAME:</td>
+      <td class="info-value bold extra-bold" style="font-size: 11pt; text-transform: uppercase;">${billData.customerName}</td>
+    </tr>
     ` : ''}
-    <div class="bill-info-row">
-      <span>Bill No:</span>
-      <span class="bold">${billData.billNumber}</span>
-    </div>
-    <div class="bill-info-row">
-      <span>Date & Time:</span>
-      <span>${currentDate} • ${currentTime}</span>
-    </div>
-  </div>
+    ${billData.customerPhone ? `
+    <tr>
+      <td class="info-label" style="white-space: nowrap;">PHONE:</td>
+      <td class="info-value bold">${billData.customerPhone}</td>
+    </tr>
+    ` : ''}
+    <tr>
+      <td class="info-label">BILL NUMBER:</td>
+      <td class="info-value bold">${billData.billNumber}</td>
+    </tr>
+    <tr>
+      <td class="info-label">DATE & TIME:</td>
+      <td class="info-value">${currentDate} • ${currentTime}</td>
+    </tr>
+  </table>
   
   <!-- ORDER DETAILS SECTION -->
   <div class="section-header">ORDER DETAILS</div>
@@ -342,7 +400,7 @@ export const printCleanThermalBill = (billData: BillData, onError?: (message: st
   ${billData.items.length > 0 ? `
   <div style="margin-bottom: 3mm;">
     <div class="order-category-title">
-      🛍️ CURRENT ORDER &mdash; ${billData.items.reduce((sum, item) => sum + item.quantity, 0)} ITEMS
+      CURRENT ORDER &mdash; ${billData.items.reduce((sum, item) => sum + item.quantity, 0)} ITEMS
     </div>
     
     <div class="item-table-header">
@@ -381,11 +439,11 @@ export const printCleanThermalBill = (billData: BillData, onError?: (message: st
   ${billData.previousBills && billData.previousBills.length > 0 ? `
   <div style="margin-bottom: 3mm;">
     <div class="order-category-title">
-      📋 PREVIOUS BILLS &mdash; ${billData.previousBills.length} RECORD(S)
+      PREVIOUS BILLS &mdash; ${billData.previousBills.length} RECORD(S)
     </div>
     ${billData.previousBills.map(prevBill => `
-    <div style="margin-bottom: 3mm; border-bottom: 1px dashed #e0e0e0; padding-bottom: 2mm;">
-      <div style="font-size: 8pt; font-weight: bold; margin-bottom: 1.5mm;">Bill: ${prevBill.billNumber}</div>
+    <div style="margin-bottom: 3mm; border-bottom: 1.2px solid #000000; padding-bottom: 2mm;">
+      <div style="font-size: 9.5pt; font-weight: 800; margin-bottom: 1.5mm; text-transform: uppercase;">BILL: ${prevBill.billNumber}</div>
       
       <div class="item-table-header">
         <div class="item-name">ITEM</div>
@@ -417,8 +475,8 @@ export const printCleanThermalBill = (billData: BillData, onError?: (message: st
       </div>`;
       }).join('')}
       
-      <div style="text-align: right; font-weight: bold; font-size: 8.5pt; margin-top: 1.5mm; border-top: 1px dashed #000000; padding-top: 1mm;">
-        Previous Total: ₹${prevBill.total}
+      <div style="text-align: right; font-weight: 800; font-size: 9.5pt; margin-top: 1.5mm; border-top: 1.2px solid #000000; padding-top: 1mm; text-transform: uppercase;">
+        PREVIOUS TOTAL: ₹${prevBill.total}
       </div>
     </div>
     `).join('')}
@@ -429,36 +487,42 @@ export const printCleanThermalBill = (billData: BillData, onError?: (message: st
   <div class="totals-box">
     ${billData.previousBills && billData.previousBills.length > 0 ? `
     <div class="total-line">
-      <span>Previous Bills Total:</span>
+      <span>PREVIOUS BILLS TOTAL:</span>
       <span class="bold">₹${billData.previousBills.reduce((sum, bill) => sum + bill.total, 0)}</span>
     </div>
     ` : ''}
     ${billData.previousBalance && billData.previousBalance > 0 ? `
     <div class="total-line">
-      <span>Previous Due:</span>
+      <span>PREVIOUS DUE:</span>
       <span class="bold">₹${billData.previousBalance}</span>
     </div>
     ` : ''}
     ${billData.items.length > 0 ? `
     <div class="total-line">
-      <span>Current Order:</span>
+      <span>CURRENT ORDER:</span>
       <span class="bold">₹${billData.items.reduce((sum, item) => sum + item.amount, 0)}</span>
     </div>
     ` : ''}
     <div class="total-line">
-      <span>Subtotal:</span>
+      <span>SUBTOTAL:</span>
       <span class="bold">₹${billData.subtotal}</span>
     </div>
     ${billData.discount && billData.discount > 0 ? `
     <div class="total-line">
-      <span>Discount:</span>
+      <span>DISCOUNT:</span>
       <span class="bold">-₹${billData.discount}</span>
     </div>
     ` : ''}
     ${billData.deliveryCharge && billData.deliveryCharge > 0 ? `
     <div class="total-line">
-      <span>Delivery:</span>
+      <span>DELIVERY:</span>
       <span class="bold">₹${billData.deliveryCharge}</span>
+    </div>
+    ` : ''}
+    ${billData.gst && billData.gst > 0 ? `
+    <div class="total-line">
+      <span>GST:</span>
+      <span class="bold">₹${billData.gst}</span>
     </div>
     ` : ''}
   </div>
@@ -468,24 +532,24 @@ export const printCleanThermalBill = (billData: BillData, onError?: (message: st
   
   <!-- PAYMENT BREAKDOWN (for partial payments) -->
   ${billData.paymentStatus === 'partial' || billData.paymentStatus === 'paid' || (billData.amountPaid && billData.amountPaid > 0) ? `
-  <div style="border: 1px dashed #000000; padding: 3mm; margin: 3mm 0; border-radius: 4px;">
-    <div style="font-size: 9pt; font-weight: bold; text-align: center; border-bottom: 1px dotted #000; padding-bottom: 1.5mm; margin-bottom: 2.5mm; letter-spacing: 1px;">
+  <div style="border: 1.2px solid #000000; padding: 3.5mm 3mm; margin: 3mm 0; border-radius: 8px;">
+    <div style="font-size: 9.5pt; font-weight: 800; text-align: center; border-bottom: 1.2px solid #000; padding-bottom: 1.5mm; margin-bottom: 2.5mm; letter-spacing: 1px; text-transform: uppercase;">
       PAYMENT DETAILS
     </div>
-    <div style="display: flex; justify-content: space-between; margin-bottom: 1mm;">
-      <span>Bill Total:</span>
+    <div style="display: flex; justify-content: space-between; margin-bottom: 1.2mm; font-size: 9.5pt; font-weight: 600;">
+      <span>BILL TOTAL:</span>
       <span class="bold">₹${billData.grandTotal}</span>
     </div>
-    <div style="display: flex; justify-content: space-between; margin-bottom: 1mm;">
-      <span>Amount Paid:</span>
+    <div style="display: flex; justify-content: space-between; margin-bottom: 1.2mm; font-size: 9.5pt; font-weight: 600;">
+      <span>AMOUNT PAID:</span>
       <span class="bold">₹${billData.amountPaid || 0}</span>
     </div>
     ${billData.paymentHistory && billData.paymentHistory.length > 0 ? billData.paymentHistory.map((p: any) => `
-    <div style="display: flex; justify-content: space-between; font-size: 7.5pt; padding-left: 3mm; color: #555555;">
+    <div style="display: flex; justify-content: space-between; font-size: 8.5pt; padding-left: 3mm; color: #000000; font-weight: 600;">
       <span>&bull; ${new Date(p.date).toLocaleDateString('en-IN')}${p.note ? ' (' + p.note + ')' : ''}</span>
       <span>₹${p.amount}</span>
     </div>`).join('') : ''}
-    <div style="border-top: 1px dashed #000000; margin-top: 2.5mm; padding-top: 2.5mm; display: flex; justify-content: space-between; font-size: 11pt; font-weight: 800;">
+    <div style="border-top: 1px dashed #000000; margin-top: 2.5mm; padding-top: 2.5mm; display: flex; justify-content: space-between; font-size: 11pt; font-weight: 900;">
       <span>BALANCE DUE:</span>
       <span>₹${billData.amountDue !== undefined && billData.amountDue !== null ? billData.amountDue : (billData.grandTotal - (billData.amountPaid || 0))}</span>
     </div>
@@ -495,16 +559,16 @@ export const printCleanThermalBill = (billData: BillData, onError?: (message: st
   <!-- PAYMENT SECTION -->
   ${qrAmount > 0 ? `
   <div class="payment-box">
-    <div style="font-size: 11pt; font-weight: bold; margin-bottom: 1mm; letter-spacing: 1px;">SCAN TO PAY</div>
-    <div style="font-size: 15pt; font-weight: 800; margin-bottom: 2mm;">
+    <div style="font-size: 10pt; font-weight: 800; margin-bottom: 1mm; letter-spacing: 1.5px; text-transform: uppercase;">SCAN TO PAY</div>
+    <div style="font-size: 15pt; font-weight: 900; margin-bottom: 2mm;">
       ₹${qrAmount}${amountDue > 0 && amountPaid > 0 ? ' (Due)' : ''}
     </div>
     <img src="${qrCodeUrl}" alt="UPI Payment QR Code" class="qr-code" 
          crossorigin="anonymous" loading="eager">
-    <div style="font-size: 8.5pt; font-weight: bold; margin: 2mm 0;">
+    <div style="font-size: 8.5pt; font-weight: 800; margin: 2mm 0 1mm 0; letter-spacing: 0.5px; text-transform: uppercase;">
       PhonePe | GPay | Paytm | UPI
     </div>
-    <div style="font-size: 7.5pt; font-family: monospace; color: #333333;">
+    <div style="font-size: 8pt; font-family: monospace; color: #000000; font-weight: 700; word-break: break-all;">
       UPI: ${upiConfig.upiId || '6367493127@ybl'}
     </div>
   </div>
@@ -512,13 +576,13 @@ export const printCleanThermalBill = (billData: BillData, onError?: (message: st
   
   <!-- FOOTER -->
   <div class="footer-box">
-    <div style="font-size: 9pt; font-weight: bold; margin-bottom: 1.5mm; color: #000000;">
+    <div style="font-size: 10pt; font-weight: 800; margin-bottom: 1.5mm; color: #000000; text-transform: uppercase;">
       ${billData.thankYouMessage || 'Thank you for choosing Gen-Z laundry!'}
     </div>
-    <div style="font-size: 7.5pt; margin-bottom: 0.5mm;">
+    <div style="font-size: 8.5pt; margin-bottom: 0.5mm; font-weight: 600;">
       Website: www.genzlaundry.com
     </div>
-    <div style="font-size: 7.5pt;">
+    <div style="font-size: 8.5pt; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;">
       Visit us again &bull; Gen-Z Laundry & Dry Cleaners
     </div>
   </div>
