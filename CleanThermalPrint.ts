@@ -114,11 +114,11 @@ export const printCleanThermalBill = (billData: BillData, onError?: (message: st
   <meta charset="UTF-8">
   <title>Professional Receipt</title>
   <style>
-    @page { size: 80mm auto !important; margin: 0 !important; }
+    @page { margin: 0 !important; }
     * { margin: 0 !important; padding: 0 !important; box-sizing: border-box !important; }
     
     body {
-      width: 80mm !important; padding: 4mm !important;
+      width: 80mm !important; padding: 0 4mm 4mm 4mm !important;
       font-family: Arial, Helvetica, "Liberation Sans", sans-serif !important;
       font-size: 10pt !important;
       line-height: 1.4 !important; background: #ffffff !important; color: #000000 !important;
@@ -126,6 +126,16 @@ export const printCleanThermalBill = (billData: BillData, onError?: (message: st
       -webkit-print-color-adjust: exact !important;
       print-color-adjust: exact !important;
       -webkit-font-smoothing: antialiased !important;
+    }
+    
+    @media print {
+      @page {
+        margin: 0 !important;
+      }
+      body {
+        margin: 0 !important;
+        padding-top: 0 !important;
+      }
     }
     
     .center { text-align: center !important; }
