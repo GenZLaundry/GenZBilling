@@ -38,10 +38,13 @@ function buildTagTSPL(tag) {
   lines.push(`SET CUTTER OFF`);
   lines.push(`CLS`);                      // clear buffer
 
+  // Left margin offset to avoid non-printable area
+  const LM = 12; // left margin in dots (~1.5mm)
+
   // ── Content ──────────────────────────────────────────────────────────────
 
   // Top border line
-  lines.push(`BAR 0,0,${W},2`);
+  lines.push(`BAR ${LM},0,${W - LM},2`);
 
   // Brand name — centered, bold
   const brandY = 8;
@@ -51,7 +54,7 @@ function buildTagTSPL(tag) {
   lines.push(`TEXT ${Math.round(W/2)},${brandY + 28},"2",0,1,1,1,"& Dry Cleaners"`);
 
   // Divider
-  lines.push(`BAR 0,${brandY + 50},${W},1`);
+  lines.push(`BAR ${LM},${brandY + 50},${W - LM},1`);
 
   // Date
   lines.push(`TEXT ${Math.round(W/2)},${brandY + 58},"2",0,1,1,1,"${tag.date}"`);
@@ -61,19 +64,19 @@ function buildTagTSPL(tag) {
   lines.push(`TEXT ${Math.round(W/2)},${brandY + 90},"4",0,1,1,1,"${custName}"`);
 
   // Divider
-  lines.push(`BAR 0,${brandY + 130},${W},1`);
+  lines.push(`BAR ${LM},${brandY + 130},${W - LM},1`);
 
-  // Bill number (left) and tag counter (right)
+  // Bill number (left-aligned with margin) and tag counter (right-aligned)
   const billY = brandY + 142;
-  lines.push(`TEXT 4,${billY},"2",0,1,1,0,"${tag.billNumber}"`);
-  lines.push(`TEXT ${W - 4},${billY},"2",0,1,1,1,"${tag.tagIndex}/${tag.totalTags}"`);
+  lines.push(`TEXT ${LM + 4},${billY},"2",0,1,1,0,"${tag.billNumber}"`);
+  lines.push(`TEXT ${W - LM - 4},${billY},"2",0,1,1,1,"${tag.tagIndex}/${tag.totalTags}"`);
 
   // Website
-  lines.push(`BAR 0,${H - 22},${W},1`);
+  lines.push(`BAR ${LM},${H - 22},${W - LM},1`);
   lines.push(`TEXT ${Math.round(W/2)},${H - 18},"1",0,1,1,1,"www.genzlaundry.com"`);
 
   // Bottom border
-  lines.push(`BAR 0,${H - 2},${W},2`);
+  lines.push(`BAR ${LM},${H - 2},${W - LM},2`);
 
   // Print 1 copy and feed
   lines.push(`PRINT 1,1`);
