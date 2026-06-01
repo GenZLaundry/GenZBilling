@@ -30,16 +30,14 @@ function buildTagTSPL(tag) {
 
   // Page setup
   lines.push(`SIZE ${ROLL_WIDTH_MM} mm, ${TAG_HEIGHT_MM} mm`);
-  lines.push(`GAP 0 mm, 0 mm`);          // continuous roll — no gap
-  lines.push(`DIRECTION 0`);              // top-to-bottom
+  lines.push(`GAP 0 mm, 0 mm`);
+  lines.push(`DIRECTION 0`);
   lines.push(`REFERENCE 0,0`);
   lines.push(`OFFSET 0 mm`);
   lines.push(`SET PEEL OFF`);
   lines.push(`SET CUTTER OFF`);
-  lines.push(`CLS`);                      // clear buffer
-
-  // Left margin offset to avoid non-printable area
-  const LM = 0; // TSPL coordinates start from printable area — no offset needed
+  lines.push(`SHIFT 72`);               // shift all content 9mm right (72 dots @ 203dpi)
+  lines.push(`CLS`);
 
   // ── Content ──────────────────────────────────────────────────────────────
 
@@ -72,11 +70,11 @@ function buildTagTSPL(tag) {
   lines.push(`TEXT ${Math.round(W/2)},${billY},"2",0,1,1,1,"${tag.billNumber}  ${tag.tagIndex}/${tag.totalTags}"`);
 
   // Website
-  lines.push(`BAR ${LM},${H - 22},${W},1`);
+  lines.push(`BAR 0,${H - 22},${W},1`);
   lines.push(`TEXT ${Math.round(W/2)},${H - 18},"1",0,1,1,1,"www.genzlaundry.com"`);
 
   // Bottom border
-  lines.push(`BAR ${LM},${H - 2},${W},2`);
+  lines.push(`BAR 0,${H - 2},${W},2`);
 
   // Print 1 copy and feed
   lines.push(`PRINT 1,1`);
