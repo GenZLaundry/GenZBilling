@@ -2592,12 +2592,12 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
             <div style={{ marginBottom: '20px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '6px' }}>
                 <span>← Left (0)</span>
-                <span>Right (200) →</span>
+                <span>Right (400) →</span>
               </div>
               <input
                 type="range"
                 min="0"
-                max="200"
+                max="400"
                 step="4"
                 value={tagPrintOffset}
                 onChange={(e) => setTagPrintOffset(parseInt(e.target.value))}
@@ -2610,7 +2610,7 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
 
             {/* Quick presets */}
             <div style={{ display: 'flex', gap: '6px', marginBottom: '20px', flexWrap: 'wrap' }}>
-              {[0, 24, 48, 72, 96, 120, 150].map(v => (
+              {[0, 24, 48, 72, 96, 120, 150, 200, 250, 300].map(v => (
                 <button key={v} onClick={() => setTagPrintOffset(v)} style={{
                   padding: '4px 10px', borderRadius: '6px', border: 'none', cursor: 'pointer',
                   background: tagPrintOffset === v ? 'var(--accent)' : 'var(--bg-base)',

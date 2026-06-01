@@ -32,11 +32,10 @@ function buildTagTSPL(tag, shiftDots = 72) {
   lines.push(`SIZE ${ROLL_WIDTH_MM} mm, ${TAG_HEIGHT_MM} mm`);
   lines.push(`GAP 0 mm, 0 mm`);
   lines.push(`DIRECTION 0`);
-  lines.push(`REFERENCE 0,0`);
+  lines.push(`REFERENCE ${shiftDots},0`);  // shift origin right by shiftDots
   lines.push(`OFFSET 0 mm`);
   lines.push(`SET PEEL OFF`);
   lines.push(`SET CUTTER OFF`);
-  lines.push(`SHIFT ${shiftDots}`);               // shift content right by shiftDots
   lines.push(`CLS`);
 
   // ── Content ──────────────────────────────────────────────────────────────
