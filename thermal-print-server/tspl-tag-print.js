@@ -25,7 +25,7 @@ const H = mmToDots(TAG_HEIGHT_MM);  // ~400 dots
 /**
  * Build TSPL command string for one tag
  */
-function buildTagTSPL(tag) {
+function buildTagTSPL(tag, shiftDots = 72) {
   const lines = [];
 
   // Page setup
@@ -36,7 +36,7 @@ function buildTagTSPL(tag) {
   lines.push(`OFFSET 0 mm`);
   lines.push(`SET PEEL OFF`);
   lines.push(`SET CUTTER OFF`);
-  lines.push(`SHIFT 72`);               // shift all content 9mm right (72 dots @ 203dpi)
+  lines.push(`SHIFT ${shiftDots}`);               // shift content right by shiftDots
   lines.push(`CLS`);
 
   // ── Content ──────────────────────────────────────────────────────────────
@@ -86,12 +86,12 @@ function buildTagTSPL(tag) {
  * Print tags to TSC TL240 via Windows RAW port
  * printerName: exact Windows printer name e.g. "TSC TL240"
  */
-async function printTagsTSPL(tags, printerName = 'TSC TL240') {
+async function printTagsTSPL(tags, printerName = 'TSC TL240', shiftDots = 72) {
   const results = [];
 
   for (let i = 0; i < tags.length; i++) {
     const tag = tags[i];
-    const tspl = buildTagTSPL(tag);
+    const tspl = buildTagTSPL(tag, shiftDots);
 
     // Write TSPL to a temp file
     const tmpFile = path.join(os.tmpdir(), `genz_tag_${Date.now()}_${i}.prn`);

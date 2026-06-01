@@ -341,11 +341,11 @@ const { printTagsTSPL } = require('./tspl-tag-print');
 // Print tags via TSPL directly to TSC TL240 (bypasses browser)
 app.post('/api/print/tspl-tags', async (req, res) => {
   try {
-    const { tags, printerName } = req.body;
+    const { tags, printerName, shiftDots } = req.body;
     if (!tags || !Array.isArray(tags) || tags.length === 0) {
       return res.status(400).json({ success: false, message: 'No tags provided' });
     }
-    const results = await printTagsTSPL(tags, printerName || 'TSC TL240');
+    const results = await printTagsTSPL(tags, printerName || 'TSC TL240', shiftDots !== undefined ? shiftDots : 72);
     const successCount = results.filter(r => r.success).length;
     res.json({
       success: successCount > 0,

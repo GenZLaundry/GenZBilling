@@ -76,6 +76,10 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
   const [selectedPendingBills, setSelectedPendingBills] = useState<PendingBill[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [showUPISettings, setShowUPISettings] = useState(false);
+  const [showTagOffsetSettings, setShowTagOffsetSettings] = useState(false);
+  const [tagPrintOffset, setTagPrintOffset] = useState<number>(() => {
+    return parseInt(localStorage.getItem('tag_print_offset') || '72', 10);
+  });
   const [showItemListManager, setShowItemListManager] = useState(false);
   const [showManualEntry, setShowManualEntry] = useState(false);
   const [reminderTrigger, setReminderTrigger] = useState(0);
@@ -933,7 +937,7 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
       const tsplResponse = await fetch('http://localhost:3001/api/print/tspl-tags', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tags, printerName: 'TSC TL240' })
+        body: JSON.stringify({ tags, printerName: 'TSC TL240', shiftDots: tagPrintOffset })
       });
       const tsplResult = await tsplResponse.json();
       if (tsplResult.success) {
@@ -2398,6 +2402,15 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
               >
                 <i className="fas fa-tag"></i> Print Tags
               </button>
+              {/* Tag offset settings button */}
+              <button
+                onClick={() => setShowTagOffsetSettings(true)}
+                className="btn btn-ghost"
+                style={{ padding: '14px', borderRadius: '12px', fontSize: '13px' }}
+                title="Adjust tag print position"
+              >
+                <i className="fas fa-sliders-h"></i>
+              </button>
 
               <button
                 onClick={clearOrder}
@@ -2553,6 +2566,80 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
         <UPISettings
           onClose={() => setShowUPISettings(false)}
         />
+      )}
+
+      {/* Tag Print Offset Settings */}
+      {showTagOffsetSettings && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.7)', zIndex: 2000,
+          display: 'flex', alignItems: 'center', justifyContent: 'center'
+        }}>
+          <div style={{
+            background: 'var(--bg-elevated)', borderRadius: 'var(--radius-xl)',
+            padding: '28px', width: '340px', border: '1px solid var(--border-subtle)',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.5)'
+          }}>
+            <h3 style={{ margin: '0 0 6px 0', color: 'var(--text-primary)', fontSize: '16px', fontWeight: '700' }}>
+              <i className="fas fa-sliders-h" style={{ marginRight: '8px', color: 'var(--accent)' }}></i>
+              Tag Print Position
+            </h3>
+            <p style={{ margin: '0 0 20px 0', fontSize: '12px', color: 'var(--text-muted)' }}>
+              Shift tag content left or right to align with your roll. Current: <strong style={{ color: 'var(--accent)' }}>{tagPrintOffset} dots</strong> ({Math.round(tagPrintOffset * 25.4 / 203 * 10) / 10}mm right)
+            </p>
+
+            {/* Visual slider */}
+            <div style={{ marginBottom: '20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '6px' }}>
+                <span>← Left (0)</span>
+                <span>Right (200) →</span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max="200"
+                step="4"
+                value={tagPrintOffset}
+                onChange={(e) => setTagPrintOffset(parseInt(e.target.value))}
+                style={{ width: '100%', accentColor: 'var(--accent)' }}
+              />
+              <div style={{ textAlign: 'center', marginTop: '8px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+                {tagPrintOffset} dots = {Math.round(tagPrintOffset * 25.4 / 203 * 10) / 10} mm
+              </div>
+            </div>
+
+            {/* Quick presets */}
+            <div style={{ display: 'flex', gap: '6px', marginBottom: '20px', flexWrap: 'wrap' }}>
+              {[0, 24, 48, 72, 96, 120, 150].map(v => (
+                <button key={v} onClick={() => setTagPrintOffset(v)} style={{
+                  padding: '4px 10px', borderRadius: '6px', border: 'none', cursor: 'pointer',
+                  background: tagPrintOffset === v ? 'var(--accent)' : 'var(--bg-base)',
+                  color: tagPrintOffset === v ? 'white' : 'var(--text-secondary)',
+                  fontSize: '11px', fontWeight: '600'
+                }}>
+                  {v === 0 ? 'None' : `${Math.round(v * 25.4 / 203 * 10) / 10}mm`}
+                </button>
+              ))}
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                onClick={() => {
+                  localStorage.setItem('tag_print_offset', tagPrintOffset.toString());
+                  setShowTagOffsetSettings(false);
+                  showAlert({ message: `Tag offset saved: ${tagPrintOffset} dots (${Math.round(tagPrintOffset * 25.4 / 203 * 10) / 10}mm)`, type: 'success' });
+                }}
+                className="btn btn-primary"
+                style={{ flex: 1 }}
+              >
+                <i className="fas fa-save" style={{ marginRight: '6px' }}></i>Save
+              </button>
+              <button onClick={() => setShowTagOffsetSettings(false)} className="btn btn-ghost">
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Item List Manager Modal */}
