@@ -336,6 +336,27 @@ app.post('/api/print/test', async (req, res) => {
   }
 });
 
+const { printTagsTSPL } = require('./tspl-tag-print');
+
+// Print tags via TSPL directly to TSC TL240 (bypasses browser)
+app.post('/api/print/tspl-tags', async (req, res) => {
+  try {
+    const { tags, printerName } = req.body;
+    if (!tags || !Array.isArray(tags) || tags.length === 0) {
+      return res.status(400).json({ success: false, message: 'No tags provided' });
+    }
+    const results = await printTagsTSPL(tags, printerName || 'TSC TL240');
+    const successCount = results.filter(r => r.success).length;
+    res.json({
+      success: successCount > 0,
+      message: `${successCount}/${tags.length} tags printed`,
+      results
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // List available printers
 app.get('/api/printers', async (req, res) => {
   try {

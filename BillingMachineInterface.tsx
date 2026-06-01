@@ -928,6 +928,24 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
       // Don't block printing if history save fails
     }
 
+    // Try TSPL direct print via thermal server (TSC TL240)
+    try {
+      const tsplResponse = await fetch('http://localhost:3001/api/print/tspl-tags', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tags, printerName: 'TSC TL240' })
+      });
+      const tsplResult = await tsplResponse.json();
+      if (tsplResult.success) {
+        showAlert({ message: `✅ ${tags.length} tags sent to TSC TL240`, type: 'success' });
+        return; // Done — no browser print needed
+      }
+      console.warn('TSPL print failed, falling back to browser print:', tsplResult.message);
+    } catch (tsplError) {
+      console.warn('Thermal server not running, using browser print fallback:', tsplError);
+    }
+
+    // Fallback: browser print window
     const printWindow = window.open('', '_blank', 'width=800,height=600');
     if (!printWindow) {
       showAlert({ message: 'Please allow popups for tag printing', type: 'warning' });
