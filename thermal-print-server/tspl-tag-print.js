@@ -39,7 +39,7 @@ function buildTagTSPL(tag) {
   lines.push(`CLS`);                      // clear buffer
 
   // Left margin offset to avoid non-printable area
-  const LM = 12; // left margin in dots (~1.5mm)
+  const LM = 30; // left margin in dots (~3.7mm) — TSC TL240 has ~3mm non-printable left
 
   // ── Content ──────────────────────────────────────────────────────────────
 
@@ -59,9 +59,10 @@ function buildTagTSPL(tag) {
   // Date
   lines.push(`TEXT ${Math.round(W/2)},${brandY + 58},"2",0,1,1,1,"${tag.date}"`);
 
-  // Customer name — large, centered
-  const custName = (tag.customerName || '').toUpperCase().substring(0, 14);
-  lines.push(`TEXT ${Math.round(W/2)},${brandY + 90},"4",0,1,1,1,"${custName}"`);
+  // Customer name — fit on one line, use smaller font for long names
+  const custName = (tag.customerName || '').toUpperCase().substring(0, 16);
+  const custFont = custName.length > 10 ? '3' : '4';
+  lines.push(`TEXT ${Math.round(W/2)},${brandY + 90},"${custFont}",0,1,1,1,"${custName}"`);
 
   // Divider
   lines.push(`BAR ${LM},${brandY + 130},${W - LM},1`);
