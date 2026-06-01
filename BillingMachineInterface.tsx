@@ -938,123 +938,147 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Clothing Tags</title>
+  <title>Clothing Tags - TSC TL240</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    @page { size: 20mm auto; margin: 0 !important; }
+
+    /* TSC TL240 continuous roll — each tag is one page */
+    /* Adjust width/height to match your actual roll size */
+    @page {
+      size: 50mm 30mm;
+      margin: 0 !important;
+    }
+
     @media print {
-      html, body { width: 20mm !important; margin: 0 !important; padding: 0 !important; }
-      .tag { page-break-after: avoid; }
+      html, body {
+        width: 50mm !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+      .tag {
+        page-break-after: always;
+        page-break-inside: avoid;
+      }
+      .tag:last-child {
+        page-break-after: avoid;
+      }
     }
-    body { 
-      font-family: 'Arial', sans-serif; 
-      margin: 0; 
-      padding: 0; 
-      background: white; 
-      width: 20mm;
+
+    body {
+      font-family: 'Arial', sans-serif;
+      margin: 0;
+      padding: 0;
+      background: white;
+      width: 50mm;
     }
-    .tag { 
-      width: 19mm;
-      margin: 1.5mm auto; 
-      padding: 0.8mm; 
-      background: white; 
+
+    .tag {
+      width: 50mm;
+      height: 30mm;
+      padding: 1.5mm 2mm;
+      background: white;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      box-sizing: border-box; 
+      box-sizing: border-box;
       overflow: hidden;
-      border: 0.5px solid #000;
+      border: 0.3px solid #ccc;
     }
+
     .top-header {
       text-align: center;
-      padding-bottom: 0.3mm;
-      border-bottom: 0.3px solid #000;
-      line-height: 1.15;
+      padding-bottom: 0.8mm;
+      border-bottom: 0.5px solid #000;
+      line-height: 1.2;
     }
     .brand-line1 {
-      font-size: 4px;
+      font-size: 7px;
       font-weight: 900;
       display: block;
+      letter-spacing: 0.3px;
     }
     .brand-line2 {
-      font-size: 3px;
+      font-size: 5.5px;
       font-weight: 700;
       display: block;
+      color: #333;
     }
+
     .tag-date {
-      font-size: 3.5px;
+      font-size: 5.5px;
       font-weight: bold;
       text-align: center;
-      margin-top: 0.8mm;
+      color: #555;
       line-height: 1;
     }
-    .customer-name { 
-      text-align: center; 
-      font-size: 6px; 
-      font-weight: 900; 
+
+    .customer-name {
+      text-align: center;
+      font-size: 10px;
+      font-weight: 900;
       text-transform: uppercase;
-      letter-spacing: 0;
-      margin: 0.5mm 0;
+      letter-spacing: 0.5px;
       line-height: 1.1;
       word-wrap: break-word;
       overflow-wrap: break-word;
       max-width: 100%;
     }
-    .bill-info { 
+
+    .bill-info {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      font-size: 4.5px; 
-      font-weight: bold; 
-      letter-spacing: 0; 
-      font-family: 'Courier New', monospace;
-      margin: 0.3mm 0;
-    }
-    .tag-number { 
-      font-size: 4.5px; 
-      font-weight: 900;
-      border: 0.5px solid #000;
-      padding: 0px 1px;
-    }
-    .website { 
-      text-align: center;
-      font-size: 3px; 
+      font-size: 6px;
       font-weight: bold;
-      margin-top: 0.3mm;
-      padding-top: 0.3mm;
-      border-top: 0.3px solid #000;
+      font-family: 'Courier New', monospace;
+    }
+
+    .tag-number {
+      font-size: 7px;
+      font-weight: 900;
+      border: 0.8px solid #000;
+      padding: 0.5px 2px;
+      border-radius: 1px;
+    }
+
+    .website {
+      text-align: center;
+      font-size: 5px;
+      font-weight: bold;
+      padding-top: 0.5mm;
+      border-top: 0.5px solid #000;
+      color: #444;
     }
   </style>
 </head>
 <body>
-  
+
   ${tags.map((tag, index) => `
     <div class="tag">
       <div class="top-header">
         <span class="brand-line1">Gen-Z Laundry</span>
-        <span class="brand-line2">& Dry Cleaners</span>
+        <span class="brand-line2">&amp; Dry Cleaners</span>
       </div>
+
       <div class="tag-date">${tag.date}</div>
-      
+
       <div class="customer-name">${tag.customerName}</div>
-      
+
       <div class="bill-info">
         <span>${tag.billNumber}</span>
         <span class="tag-number">${tag.tagIndex} / ${tag.totalTags}</span>
       </div>
-      
+
       <div class="website">www.genzlaundry.com</div>
     </div>
   `).join('')}
-  
+
   <script>
     window.onload = function() {
       setTimeout(function() {
         window.print();
-        setTimeout(function() {
-          window.close();
-        }, 1000);
-      }, 500);
+        setTimeout(function() { window.close(); }, 1500);
+      }, 600);
     }
   </script>
 </body>
