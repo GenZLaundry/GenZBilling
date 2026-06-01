@@ -942,16 +942,15 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
-    /* TSC TL240 continuous roll — each tag is one page */
-    /* Adjust width/height to match your actual roll size */
+    /* TSC TL240 — match driver stock size exactly: 4.00in x 6.00in */
     @page {
-      size: 50mm 30mm;
+      size: 101.6mm 152.4mm;
       margin: 0 !important;
     }
 
     @media print {
       html, body {
-        width: 50mm !important;
+        width: 101.6mm !important;
         margin: 0 !important;
         padding: 0 !important;
       }
@@ -969,43 +968,42 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
       margin: 0;
       padding: 0;
       background: white;
-      width: 50mm;
+      width: 101.6mm;
     }
 
     .tag {
-      width: 50mm;
-      height: 30mm;
-      padding: 1.5mm 2mm;
+      width: 101.6mm;
+      height: 152.4mm;
+      padding: 4mm 5mm;
       background: white;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
       box-sizing: border-box;
       overflow: hidden;
-      border: 0.3px solid #ccc;
     }
 
     .top-header {
       text-align: center;
-      padding-bottom: 0.8mm;
+      padding-bottom: 2mm;
       border-bottom: 0.5px solid #000;
       line-height: 1.2;
     }
     .brand-line1 {
-      font-size: 7px;
+      font-size: 18px;
       font-weight: 900;
       display: block;
       letter-spacing: 0.3px;
     }
     .brand-line2 {
-      font-size: 5.5px;
+      font-size: 14px;
       font-weight: 700;
       display: block;
       color: #333;
     }
 
     .tag-date {
-      font-size: 5.5px;
+      font-size: 14px;
       font-weight: bold;
       text-align: center;
       color: #555;
@@ -1014,10 +1012,10 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
 
     .customer-name {
       text-align: center;
-      font-size: 10px;
+      font-size: 28px;
       font-weight: 900;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
+      letter-spacing: 1px;
       line-height: 1.1;
       word-wrap: break-word;
       overflow-wrap: break-word;
@@ -1028,24 +1026,24 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
       display: flex;
       justify-content: space-between;
       align-items: center;
-      font-size: 6px;
+      font-size: 14px;
       font-weight: bold;
       font-family: 'Courier New', monospace;
     }
 
     .tag-number {
-      font-size: 7px;
+      font-size: 18px;
       font-weight: 900;
-      border: 0.8px solid #000;
-      padding: 0.5px 2px;
-      border-radius: 1px;
+      border: 1px solid #000;
+      padding: 2px 6px;
+      border-radius: 2px;
     }
 
     .website {
       text-align: center;
-      font-size: 5px;
+      font-size: 12px;
       font-weight: bold;
-      padding-top: 0.5mm;
+      padding-top: 2mm;
       border-top: 0.5px solid #000;
       color: #444;
     }
