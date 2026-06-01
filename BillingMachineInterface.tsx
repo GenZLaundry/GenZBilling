@@ -942,9 +942,9 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
-    /* TSC TL240 — Roll width 38mm, tag height 50mm */
+    /* TSC TL240 — 38mm wide roll, portrait feed, 50mm per tag */
     @page {
-      size: 38mm 50mm;
+      size: 38mm 50mm portrait;
       margin: 0 !important;
     }
 
