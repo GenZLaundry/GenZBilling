@@ -78,7 +78,7 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
   const [showUPISettings, setShowUPISettings] = useState(false);
   const [showTagOffsetSettings, setShowTagOffsetSettings] = useState(false);
   const [tagPrintOffset, setTagPrintOffset] = useState<number>(() => {
-    return parseInt(localStorage.getItem('tag_print_offset') || '72', 10);
+    return parseInt(localStorage.getItem('tag_print_offset') || '0', 10);
   });
   const [showItemListManager, setShowItemListManager] = useState(false);
   const [showManualEntry, setShowManualEntry] = useState(false);
@@ -2585,7 +2585,7 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
               Tag Print Position
             </h3>
             <p style={{ margin: '0 0 20px 0', fontSize: '12px', color: 'var(--text-muted)' }}>
-              Shift tag content left or right to align with your roll. Current: <strong style={{ color: 'var(--accent)' }}>{tagPrintOffset} dots</strong> ({Math.round(tagPrintOffset * 25.4 / 203 * 10) / 10}mm right)
+              Fine-tune tag position. Base offset (43mm) is auto-calculated from your roll position. Use this slider only if still misaligned. Current fine-tune: <strong style={{ color: 'var(--accent)' }}>{tagPrintOffset} dots</strong> ({tagPrintOffset > 0 ? '+' : ''}{Math.round(tagPrintOffset * 25.4 / 203 * 10) / 10}mm)
             </p>
 
             {/* Visual slider */}
@@ -2596,8 +2596,8 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
               </div>
               <input
                 type="range"
-                min="0"
-                max="400"
+                min="-100"
+                max="100"
                 step="4"
                 value={tagPrintOffset}
                 onChange={(e) => setTagPrintOffset(parseInt(e.target.value))}

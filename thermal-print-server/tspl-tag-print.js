@@ -9,9 +9,9 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-// Roll width in dots (203 DPI × 3.8cm = ~300 dots)
-// 38mm × 8 dots/mm = 304 dots
-const ROLL_WIDTH_MM  = 38;
+// Roll width in dots
+// Roll: 37mm wide, starts 43mm from left edge of 120mm print rod
+const ROLL_WIDTH_MM  = 37;
 const TAG_HEIGHT_MM  = 50;
 const DPI            = 203;
 
@@ -19,20 +19,26 @@ function mmToDots(mm) {
   return Math.round(mm * DPI / 25.4);
 }
 
-const W = mmToDots(ROLL_WIDTH_MM);  // ~304 dots
+const W = mmToDots(ROLL_WIDTH_MM);  // ~296 dots
 const H = mmToDots(TAG_HEIGHT_MM);  // ~400 dots
+
+// Exact offset: roll starts 43mm from left = 344 dots
+const ROLL_OFFSET_DOTS = mmToDots(43); // 344 dots
 
 /**
  * Build TSPL command string for one tag
  */
-function buildTagTSPL(tag, shiftDots = 72) {
+function buildTagTSPL(tag, shiftDots = 0) {
   const lines = [];
 
-  // Page setup
-  lines.push(`SIZE ${ROLL_WIDTH_MM} mm, ${TAG_HEIGHT_MM} mm`);
+  // Total offset = physical roll position + user fine-tune
+  const totalOffset = ROLL_OFFSET_DOTS + shiftDots;
+
+  // Page setup — tell printer the full rod width so it knows the coordinate space
+  lines.push(`SIZE 120 mm, ${TAG_HEIGHT_MM} mm`);
   lines.push(`GAP 0 mm, 0 mm`);
   lines.push(`DIRECTION 0`);
-  lines.push(`REFERENCE ${shiftDots},0`);  // shift origin right by shiftDots
+  lines.push(`REFERENCE ${totalOffset},0`);  // start printing at roll position
   lines.push(`OFFSET 0 mm`);
   lines.push(`SET PEEL OFF`);
   lines.push(`SET CUTTER OFF`);
@@ -85,7 +91,7 @@ function buildTagTSPL(tag, shiftDots = 72) {
  * Print tags to TSC TL240 via Windows RAW port
  * printerName: exact Windows printer name e.g. "TSC TL240"
  */
-async function printTagsTSPL(tags, printerName = 'TSC TL240', shiftDots = 72) {
+async function printTagsTSPL(tags, printerName = 'TSC TL240', shiftDots = 0) {
   const results = [];
 
   for (let i = 0; i < tags.length; i++) {
