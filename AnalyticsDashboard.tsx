@@ -740,11 +740,44 @@ const AnalyticsDashboard: React.FC = () => {
                       </h3>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
                         {profitData.expensesByCategory.map((category: any, index: number) => {
-                          const categoryColors = [
-                            '#e74c3c', '#f39c12', '#3498db', '#9b59b6', 
-                            '#27ae60', '#e67e22', '#1abc9c'
-                          ];
-                          const color = categoryColors[index % categoryColors.length];
+                          const categoryLabels: Record<string, string> = {
+                            SABJI: 'Sabji',
+                            GROCERY: 'grocery',
+                            FOOD: 'Food',
+                            BREAKFAST: 'Breakfast',
+                            STORE_EXPENCES: 'Store Expences',
+                            SALARY: 'Salary',
+                            SELF_EXPENSES: 'Self Expenses',
+                            DIET: 'Diet',
+                            RENT: 'Rent',
+                            UTILITIES: 'Utilities',
+                            SUPPLIES: 'Supplies',
+                            MAINTENANCE: 'Maintenance',
+                            MARKETING: 'Marketing',
+                            TRANSPORT: 'Transport',
+                            OTHER: 'Other'
+                          };
+
+                          const categoryColors: Record<string, string> = {
+                            SABJI: '#2ecc71',
+                            GROCERY: '#3498db',
+                            FOOD: '#e74c3c',
+                            BREAKFAST: '#f1c40f',
+                            STORE_EXPENCES: '#1abc9c',
+                            SALARY: '#27ae60',
+                            SELF_EXPENSES: '#9b59b6',
+                            DIET: '#e91e63',
+                            RENT: '#e74c3c',
+                            UTILITIES: '#f39c12',
+                            SUPPLIES: '#3498db',
+                            MAINTENANCE: '#9b59b6',
+                            MARKETING: '#e67e22',
+                            TRANSPORT: '#1abc9c',
+                            OTHER: '#95a5a6'
+                          };
+
+                          const label = categoryLabels[category._id] || category._id;
+                          const color = categoryColors[category._id] || '#95a5a6';
                           
                           return (
                             <div key={category._id} style={{
@@ -758,7 +791,7 @@ const AnalyticsDashboard: React.FC = () => {
                               borderLeft: `4px solid ${color}`
                             }}>
                               <div style={{ color: 'var(--text-primary)', fontWeight: '600', fontSize: '14px' }}>
-                                {category._id}
+                                {label}
                               </div>
                               <div style={{ color: color, fontSize: '20px', fontWeight: 'bold' }}>
                                 ₹{category.total?.toLocaleString() || 0}

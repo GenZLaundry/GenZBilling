@@ -962,17 +962,19 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
 <head>
   <title>Clothing Tags - TSC TL240</title>
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800;900&display=swap');
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
-    /* TSC TL240 — 38mm wide roll, portrait feed, 50mm per tag */
+    /* TSC TL240 — 37mm wide roll, 40mm height */
     @page {
-      size: 38mm 50mm portrait;
+      size: 37mm 40mm;
       margin: 0 !important;
     }
 
     @media print {
       html, body {
-        width: 38mm !important;
+        width: 37mm !important;
+        height: 40mm !important;
         margin: 0 !important;
         padding: 0 !important;
       }
@@ -986,112 +988,163 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
     }
 
     body {
-      font-family: 'Arial', sans-serif;
+      font-family: 'Outfit', 'Arial Black', 'Arial', sans-serif;
       margin: 0;
       padding: 0;
       background: white;
-      width: 38mm;
+      width: 37mm;
+      height: 40mm;
     }
 
     .tag {
-      width: 38mm;
-      height: 50mm;
-      padding: 2mm 2.5mm;
+      width: 37mm;
+      height: 38mm;
+      margin: 1mm auto;
+      padding: 1mm 1.5mm;
       background: white;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
       box-sizing: border-box;
-      overflow: hidden;
     }
 
     .top-header {
       text-align: center;
-      padding-bottom: 1mm;
-      border-bottom: 0.5px solid #000;
-      line-height: 1.2;
+      padding-bottom: 0.8mm;
+      border-bottom: 1.2px dashed #000;
     }
     .brand-line1 {
-      font-size: 8px;
+      font-size: 11pt;
       font-weight: 900;
       display: block;
-      letter-spacing: 0.2px;
+      letter-spacing: 0.3px;
+      line-height: 1.1;
+      text-transform: uppercase;
+      white-space: nowrap;
     }
     .brand-line2 {
-      font-size: 6.5px;
-      font-weight: 700;
+      font-size: 6.5pt;
+      font-weight: 800;
       display: block;
-      color: #333;
+      line-height: 1.1;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      margin-top: 0.2mm;
+      white-space: nowrap;
     }
 
     .tag-date {
-      font-size: 6px;
-      font-weight: bold;
+      font-size: 7.5pt;
+      font-weight: 700;
       text-align: center;
-      color: #555;
       line-height: 1;
+      margin: 0.3mm 0;
+      color: #000;
+      letter-spacing: 0.8px;
+      white-space: nowrap;
     }
 
     .customer-name {
       text-align: center;
-      font-size: 11px;
-      font-weight: 900;
+      font-size: 13pt;
+      font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.3px;
-      line-height: 1.15;
-      word-wrap: break-word;
-      overflow-wrap: break-word;
+      letter-spacing: 0.6px;
+      line-height: 1.1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
       max-width: 100%;
+      padding: 0.8mm 0;
+      border-top: 1.5px solid #000;
+      border-bottom: 1.5px solid #000;
+      margin: 0.2mm 0;
+    }
+
+    .service-type {
+      text-align: center;
+      font-size: 8pt;
+      font-weight: 800;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin: 0.2mm 0;
+      white-space: nowrap;
     }
 
     .bill-info {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      font-size: 6px;
+      margin: 0.2mm 0;
+    }
+
+    .bill-no {
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 10pt;
       font-weight: bold;
-      font-family: 'Courier New', monospace;
     }
 
     .tag-number {
-      font-size: 7px;
-      font-weight: 900;
-      border: 0.5px solid #000;
-      padding: 1px 2px;
-      border-radius: 1px;
+      font-size: 9pt;
+      font-weight: 800;
+      border: 1px solid #000;
+      color: #000;
+      padding: 0.3mm 1.5mm;
+      border-radius: 3px;
+      white-space: nowrap;
     }
 
     .website {
       text-align: center;
-      font-size: 5.5px;
-      font-weight: bold;
-      padding-top: 1mm;
-      border-top: 0.5px solid #000;
-      color: #444;
+      font-size: 7pt;
+      font-weight: 500;
+      padding-top: 0.5mm;
+      border-top: 1px dashed #000;
+      letter-spacing: 1.2px;
+      text-transform: lowercase;
+      white-space: nowrap;
     }
   </style>
 </head>
 <body>
 
-  ${tags.map((tag, index) => `
+  ${tags.map((tag, index) => {
+    const nameLen = (tag.customerName || '').length;
+    let fontSize = '13pt';
+    if (nameLen > 15) fontSize = '8pt';
+    else if (nameLen > 11) fontSize = '9.5pt';
+    else if (nameLen > 7) fontSize = '11pt';
+
+    // Normalize washType
+    const rawType = (tag.washType || '').toUpperCase().trim();
+    let serviceLabel = rawType;
+    if (rawType === 'WASH') serviceLabel = 'WASH ONLY';
+    else if (rawType === 'IRON') serviceLabel = 'IRON ONLY';
+    else if (rawType === 'WASH+IRON') serviceLabel = 'WASH + IRON';
+    else if (rawType === 'DRY CLEAN') serviceLabel = 'DRY CLEAN';
+
+    return `
     <div class="tag">
       <div class="top-header">
         <span class="brand-line1">Gen-Z Laundry</span>
         <span class="brand-line2">&amp; Dry Cleaners</span>
       </div>
 
-      <div class="tag-date">${tag.date}</div>
+      <div class="tag-date">&bull; ${tag.date} &bull;</div>
 
-      <div class="customer-name">${tag.customerName}</div>
+      <div class="customer-name" style="font-size: ${fontSize}">${tag.customerName}</div>
+
+      <div class="service-type">${serviceLabel}</div>
 
       <div class="bill-info">
-        <span>${tag.billNumber}</span>
+        <span class="bill-no">${tag.billNumber}</span>
         <span class="tag-number">${tag.tagIndex} / ${tag.totalTags}</span>
       </div>
 
       <div class="website">www.genzlaundry.com</div>
     </div>
-  `).join('')}
+  `;
+  }).join('')}
 
   <script>
     window.onload = function() {
@@ -1106,6 +1159,410 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
     `;
 
     printWindow.document.write(tagHTML);
+    printWindow.document.close();
+  };
+
+  const getFlattenedStickerLogo = (): Promise<string> => {
+    return new Promise<string>((resolve) => {
+      const img = new Image();
+      img.src = '/sticker.png';
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, 0);
+          try {
+            resolve(canvas.toDataURL('image/jpeg', 0.95));
+          } catch (e) {
+            resolve('/sticker.png');
+          }
+        } else {
+          resolve('/sticker.png');
+        }
+      };
+      img.onerror = () => {
+        resolve('/sticker.png');
+      };
+    });
+  };
+
+  const printPackStickers = async () => {
+    const inputCopies = window.prompt("Enter number of stickers to print:", "1");
+    if (inputCopies === null) return; // User cancelled
+    const copies = parseInt(inputCopies, 10);
+    if (isNaN(copies) || copies <= 0) {
+      showAlert({ message: 'Please enter a valid number of copies', type: 'warning' });
+      return;
+    }
+
+    const logoDataUrl = await getFlattenedStickerLogo();
+
+    // Fallback: browser print window
+    const printWindow = window.open('', '_blank', 'width=800,height=600');
+    if (!printWindow) {
+      showAlert({ message: 'Please allow popups for sticker printing', type: 'warning' });
+      return;
+    }
+
+    let rowsHTML = '';
+    const numRows = Math.ceil(copies / 2);
+    for (let r = 0; r < numRows; r++) {
+      const leftIndex = r * 2;
+      const rightIndex = r * 2 + 1;
+      
+      const leftSticker = `
+        <div class="sticker">
+          <div class="logo-container">
+            <img src="${logoDataUrl}" alt="Gen-Z Logo" onerror="this.style.display='none'; document.getElementById('text-logo-l-${r}').style.display='block';" />
+            <div id="text-logo-l-${r}" class="text-logo" style="display: none;">
+              <div class="glow-text">Gen-Z</div>
+            </div>
+          </div>
+
+          <div class="subheader-container">
+            <div class="sub-line"></div>
+            <div class="subheader-text">LAUNDRY & DRY CLEANERS</div>
+            <div class="sub-line"></div>
+          </div>
+
+          <div class="care-pill">
+            <div class="care-item">
+              <svg class="care-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M2 9h20M4 9l1.5 9A3 3 0 0 0 8.5 21h7a3 3 0 0 0 3-3L20 9" />
+                <path d="M22 9c-1.5-.5-3.5-.5-5 0s-3.5.5-5 0-3.5-.5-5 0-3.5.5-5 0" />
+              </svg>
+              <span class="care-label">FRESH</span>
+            </div>
+            <div class="care-divider"></div>
+            <div class="care-item">
+              <svg class="care-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20.38 3.46L16 6.54V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2.54L3.62 3.46a1 1 0 0 0-1.34.3L.43 6.54a1 1 0 0 0 .3 1.34l4.27 3a1 1 0 0 0 1 .12L6 10.5V20a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-9.5l.05.5a1 1 0 0 0 1-.12l4.27-3a1 1 0 0 0 .3-1.34L21.72 3.76a1 1 0 0 0-1.34-.3z" />
+              </svg>
+              <span class="care-label">CLEAN</span>
+            </div>
+            <div class="care-divider"></div>
+            <div class="care-item">
+              <svg class="care-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="1" y="3" width="15" height="13" rx="2" ry="2" />
+                <polygon points="16 8 20 8 23 11 23 16 16 16 16 8" />
+                <circle cx="5.5" cy="18.5" r="2.5" />
+                <circle cx="18.5" cy="18.5" r="2.5" />
+              </svg>
+              <span class="care-label">DELIVERED</span>
+            </div>
+          </div>
+
+          <div class="tagline-container">
+            <div class="tagline-text">CLEANED WITH CARE &bull; DELIVERED WITH TRUST</div>
+          </div>
+
+          <div class="website-capsule">
+            <svg class="globe-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="2" y1="12" x2="22" y2="12" />
+              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+            </svg>
+            <span class="website-text">www.genzlaundry.com</span>
+          </div>
+        </div>
+      `;
+
+      let rightSticker = '';
+      if (rightIndex < copies) {
+        rightSticker = `
+        <div class="sticker">
+          <div class="logo-container">
+            <img src="${logoDataUrl}" alt="Gen-Z Logo" onerror="this.style.display='none'; document.getElementById('text-logo-r-${r}').style.display='block';" />
+            <div id="text-logo-r-${r}" class="text-logo" style="display: none;">
+              <div class="glow-text">Gen-Z</div>
+            </div>
+          </div>
+
+          <div class="subheader-container">
+            <div class="sub-line"></div>
+            <div class="subheader-text">LAUNDRY & DRY CLEANERS</div>
+            <div class="sub-line"></div>
+          </div>
+
+          <div class="care-pill">
+            <div class="care-item">
+              <svg class="care-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M2 9h20M4 9l1.5 9A3 3 0 0 0 8.5 21h7a3 3 0 0 0 3-3L20 9" />
+                <path d="M22 9c-1.5-.5-3.5-.5-5 0s-3.5.5-5 0-3.5-.5-5 0-3.5.5-5 0" />
+              </svg>
+              <span class="care-label">FRESH</span>
+            </div>
+            <div class="care-divider"></div>
+            <div class="care-item">
+              <svg class="care-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20.38 3.46L16 6.54V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2.54L3.62 3.46a1 1 0 0 0-1.34.3L.43 6.54a1 1 0 0 0 .3 1.34l4.27 3a1 1 0 0 0 1 .12L6 10.5V20a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-9.5l.05.5a1 1 0 0 0 1-.12l4.27-3a1 1 0 0 0 .3-1.34L21.72 3.76a1 1 0 0 0-1.34-.3z" />
+              </svg>
+              <span class="care-label">CLEAN</span>
+            </div>
+            <div class="care-divider"></div>
+            <div class="care-item">
+              <svg class="care-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="1" y="3" width="15" height="13" rx="2" ry="2" />
+                <polygon points="16 8 20 8 23 11 23 16 16 16 16 8" />
+                <circle cx="5.5" cy="18.5" r="2.5" />
+                <circle cx="18.5" cy="18.5" r="2.5" />
+              </svg>
+              <span class="care-label">DELIVERED</span>
+            </div>
+          </div>
+
+          <div class="tagline-container">
+            <div class="tagline-text">CLEANED WITH CARE &bull; DELIVERED WITH TRUST</div>
+          </div>
+
+          <div class="website-capsule">
+            <svg class="globe-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="2" y1="12" x2="22" y2="12" />
+              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+            </svg>
+            <span class="website-text">www.genzlaundry.com</span>
+          </div>
+        </div>
+        `;
+      } else {
+        rightSticker = `<div class="sticker blank"></div>`;
+      }
+
+      rowsHTML += `
+        <div class="print-row">
+          ${leftSticker}
+          ${rightSticker}
+        </div>
+      `;
+    }
+
+    const stickerHTML = `
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Packaging Stickers - Gen-Z Laundry</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800;900&display=swap');
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    @page {
+      size: 105mm 55mm;
+      margin: 0 !important;
+    }
+
+    @media print {
+      html, body {
+        width: 105mm !important;
+        height: 55mm !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+      .print-row {
+        page-break-after: always;
+        page-break-inside: avoid;
+      }
+      .print-row:last-child {
+        page-break-after: avoid;
+      }
+    }
+
+    body {
+      font-family: 'Outfit', 'Helvetica Neue', Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: white;
+      width: 105mm;
+      height: 55mm;
+      overflow: hidden;
+    }
+
+    .print-row {
+      display: flex;
+      justify-content: space-between;
+      width: 105mm;
+      height: 50mm;
+      padding: 0 1mm;
+      box-sizing: border-box;
+      align-items: center;
+    }
+
+    .sticker {
+      width: 48mm;
+      height: 46mm;
+      background: white;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: center;
+      box-sizing: border-box;
+      border: 1px solid #111;
+      border-radius: 8px;
+      padding: 2.5mm 3mm;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .sticker.blank {
+      border: none;
+      visibility: hidden;
+    }
+
+    .logo-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      width: 100%;
+      height: 10.5mm;
+      margin-bottom: 0.5mm;
+      z-index: 2;
+    }
+
+    .logo-container img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+    }
+
+    .text-logo {
+      text-align: center;
+    }
+
+    .glow-text {
+      font-size: 14pt;
+      font-weight: 900;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      line-height: 1;
+      color: #111;
+    }
+
+    .subheader-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      gap: 1.5mm;
+      z-index: 2;
+    }
+
+    .sub-line {
+      flex: 1;
+      height: 0.5px;
+      background: #111;
+    }
+
+    .subheader-text {
+      font-size: 5pt;
+      font-weight: 600;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      white-space: nowrap;
+      color: #111;
+    }
+
+    .care-pill {
+      background: #fff;
+      color: #111;
+      border: 1px solid #111;
+      border-radius: 50px;
+      width: 100%;
+      height: 8.5mm;
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      padding: 0 1mm;
+      z-index: 2;
+    }
+
+    .care-item {
+      display: flex;
+      align-items: center;
+      gap: 0.8mm;
+    }
+
+    .care-icon {
+      width: 4.2mm;
+      height: 4.2mm;
+      color: #111;
+    }
+
+    .care-label {
+      font-size: 4.5pt;
+      font-weight: 800;
+      letter-spacing: 0.8px;
+      color: #111;
+    }
+
+    .care-divider {
+      width: 0.5px;
+      height: 3.5mm;
+      background: #ccc;
+    }
+
+    .tagline-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      z-index: 2;
+    }
+
+    .tagline-text {
+      font-size: 4pt;
+      font-weight: 600;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      white-space: nowrap;
+      color: #444;
+    }
+
+    .website-capsule {
+      background: #000;
+      color: #fff;
+      border-radius: 50px;
+      width: 100%;
+      height: 6.5mm;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 1.5mm;
+      z-index: 2;
+    }
+
+    .globe-icon {
+      width: 3.2mm;
+      height: 3.2mm;
+      color: #fff;
+    }
+
+    .website-text {
+      font-size: 5.5pt;
+      font-weight: 800;
+      letter-spacing: 0.8px;
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+  ${rowsHTML}
+  <script>
+    window.onload = function() {
+      setTimeout(function() {
+        window.print();
+        setTimeout(function() { window.close(); }, 1500);
+      }, 600);
+    }
+  <\/script>
+</body>
+</html>
+    `;
+
+    printWindow.document.write(stickerHTML);
     printWindow.document.close();
   };
 
@@ -2021,6 +2478,24 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
                 }}
               >
                 Previous ({selectedPendingBills.length})
+              </button>
+
+              <button
+                onClick={printPackStickers}
+                className="professional-btn"
+                style={{
+                  padding: '6px 10px',
+                  borderRadius: '4px',
+                  background: 'linear-gradient(135deg, #a855f7 0%, #6366f1 100%)',
+                  color: 'white',
+                  fontSize: '11px',
+                  fontWeight: '600',
+                  border: 'none',
+                  cursor: 'pointer'
+                }}
+                title="Print packaging brand sticker"
+              >
+                <i className="fas fa-box" style={{ marginRight: '4px' }}></i> Sticker
               </button>
 
               <button

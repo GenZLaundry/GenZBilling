@@ -224,40 +224,385 @@ const TagHistoryViewer: React.FC = () => {
   const reprintBillTags = (bill: GroupedBill) => {
     const printWindow = window.open('', '_blank', 'width=800,height=600');
     if (!printWindow) { showAlert({ message: 'Please allow popups', type: 'warning' }); return; }
-    const tagHTML = `<!DOCTYPE html><html><head><title>Tags - ${bill.billNumber}</title>
-    <style>*{margin:0;padding:0;box-sizing:border-box}@page{size:20mm auto;margin:0!important}@media print{html,body{width:20mm!important;margin:0!important;padding:0!important}.tag{page-break-after:avoid}}
-    body{font-family:Arial,sans-serif;margin:0;padding:0;background:white;width:20mm}
-    .tag{width:19mm;margin:1.5mm auto;padding:0.8mm;background:white;display:flex;flex-direction:column;justify-content:space-between;box-sizing:border-box;overflow:hidden;border:0.5px solid #000}
-    .top-header{text-align:center;padding-bottom:0.3mm;border-bottom:0.3px solid #000;line-height:1.15}
-    .brand-line1{font-size:4px;font-weight:900;display:block}
-    .brand-line2{font-size:3px;font-weight:700;display:block}
-    .tag-date{font-size:3.5px;font-weight:bold;text-align:center;margin-top:0.8mm;line-height:1}
-    .name{text-align:center;font-size:6px;font-weight:900;text-transform:uppercase;margin:0.5mm 0;line-height:1.1}
-    .info{display:flex;justify-content:space-between;align-items:center;font-size:4.5px;font-weight:bold;font-family:'Courier New',monospace;margin:0.3mm 0}
-    .tnum{font-size:4.5px;font-weight:900;border:0.5px solid #000;padding:0px 1px}
-    .web{text-align:center;font-size:3px;font-weight:bold;margin-top:0.3mm;padding-top:0.3mm;border-top:0.3px solid #000}</style></head>
-    <body>${bill.tags.map((tag, i) => `<div class="tag"><div class="top-header"><span class="brand-line1">Gen-Z Laundry</span><span class="brand-line2">&amp; Dry Cleaners</span></div><div class="tag-date">${new Date(tag.createdAt).toLocaleDateString('en-GB')}</div><div class="name">${tag.customerName}</div><div class="info"><span>${tag.billNumber}</span><span class="tnum">${tag.tagIndex} / ${tag.totalTags}</span></div><div class="web">www.genzlaundry.com</div></div>`).join('')}
-    <script>window.onload=function(){setTimeout(function(){window.print();setTimeout(function(){window.close()},1000)},500)}</script></body></html>`;
+    const tagHTML = `<!DOCTYPE html>
+<html>
+<head>
+  <title>Tags - ${bill.billNumber}</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800;900&display=swap');
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    /* TSC TL240 — 37mm wide roll, 40mm height */
+    @page {
+      size: 37mm 40mm;
+      margin: 0 !important;
+    }
+
+    @media print {
+      html, body {
+        width: 37mm !important;
+        height: 40mm !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+      .tag {
+        page-break-after: always;
+        page-break-inside: avoid;
+      }
+      .tag:last-child {
+        page-break-after: avoid;
+      }
+    }
+
+    body {
+      font-family: 'Outfit', 'Arial Black', 'Arial', sans-serif;
+      margin: 0;
+      padding: 0;
+      background: white;
+      width: 37mm;
+      height: 40mm;
+    }
+
+    .tag {
+      width: 37mm;
+      height: 38mm;
+      margin: 1mm auto;
+      padding: 1mm 1.5mm;
+      background: white;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      box-sizing: border-box;
+    }
+
+    .top-header {
+      text-align: center;
+      padding-bottom: 0.8mm;
+      border-bottom: 1.2px dashed #000;
+    }
+    .brand-line1 {
+      font-size: 11pt;
+      font-weight: 900;
+      display: block;
+      letter-spacing: 0.3px;
+      line-height: 1.1;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .brand-line2 {
+      font-size: 6.5pt;
+      font-weight: 800;
+      display: block;
+      line-height: 1.1;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      margin-top: 0.2mm;
+      white-space: nowrap;
+    }
+
+    .tag-date {
+      font-size: 7.5pt;
+      font-weight: 700;
+      text-align: center;
+      line-height: 1;
+      margin: 0.3mm 0;
+      color: #000;
+      letter-spacing: 0.8px;
+      white-space: nowrap;
+    }
+
+    .name {
+      text-align: center;
+      font-size: 13pt;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      line-height: 1.1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
+      padding: 0.8mm 0;
+      border-top: 1.5px solid #000;
+      border-bottom: 1.5px solid #000;
+      margin: 0.2mm 0;
+    }
+
+    .service-type {
+      text-align: center;
+      font-size: 8pt;
+      font-weight: 800;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin: 0.2mm 0;
+      white-space: nowrap;
+    }
+
+    .info {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin: 0.2mm 0;
+    }
+
+    .bill-no {
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 10pt;
+      font-weight: bold;
+    }
+
+    .tnum {
+      font-size: 9pt;
+      font-weight: 800;
+      border: 1px solid #000;
+      color: #000;
+      padding: 0.3mm 1.5mm;
+      border-radius: 3px;
+      white-space: nowrap;
+    }
+
+    .web {
+      text-align: center;
+      font-size: 7pt;
+      font-weight: 500;
+      padding-top: 0.5mm;
+      border-top: 1px dashed #000;
+      letter-spacing: 1.2px;
+      text-transform: lowercase;
+      white-space: nowrap;
+    }
+  </style>
+</head>
+<body>
+  ${bill.tags.map((tag, i) => {
+    const nameLen = (tag.customerName || '').length;
+    let fontSize = '13pt';
+    if (nameLen > 15) fontSize = '8pt';
+    else if (nameLen > 11) fontSize = '9.5pt';
+    else if (nameLen > 7) fontSize = '11pt';
+
+    // Normalize washType
+    const rawType = (tag.washType || '').toUpperCase().trim();
+    let serviceLabel = rawType;
+    if (rawType === 'WASH') serviceLabel = 'WASH ONLY';
+    else if (rawType === 'IRON') serviceLabel = 'IRON ONLY';
+    else if (rawType === 'WASH+IRON') serviceLabel = 'WASH + IRON';
+    else if (rawType === 'DRY CLEAN') serviceLabel = 'DRY CLEAN';
+
+    return `
+    <div class="tag">
+      <div class="top-header">
+        <span class="brand-line1">Gen-Z Laundry</span>
+        <span class="brand-line2">&amp; Dry Cleaners</span>
+      </div>
+      <div class="tag-date">&bull; ${new Date(tag.createdAt).toLocaleDateString('en-GB')} &bull;</div>
+      <div class="name" style="font-size: ${fontSize}">${tag.customerName}</div>
+      <div class="service-type">${serviceLabel}</div>
+      <div class="info">
+        <span class="bill-no">${tag.billNumber}</span>
+        <span class="tnum">${tag.tagIndex} / ${tag.totalTags}</span>
+      </div>
+      <div class="web">www.genzlaundry.com</div>
+    </div>
+  `;
+  }).join('')}
+  <script>
+    window.onload = function() {
+      setTimeout(function() {
+        window.print();
+        setTimeout(function() { window.close(); }, 1500);
+      }, 600);
+    }
+  </script>
+</body>
+</html>`;
     printWindow.document.write(tagHTML); printWindow.document.close();
   };
 
   const reprintSingleTag = (tag: TagHistory) => {
     const printWindow = window.open('', '_blank', 'width=800,height=600');
     if (!printWindow) { showAlert({ message: 'Please allow popups', type: 'warning' }); return; }
-    const tagHTML = `<!DOCTYPE html><html><head><title>Tag - ${tag.billNumber}</title>
-    <style>*{margin:0;padding:0;box-sizing:border-box}@page{size:20mm auto;margin:0!important}@media print{html,body{width:20mm!important;margin:0!important;padding:0!important}}
-    body{font-family:Arial,sans-serif;margin:0;padding:0;background:white;width:20mm}
-    .tag{width:19mm;margin:1.5mm auto;padding:0.8mm;background:white;display:flex;flex-direction:column;justify-content:space-between;box-sizing:border-box;overflow:hidden;border:0.5px solid #000}
-    .top-header{text-align:center;padding-bottom:0.3mm;border-bottom:0.3px solid #000;line-height:1.15}
-    .brand-line1{font-size:4px;font-weight:900;display:block}
-    .brand-line2{font-size:3px;font-weight:700;display:block}
-    .tag-date{font-size:3.5px;font-weight:bold;text-align:center;margin-top:0.8mm;line-height:1}
-    .name{text-align:center;font-size:6px;font-weight:900;text-transform:uppercase;margin:0.5mm 0;line-height:1.1}
-    .info{display:flex;justify-content:space-between;align-items:center;font-size:4.5px;font-weight:bold;font-family:'Courier New',monospace;margin:0.3mm 0}
-    .tnum{font-size:4.5px;font-weight:900;border:0.5px solid #000;padding:0px 1px}
-    .web{text-align:center;font-size:3px;font-weight:bold;margin-top:0.3mm;padding-top:0.3mm;border-top:0.3px solid #000}</style></head>
-    <body><div class="tag"><div class="top-header"><span class="brand-line1">Gen-Z Laundry</span><span class="brand-line2">&amp; Dry Cleaners</span></div><div class="tag-date">${new Date(tag.createdAt).toLocaleDateString('en-GB')}</div><div class="name">${tag.customerName}</div><div class="info"><span>${tag.billNumber}</span><span class="tnum">${tag.tagIndex} / ${tag.totalTags}</span></div><div class="web">www.genzlaundry.com</div></div>
-    <script>window.onload=function(){setTimeout(function(){window.print();setTimeout(function(){window.close()},1000)},500)}</script></body></html>`;
+    const nameLen = (tag.customerName || '').length;
+    let fontSize = '13pt';
+    if (nameLen > 15) fontSize = '8pt';
+    else if (nameLen > 11) fontSize = '9.5pt';
+    else if (nameLen > 7) fontSize = '11pt';
+
+    // Normalize washType
+    const rawType = (tag.washType || '').toUpperCase().trim();
+    let serviceLabel = rawType;
+    if (rawType === 'WASH') serviceLabel = 'WASH ONLY';
+    else if (rawType === 'IRON') serviceLabel = 'IRON ONLY';
+    else if (rawType === 'WASH+IRON') serviceLabel = 'WASH + IRON';
+    else if (rawType === 'DRY CLEAN') serviceLabel = 'DRY CLEAN';
+
+    const tagHTML = `<!DOCTYPE html>
+<html>
+<head>
+  <title>Tag - ${tag.billNumber}</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800;900&display=swap');
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    /* TSC TL240 — 37mm wide roll, 40mm height */
+    @page {
+      size: 37mm 40mm;
+      margin: 0 !important;
+    }
+
+    @media print {
+      html, body {
+        width: 37mm !important;
+        height: 40mm !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+    }
+
+    body {
+      font-family: 'Outfit', 'Arial Black', 'Arial', sans-serif;
+      margin: 0;
+      padding: 0;
+      background: white;
+      width: 37mm;
+      height: 40mm;
+    }
+
+    .tag {
+      width: 37mm;
+      height: 38mm;
+      margin: 1mm auto;
+      padding: 1mm 1.5mm;
+      background: white;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      box-sizing: border-box;
+    }
+
+    .top-header {
+      text-align: center;
+      padding-bottom: 0.8mm;
+      border-bottom: 1.2px dashed #000;
+    }
+    .brand-line1 {
+      font-size: 11pt;
+      font-weight: 900;
+      display: block;
+      letter-spacing: 0.3px;
+      line-height: 1.1;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .brand-line2 {
+      font-size: 6.5pt;
+      font-weight: 800;
+      display: block;
+      line-height: 1.1;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      margin-top: 0.2mm;
+      white-space: nowrap;
+    }
+
+    .tag-date {
+      font-size: 7.5pt;
+      font-weight: 700;
+      text-align: center;
+      line-height: 1;
+      margin: 0.3mm 0;
+      color: #000;
+      letter-spacing: 0.8px;
+      white-space: nowrap;
+    }
+
+    .name {
+      text-align: center;
+      font-size: 13pt;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      line-height: 1.1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
+      padding: 0.8mm 0;
+      border-top: 1.5px solid #000;
+      border-bottom: 1.5px solid #000;
+      margin: 0.2mm 0;
+    }
+
+    .service-type {
+      text-align: center;
+      font-size: 8pt;
+      font-weight: 800;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin: 0.2mm 0;
+      white-space: nowrap;
+    }
+
+    .info {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin: 0.2mm 0;
+    }
+
+    .bill-no {
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 10pt;
+      font-weight: bold;
+    }
+
+    .tnum {
+      font-size: 9pt;
+      font-weight: 800;
+      border: 1px solid #000;
+      color: #000;
+      padding: 0.3mm 1.5mm;
+      border-radius: 3px;
+      white-space: nowrap;
+    }
+
+    .web {
+      text-align: center;
+      font-size: 7pt;
+      font-weight: 500;
+      padding-top: 0.5mm;
+      border-top: 1px dashed #000;
+      letter-spacing: 1.2px;
+      text-transform: lowercase;
+      white-space: nowrap;
+    }
+  </style>
+</head>
+<body>
+  <div class="tag">
+    <div class="top-header">
+      <span class="brand-line1">Gen-Z Laundry</span>
+      <span class="brand-line2">&amp; Dry Cleaners</span>
+    </div>
+    <div class="tag-date">&bull; ${new Date(tag.createdAt).toLocaleDateString('en-GB')} &bull;</div>
+    <div class="name" style="font-size: ${fontSize}">${tag.customerName}</div>
+    <div class="service-type">${serviceLabel}</div>
+    <div class="info">
+      <span class="bill-no">${tag.billNumber}</span>
+      <span class="tnum">${tag.tagIndex} / ${tag.totalTags}</span>
+    </div>
+    <div class="web">www.genzlaundry.com</div>
+  </div>
+  <script>
+    window.onload = function() {
+      setTimeout(function() {
+        window.print();
+        setTimeout(function() { window.close(); }, 1500);
+      }, 600);
+    }
+  </script>
+</body>
+</html>`;
     printWindow.document.write(tagHTML); printWindow.document.close();
   };
 
