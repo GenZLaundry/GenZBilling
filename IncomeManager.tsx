@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import apiService from './api';
 import { useAlert } from './GlobalAlert';
 
@@ -16,6 +16,7 @@ interface IncomeManagerProps {
 
 const IncomeManager: React.FC<IncomeManagerProps> = ({ onClose: _onClose }) => {
   const { showAlert, showConfirm } = useAlert();
+  const formRef = useRef<HTMLDivElement>(null);
   const [incomes, setIncomes] = useState<Income[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -80,6 +81,11 @@ const IncomeManager: React.FC<IncomeManagerProps> = ({ onClose: _onClose }) => {
       date: new Date(income.date).toISOString().split('T')[0]
     });
     setShowAddForm(true);
+
+    // Smooth scroll to the form container
+    setTimeout(() => {
+      formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
   };
 
   const handleDelete = async (id: string) => {
@@ -158,7 +164,7 @@ const IncomeManager: React.FC<IncomeManagerProps> = ({ onClose: _onClose }) => {
 
           {/* Add/Edit Form */}
           {showAddForm && (
-            <div style={{ padding: '24px', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-subtle)' }}>
+            <div ref={formRef} style={{ padding: '24px', background: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-subtle)' }}>
               <h3 style={{ margin: '0 0 6px 0', color: 'var(--text-primary)', fontSize: '16px', fontWeight: '600' }}>
                 <i className={`fas ${editingIncome ? 'fa-edit' : 'fa-plus-circle'}`} style={{ color: '#27ae60', marginRight: '8px' }}></i>
                 {editingIncome ? 'Edit Record' : 'New Capital Entry'}

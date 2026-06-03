@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import apiService from './api';
 import { useAlert } from './GlobalAlert';
 
@@ -273,7 +273,7 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({ onClose }) => {
     }
   };
 
-  const handleEdit = (expense: Expense) => {
+    const handleEdit = (expense: Expense) => {
     setEditingExpense(expense);
     setFormData({
       title: expense.title,
@@ -1390,21 +1390,64 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({ onClose }) => {
           </div>
         </div>
 
-        {/* Add/Edit Form */}
+                {/* Add/Edit Form - Modal Popup Overlay */}
         {showAddForm && (
           <div style={{
-            padding: '24px',
-            background: 'rgba(20, 20, 25, 0.95)',
-            backdropFilter: 'blur(20px)',
-            borderBottom: '1px solid var(--border-subtle)',
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.75)',
+            backdropFilter: 'blur(8px)',
+            zIndex: 9999,
             display: 'flex',
-            flexDirection: 'column',
-            gap: '20px'
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px'
           }}>
-            <h3 style={{ margin: 0, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '16px', fontWeight: '600' }}>
-              <i className={`fas ${editingExpense ? 'fa-edit' : 'fa-plus-circle'}`} style={{ color: 'var(--accent)' }}></i>
-              {editingExpense ? 'Edit Expense Record' : 'Create New Expense Record'}
-            </h3>
+            <div style={{
+              background: 'rgba(20, 20, 25, 0.98)',
+              border: '1px solid var(--border-subtle)',
+              borderRadius: 'var(--radius-xl)',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
+              width: '100%',
+              maxWidth: '680px',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              display: 'flex',
+              flexDirection: 'column',
+              padding: '30px',
+              gap: '20px'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '16px' }}>
+                <h3 style={{ margin: 0, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '18px', fontWeight: '700' }}>
+                  <i className={`fas ${editingExpense ? 'fa-edit' : 'fa-plus-circle'}`} style={{ color: 'var(--accent)' }}></i>
+                  {editingExpense ? 'Edit Expense Record' : 'Create New Expense Record'}
+                </h3>
+                <button 
+                  onClick={resetForm} 
+                  type="button"
+                  style={{
+                    background: 'rgba(255,255,255,0.05)',
+                    border: 'none',
+                    borderRadius: '50%',
+                    width: '32px',
+                    height: '32px',
+                    color: 'var(--text-secondary)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    fontSize: '16px',
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.15)'; e.currentTarget.style.color = '#f87171'; }}
+                  onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
+                >
+                  <i className="fas fa-times"></i>
+                </button>
+              </div>
 
             {/* Quick Templates Carousel */}
             {!editingExpense && (
@@ -1604,6 +1647,7 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({ onClose }) => {
                 </button>
               </div>
             </form>
+          </div>
           </div>
         )}
 

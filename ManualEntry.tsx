@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAlert } from './GlobalAlert';
 import apiService from './api';
 import CountryCodePicker from './CountryCodePicker';
@@ -37,6 +37,7 @@ const STORAGE_KEY = 'laundry_manual_entries';
 
 const ManualEntry: React.FC<ManualEntryProps> = ({ onClose }) => {
   const { showAlert, showConfirm } = useAlert();
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const today = new Date().toISOString().split('T')[0];
 
   const [entries, setEntries] = useState<ManualEntryData[]>([]);
@@ -473,6 +474,13 @@ const ManualEntry: React.FC<ManualEntryProps> = ({ onClose }) => {
     setRemark(entry.remark || '');
     setEditingId(entry.id);
     setActiveTab('form');
+
+    // Scroll the tab contents container to the top
+    setTimeout(() => {
+      if (scrollContainerRef.current) {
+        scrollContainerRef.current.scrollTop = 0;
+      }
+    }, 100);
   };
 
   const handleDelete = (id: string) => {
@@ -740,7 +748,7 @@ const ManualEntry: React.FC<ManualEntryProps> = ({ onClose }) => {
         </div>
 
         {/* Scrollable Content */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
+        <div ref={scrollContainerRef} style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
 
           {/* Entry Form */}
           {activeTab === 'form' && (
