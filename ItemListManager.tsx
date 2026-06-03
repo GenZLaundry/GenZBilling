@@ -109,6 +109,13 @@ const ItemListManager: React.FC<ItemListManagerProps> = ({
     );
   };
 
+  const serviceTypeColors: Record<string, string> = {
+    'WASH': '#3b82f6',
+    'IRON': '#f59e0b',
+    'WASH+IRON': '#8b5cf6',
+    'DRY CLEAN': '#ec4899'
+  };
+
   return (
     <div style={{
       position: 'fixed',
@@ -116,22 +123,23 @@ const ItemListManager: React.FC<ItemListManagerProps> = ({
       left: 0,
       right: 0,
       bottom: 0,
-      background: 'rgba(0, 0, 0, 0.85)',
+      background: 'rgba(0, 0, 0, 0.65)',
       display: 'flex',
       justifyContent: 'center',
       alignItems: 'center',
       zIndex: 1000,
-      backdropFilter: 'blur(10px)'
+      backdropFilter: 'blur(8px)',
+      padding: '16px'
     }}>
       <div style={{
-        background: 'linear-gradient(135deg, #2c3e50 0%, #34495e 100%)',
-        borderRadius: '20px',
-        width: '90%',
-        maxWidth: '800px',
-        maxHeight: '85%',
-        color: 'white',
-        boxShadow: '0 25px 50px rgba(0, 0, 0, 0.4)',
-        border: '1px solid rgba(255, 255, 255, 0.1)',
+        background: '#1f2937',
+        borderRadius: '16px',
+        width: '95%',
+        maxWidth: '740px',
+        maxHeight: '88vh',
+        color: '#f9fafb',
+        boxShadow: '0 20px 48px rgba(0,0,0,0.6)',
+        border: '1px solid rgba(255, 255, 255, 0.08)',
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden'
@@ -139,64 +147,84 @@ const ItemListManager: React.FC<ItemListManagerProps> = ({
         
         {/* Header */}
         <div style={{
-          padding: '25px 30px',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+          padding: '20px 24px',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          background: 'linear-gradient(135deg, #34495e, #2c3e50)'
+          background: 'rgba(255, 255, 255, 0.03)'
         }}>
-          <div>
-            <h2 style={{ margin: 0, fontSize: '24px', fontWeight: 'bold' }}>
-              🛠️ Professional Item Manager
-            </h2>
-            <p style={{ margin: '5px 0 0 0', opacity: 0.8, fontSize: '14px' }}>
-              Edit and manage your order items
-            </p>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div style={{
-              background: 'rgba(46, 204, 113, 0.2)',
-              padding: '8px 15px',
-              borderRadius: '20px',
-              border: '1px solid rgba(46, 204, 113, 0.4)',
-              fontSize: '14px',
-              fontWeight: 'bold'
+              width: '40px', height: '40px', borderRadius: '10px',
+              background: 'linear-gradient(135deg, #7c3aed, #8b5cf6)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '18px', boxShadow: '0 4px 12px rgba(124, 58, 237, 0.3)'
             }}>
-              {orderItems.length} Items
+              <i className="fas fa-tasks" style={{ color: '#fff' }}></i>
+            </div>
+            <div>
+              <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '700', color: '#f9fafb' }}>
+                Item List Manager
+              </h2>
+              <p style={{ margin: '2px 0 0 0', opacity: 0.8, fontSize: '12px', color: '#9ca3af' }}>
+                Edit and manage your order items
+              </p>
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{
+              background: 'rgba(124, 58, 237, 0.15)',
+              color: '#a78bfa',
+              padding: '6px 14px',
+              borderRadius: '20px',
+              border: '1px solid rgba(124, 58, 237, 0.3)',
+              fontSize: '12px',
+              fontWeight: '600'
+            }}>
+              {orderItems.length} {orderItems.length === 1 ? 'Item' : 'Items'}
             </div>
             <button
               onClick={onClose}
               style={{
-                background: 'rgba(255, 255, 255, 0.15)',
+                background: 'rgba(255, 255, 255, 0.06)',
                 border: 'none',
-                borderRadius: '50%',
-                width: '40px',
-                height: '40px',
-                color: 'white',
+                borderRadius: '8px',
+                width: '36px',
+                height: '36px',
+                color: '#9ca3af',
                 fontSize: '18px',
                 cursor: 'pointer',
-                transition: 'all 0.3s ease'
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'all 0.15s ease'
               }}
-              onMouseOver={(e) => e.target.style.background = 'rgba(255, 255, 255, 0.25)'}
-              onMouseOut={(e) => e.target.style.background = 'rgba(255, 255, 255, 0.15)'}
+              onMouseOver={(e) => {
+                (e.target as HTMLElement).style.background = 'rgba(239, 68, 68, 0.15)';
+                (e.target as HTMLElement).style.color = '#f87171';
+              }}
+              onMouseOut={(e) => {
+                (e.target as HTMLElement).style.background = 'rgba(255, 255, 255, 0.06)';
+                (e.target as HTMLElement).style.color = '#9ca3af';
+              }}
             >
               ×
             </button>
           </div>
         </div>
-
+ 
         {/* Content */}
-        <div style={{ flex: 1, overflow: 'auto', padding: '20px 30px' }}>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
           {orderItems.length === 0 ? (
             <div style={{
               textAlign: 'center',
-              padding: '60px 20px',
-              color: 'rgba(255, 255, 255, 0.6)'
+              padding: '40px 20px',
+              color: '#6b7280'
             }}>
-              <div style={{ fontSize: '80px', opacity: 0.4 }}>🛍️</div>
-              <h3 style={{ margin: '0 0 10px 0', fontSize: '20px' }}>No Items to Manage</h3>
-              <p style={{ margin: 0, fontSize: '14px', opacity: 0.8 }}>
+              <div style={{ fontSize: '40px', marginBottom: '12px', opacity: 0.4 }}>📋</div>
+              <h3 style={{ margin: '0 0 4px 0', fontSize: '15px', fontWeight: '600', color: '#9ca3af' }}>No Items to Manage</h3>
+              <p style={{ margin: 0, fontSize: '13px' }}>
                 Add items to your order to manage them here
               </p>
             </div>
@@ -206,142 +234,160 @@ const ItemListManager: React.FC<ItemListManagerProps> = ({
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                marginBottom: '20px'
+                marginBottom: '16px'
               }}>
-                <h3 style={{ margin: 0, fontSize: '18px' }}>
-                  Order Items ({orderItems.length})
+                <h3 style={{ margin: 0, fontSize: '15px', color: '#e5e7eb', fontWeight: '600' }}>
+                  Current Items list
                 </h3>
                 <button
                   onClick={handleClearAll}
                   style={{
-                    background: 'linear-gradient(135deg, #e74c3c, #c0392b)',
-                    border: 'none',
+                    background: 'rgba(239, 68, 68, 0.08)',
+                    border: '1px solid rgba(239, 68, 68, 0.25)',
                     borderRadius: '8px',
                     padding: '8px 16px',
-                    color: 'white',
+                    color: '#f87171',
                     fontSize: '12px',
-                    fontWeight: 'bold',
+                    fontWeight: '600',
                     cursor: 'pointer',
-                    transition: 'all 0.3s ease'
+                    transition: 'all 0.2s ease',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
                   }}
-                  onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
-                  onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
+                  onMouseOver={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(239, 68, 68, 0.18)'; }}
+                  onMouseOut={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(239, 68, 68, 0.08)'; }}
                 >
-                  🗑️ Clear All
+                  <i className="fas fa-trash-alt"></i> Clear All
                 </button>
               </div>
               
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {orderItems.map((item) => (
-                  <div key={item.id} style={{
-                    background: 'rgba(255, 255, 255, 0.08)',
-                    borderRadius: '12px',
-                    padding: '20px',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                    transition: 'all 0.3s ease'
-                  }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ 
-                          color: 'white', 
-                          fontWeight: '700', 
-                          fontSize: '16px', 
-                          marginBottom: '8px'
-                        }}>
-                          {item.name}
-                        </div>
-                        <div style={{ 
-                          fontSize: '14px', 
-                          color: 'rgba(255, 255, 255, 0.7)',
-                          display: 'flex',
-                          gap: '20px',
-                          alignItems: 'center',
-                          marginBottom: '12px'
-                        }}>
-                          <span style={{ 
-                            background: 'rgba(52, 152, 219, 0.2)',
-                            padding: '4px 12px',
-                            borderRadius: '6px',
-                            fontSize: '12px',
-                            fontWeight: '600',
-                            border: '1px solid rgba(52, 152, 219, 0.4)'
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {orderItems.map((item) => {
+                  const typeColor = serviceTypeColors[item.washType] || '#10b981';
+                  return (
+                    <div key={item.id} style={{
+                      background: 'rgba(255, 255, 255, 0.02)',
+                      borderRadius: '12px',
+                      padding: '16px 20px',
+                      border: '1px solid rgba(255, 255, 255, 0.06)',
+                      transition: 'border-color 0.15s ease'
+                    }}
+                    onMouseOver={(e) => { e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.12)'; }}
+                    onMouseOut={(e) => { e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.06)'; }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ 
+                            color: '#f9fafb', 
+                            fontWeight: '600', 
+                            fontSize: '15px', 
+                            marginBottom: '6px'
                           }}>
-                            {item.washType}
-                          </span>
-                          <span>Qty: <strong>{item.quantity}</strong></span>
-                          <span>Rate: <strong>₹{item.price}</strong></span>
-                          <span style={{ color: '#2ecc71', fontWeight: 'bold' }}>
-                            Total: ₹{item.total}
-                          </span>
+                            {item.name}
+                          </div>
+                          <div style={{ 
+                            fontSize: '12px', 
+                            color: '#9ca3af',
+                            display: 'flex',
+                            gap: '16px',
+                            alignItems: 'center'
+                          }}>
+                            <span style={{ 
+                              background: `${typeColor}15`,
+                              color: typeColor,
+                              padding: '2px 8px',
+                              borderRadius: '5px',
+                              fontSize: '11px',
+                              fontWeight: '600',
+                              border: `1px solid ${typeColor}30`
+                            }}>
+                              {item.washType}
+                            </span>
+                            <span>Qty: <strong style={{ color: '#fff' }}>{item.quantity}</strong></span>
+                            <span>Rate: <strong style={{ color: '#fff' }}>₹{item.price}</strong></span>
+                            <span style={{ color: '#10b981', fontWeight: 'bold' }}>
+                              Total: ₹{item.total}
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                      
-                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                        <button
-                          onClick={() => handleEditItem(item)}
-                          style={{
-                            background: 'linear-gradient(135deg, #3498db, #2980b9)',
-                            border: 'none',
-                            borderRadius: '8px',
-                            padding: '8px 12px',
-                            color: 'white',
-                            cursor: 'pointer',
-                            fontSize: '12px',
-                            fontWeight: 'bold',
-                            transition: 'all 0.3s ease'
-                          }}
-                          onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
-                          onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
-                        >
-                          ✏️ Edit
-                        </button>
                         
-                        <button
-                          onClick={() => handleDuplicateItem(item)}
-                          style={{
-                            background: 'linear-gradient(135deg, #f39c12, #e67e22)',
-                            border: 'none',
-                            borderRadius: '8px',
-                            padding: '8px 12px',
-                            color: 'white',
-                            cursor: 'pointer',
-                            fontSize: '12px',
-                            fontWeight: 'bold',
-                            transition: 'all 0.3s ease'
-                          }}
-                          onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
-                          onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
-                        >
-                          📋 Copy
-                        </button>
-                        
-                        <button
-                          onClick={() => handleRemoveItem(item.id)}
-                          style={{
-                            background: 'linear-gradient(135deg, #e74c3c, #c0392b)',
-                            border: 'none',
-                            borderRadius: '8px',
-                            padding: '8px 12px',
-                            color: 'white',
-                            cursor: 'pointer',
-                            fontSize: '12px',
-                            fontWeight: 'bold',
-                            transition: 'all 0.3s ease'
-                          }}
-                          onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
-                          onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
-                        >
-                          🗑️ Remove
-                        </button>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                          <button
+                            onClick={() => handleEditItem(item)}
+                            style={{
+                              background: 'rgba(59, 130, 246, 0.08)',
+                              border: '1px solid rgba(59, 130, 246, 0.25)',
+                              borderRadius: '8px',
+                              padding: '6px 12px',
+                              color: '#60a5fa',
+                              cursor: 'pointer',
+                              fontSize: '12px',
+                              fontWeight: '600',
+                              transition: 'all 0.15s ease',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}
+                            onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(59, 130, 246, 0.18)'; }}
+                            onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(59, 130, 246, 0.08)'; }}
+                          >
+                            <i className="fas fa-edit"></i> Edit
+                          </button>
+                          
+                          <button
+                            onClick={() => handleDuplicateItem(item)}
+                            style={{
+                              background: 'rgba(245, 158, 11, 0.08)',
+                              border: '1px solid rgba(245, 158, 11, 0.25)',
+                              borderRadius: '8px',
+                              padding: '6px 12px',
+                              color: '#fbbf24',
+                              cursor: 'pointer',
+                              fontSize: '12px',
+                              fontWeight: '600',
+                              transition: 'all 0.15s ease',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}
+                            onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(245, 158, 11, 0.18)'; }}
+                            onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(245, 158, 11, 0.08)'; }}
+                          >
+                            <i className="fas fa-copy"></i> Copy
+                          </button>
+                          
+                          <button
+                            onClick={() => handleRemoveItem(item.id)}
+                            style={{
+                              background: 'rgba(239, 68, 68, 0.08)',
+                              border: '1px solid rgba(239, 68, 68, 0.25)',
+                              borderRadius: '8px',
+                              padding: '6px 12px',
+                              color: '#f87171',
+                              cursor: 'pointer',
+                              fontSize: '12px',
+                              fontWeight: '600',
+                              transition: 'all 0.15s ease',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}
+                            onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.18)'; }}
+                            onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)'; }}
+                          >
+                            <i className="fas fa-trash-alt"></i> Remove
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
         </div>
-
+ 
         {/* Edit Modal */}
         {editingItem && (
           <div style={{
@@ -350,27 +396,29 @@ const ItemListManager: React.FC<ItemListManagerProps> = ({
             left: 0,
             right: 0,
             bottom: 0,
-            background: 'rgba(0, 0, 0, 0.8)',
+            background: 'rgba(0, 0, 0, 0.7)',
             display: 'flex',
             justifyContent: 'center',
             alignItems: 'center',
-            zIndex: 10
+            zIndex: 10,
+            backdropFilter: 'blur(4px)'
           }}>
             <div style={{
-              background: 'linear-gradient(135deg, #34495e, #2c3e50)',
-              borderRadius: '15px',
-              padding: '30px',
-              width: '400px',
-              boxShadow: '0 20px 40px rgba(0, 0, 0, 0.5)',
-              border: '1px solid rgba(255, 255, 255, 0.1)'
+              background: '#1f2937',
+              borderRadius: '16px',
+              padding: '24px 28px',
+              width: '90%',
+              maxWidth: '400px',
+              boxShadow: '0 20px 48px rgba(0, 0, 0, 0.6)',
+              border: '1px solid rgba(255, 255, 255, 0.08)'
             }}>
-              <h3 style={{ margin: '0 0 20px 0', fontSize: '20px', fontWeight: 'bold' }}>
-                ✏️ Edit Item
+              <h3 style={{ margin: '0 0 20px 0', fontSize: '18px', fontWeight: '700', color: '#f9fafb' }}>
+                <i className="fas fa-edit" style={{ color: '#0ea5e9', marginRight: '8px' }}></i> Edit Item
               </h3>
               
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                 <div>
-                  <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 'bold', color: '#bdc3c7' }}>
+                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: '500', color: '#9ca3af' }}>
                     Item Name
                   </label>
                   <input
@@ -378,24 +426,19 @@ const ItemListManager: React.FC<ItemListManagerProps> = ({
                     value={editForm.name}
                     onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
                     style={{
-                      width: '100%',
-                      padding: '12px',
-                      borderRadius: '8px',
-                      border: '2px solid rgba(255, 255, 255, 0.2)',
-                      background: 'rgba(255, 255, 255, 0.1)',
-                      color: 'white',
-                      fontSize: '14px',
-                      outline: 'none',
-                      transition: 'all 0.3s ease'
+                      width: '100%', padding: '10px 12px', borderRadius: '8px',
+                      border: '1px solid rgba(255,255,255,0.1)', fontSize: '14px',
+                      background: 'rgba(9,9,11,0.6)', color: '#fff', fontWeight: '500',
+                      outline: 'none', boxSizing: 'border-box', transition: 'border-color 0.15s ease'
                     }}
-                    onFocus={(e) => e.target.style.borderColor = 'rgba(52, 152, 219, 0.8)'}
-                    onBlur={(e) => e.target.style.borderColor = 'rgba(255, 255, 255, 0.2)'}
+                    onFocus={(e) => e.target.style.borderColor = '#0ea5e9'}
+                    onBlur={(e) => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
                   />
                 </div>
                 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
                   <div>
-                    <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 'bold', color: '#bdc3c7' }}>
+                    <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: '500', color: '#9ca3af' }}>
                       Quantity
                     </label>
                     <input
@@ -404,23 +447,19 @@ const ItemListManager: React.FC<ItemListManagerProps> = ({
                       onChange={(e) => setEditForm({ ...editForm, quantity: parseInt(e.target.value) || 1 })}
                       min="1"
                       style={{
-                        width: '100%',
-                        padding: '12px',
-                        borderRadius: '8px',
-                        border: '2px solid rgba(255, 255, 255, 0.2)',
-                        background: 'rgba(255, 255, 255, 0.1)',
-                        color: 'white',
-                        fontSize: '14px',
-                        outline: 'none',
-                        transition: 'all 0.3s ease'
+                        width: '100%', padding: '10px 12px', borderRadius: '8px',
+                        border: '1px solid rgba(255,255,255,0.1)', fontSize: '14px',
+                        background: 'rgba(9,9,11,0.6)', color: '#fff', fontWeight: '600',
+                        outline: 'none', boxSizing: 'border-box', transition: 'border-color 0.15s ease',
+                        textAlign: 'center'
                       }}
-                      onFocus={(e) => e.target.style.borderColor = 'rgba(52, 152, 219, 0.8)'}
-                      onBlur={(e) => e.target.style.borderColor = 'rgba(255, 255, 255, 0.2)'}
+                      onFocus={(e) => { e.target.style.borderColor = '#0ea5e9'; e.target.select(); }}
+                      onBlur={(e) => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
                     />
                   </div>
                   
                   <div>
-                    <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 'bold', color: '#bdc3c7' }}>
+                    <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: '500', color: '#9ca3af' }}>
                       Price (₹)
                     </label>
                     <input
@@ -430,43 +469,34 @@ const ItemListManager: React.FC<ItemListManagerProps> = ({
                       min="0"
                       step="0.01"
                       style={{
-                        width: '100%',
-                        padding: '12px',
-                        borderRadius: '8px',
-                        border: '2px solid rgba(255, 255, 255, 0.2)',
-                        background: 'rgba(255, 255, 255, 0.1)',
-                        color: 'white',
-                        fontSize: '14px',
-                        outline: 'none',
-                        transition: 'all 0.3s ease'
+                        width: '100%', padding: '10px 12px', borderRadius: '8px',
+                        border: '1px solid rgba(255,255,255,0.1)', fontSize: '14px',
+                        background: 'rgba(9,9,11,0.6)', color: '#fff', fontWeight: '600',
+                        outline: 'none', boxSizing: 'border-box', transition: 'border-color 0.15s ease',
+                        textAlign: 'center'
                       }}
-                      onFocus={(e) => e.target.style.borderColor = 'rgba(52, 152, 219, 0.8)'}
-                      onBlur={(e) => e.target.style.borderColor = 'rgba(255, 255, 255, 0.2)'}
+                      onFocus={(e) => { e.target.style.borderColor = '#0ea5e9'; e.target.select(); }}
+                      onBlur={(e) => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
                     />
                   </div>
                 </div>
                 
                 <div>
-                  <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 'bold', color: '#bdc3c7' }}>
+                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '12px', fontWeight: '500', color: '#9ca3af' }}>
                     Wash Type
                   </label>
                   <select
                     value={editForm.washType}
                     onChange={(e) => setEditForm({ ...editForm, washType: e.target.value as any })}
                     style={{
-                      width: '100%',
-                      padding: '12px',
-                      borderRadius: '8px',
-                      border: '2px solid rgba(255, 255, 255, 0.2)',
-                      background: 'rgba(255, 255, 255, 0.1)',
-                      color: 'white',
-                      fontSize: '14px',
-                      outline: 'none',
-                      cursor: 'pointer',
-                      transition: 'all 0.3s ease'
+                      width: '100%', padding: '10px 12px', borderRadius: '8px',
+                      border: '1px solid rgba(255,255,255,0.1)', fontSize: '14px',
+                      background: 'rgba(9,9,11,0.6)', color: '#fff', fontWeight: '500',
+                      outline: 'none', boxSizing: 'border-box', cursor: 'pointer',
+                      transition: 'border-color 0.15s ease'
                     }}
-                    onFocus={(e) => e.target.style.borderColor = 'rgba(52, 152, 219, 0.8)'}
-                    onBlur={(e) => e.target.style.borderColor = 'rgba(255, 255, 255, 0.2)'}
+                    onFocus={(e) => e.target.style.borderColor = '#0ea5e9'}
+                    onBlur={(e) => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
                   >
                     <option value="WASH">🧺 WASH</option>
                     <option value="IRON">🔥 IRON</option>
@@ -476,62 +506,44 @@ const ItemListManager: React.FC<ItemListManagerProps> = ({
                 </div>
                 
                 <div style={{
-                  background: 'rgba(46, 204, 113, 0.1)',
+                  background: 'rgba(16, 185, 129, 0.06)',
                   padding: '12px',
                   borderRadius: '8px',
-                  border: '1px solid rgba(46, 204, 113, 0.3)',
-                  textAlign: 'center'
+                  border: '1px solid rgba(16, 185, 129, 0.2)',
+                  textAlign: 'center',
+                  marginTop: '6px'
                 }}>
-                  <div style={{ fontSize: '14px', color: 'rgba(255, 255, 255, 0.8)', marginBottom: '4px' }}>
+                  <div style={{ fontSize: '11px', color: '#a7f3d0', marginBottom: '4px', fontWeight: '500' }}>
                     Total Amount
                   </div>
-                  <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#2ecc71' }}>
+                  <div style={{ fontSize: '20px', fontWeight: '700', color: '#10b981' }}>
                     ₹{(editForm.price * editForm.quantity).toFixed(2)}
                   </div>
                 </div>
               </div>
               
-              <div style={{ display: 'flex', gap: '12px', marginTop: '25px' }}>
+              <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
                 <button
                   onClick={handleSaveEdit}
                   style={{
-                    flex: 1,
-                    padding: '12px',
-                    borderRadius: '8px',
-                    border: 'none',
-                    background: 'linear-gradient(135deg, #27ae60, #2ecc71)',
-                    color: 'white',
-                    fontSize: '14px',
-                    fontWeight: 'bold',
-                    cursor: 'pointer',
-                    transition: 'all 0.3s ease'
+                    flex: 1, padding: '10px 16px', borderRadius: '8px', border: 'none',
+                    background: 'linear-gradient(135deg, #0ea5e9, #06b6d4)',
+                    color: '#fff', fontSize: '14px', fontWeight: '600', cursor: 'pointer',
+                    boxShadow: '0 4px 12px rgba(14, 165, 233, 0.3)', transition: 'all 0.2s ease'
                   }}
-                  onMouseOver={(e) => e.target.style.transform = 'translateY(-2px)'}
-                  onMouseOut={(e) => e.target.style.transform = 'translateY(0)'}
+                  onMouseOver={(e) => { (e.target as HTMLElement).style.transform = 'translateY(-1px)'; }}
+                  onMouseOut={(e) => { (e.target as HTMLElement).style.transform = 'translateY(0)'; }}
                 >
-                  💾 Save Changes
+                  Save Changes
                 </button>
                 <button
                   onClick={() => setEditingItem(null)}
                   style={{
-                    flex: 1,
-                    padding: '12px',
-                    borderRadius: '8px',
-                    border: '2px solid rgba(255, 255, 255, 0.3)',
-                    background: 'transparent',
-                    color: 'white',
-                    fontSize: '14px',
-                    fontWeight: 'bold',
-                    cursor: 'pointer',
-                    transition: 'all 0.3s ease'
-                  }}
-                  onMouseOver={(e) => {
-                    e.target.style.background = 'rgba(255, 255, 255, 0.1)';
-                    e.target.style.transform = 'translateY(-2px)';
-                  }}
-                  onMouseOut={(e) => {
-                    e.target.style.background = 'transparent';
-                    e.target.style.transform = 'translateY(0)';
+                    flex: 1, padding: '10px 16px', borderRadius: '8px',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    background: 'rgba(255,255,255,0.03)', color: '#9ca3af',
+                    fontSize: '14px', fontWeight: '600', cursor: 'pointer',
+                    transition: 'all 0.2s ease'
                   }}
                 >
                   Cancel
@@ -544,5 +556,5 @@ const ItemListManager: React.FC<ItemListManagerProps> = ({
     </div>
   );
 };
-
+ 
 export default ItemListManager;

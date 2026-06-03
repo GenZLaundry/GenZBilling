@@ -230,6 +230,16 @@ const BillManager: React.FC<BillManagerProps> = ({ onClose, initialEditBill }) =
             showAlert({ message: 'Database unavailable, removing locally only', type: 'warning' });
           }
 
+          // Add to deleted bills tracker to prevent offline re-sync
+          try {
+            const deletedRaw = localStorage.getItem('laundry_deleted_bills');
+            const deletedList = deletedRaw ? JSON.parse(deletedRaw) : [];
+            if (!deletedList.includes(bill.billNumber)) {
+              deletedList.push(bill.billNumber);
+              localStorage.setItem('laundry_deleted_bills', JSON.stringify(deletedList));
+            }
+          } catch (e) { /* ignore */ }
+
           // Remove from localStorage
           const saved = localStorage.getItem('laundry_bill_history');
           if (saved) {
@@ -239,6 +249,18 @@ const BillManager: React.FC<BillManagerProps> = ({ onClose, initialEditBill }) =
             );
             localStorage.setItem('laundry_bill_history', JSON.stringify(updatedBills));
           }
+
+          // Remove from laundry_pending_bills localStorage
+          try {
+            const savedPending = localStorage.getItem('laundry_pending_bills');
+            if (savedPending) {
+              const pendingBills = JSON.parse(savedPending);
+              const updatedPending = pendingBills.filter((b: any) => 
+                b._id !== bill._id && b.billNumber !== bill.billNumber && b.id !== bill._id
+              );
+              localStorage.setItem('laundry_pending_bills', JSON.stringify(updatedPending));
+            }
+          } catch (e) { /* ignore */ }
 
           loadBills();
         } catch (error) {

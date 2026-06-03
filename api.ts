@@ -191,6 +191,31 @@ class ApiService {
     return this.request('/sms/customers');
   }
 
+  async sendManualEntryReceivedSMS(
+    phone: string,
+    customerName: string,
+    serviceType: string,
+    quantity: number,
+    pickupDate: string,
+    deliveryDate: string,
+    paymentStatus: string,
+    partialAmount?: number
+  ) {
+    return this.request('/sms/manual-entry-received', {
+      method: 'POST',
+      body: JSON.stringify({
+        phone,
+        customerName,
+        serviceType,
+        quantity,
+        pickupDate,
+        deliveryDate,
+        paymentStatus,
+        partialAmount
+      }),
+    });
+  }
+
   async bulkUpdateBillStatus(billIds: string[], status: string) {
     return this.request('/bills/bulk-status', {
       method: 'PATCH',
@@ -635,6 +660,91 @@ class ApiService {
   async deleteIncome(id: string) {
     return this.request(`/incomes/${id}`, {
       method: 'DELETE',
+    });
+  }
+
+  // --- MANUAL ENTRIES API ---
+  async getManualEntries() {
+    return this.request('/manual-entries');
+  }
+
+  async createManualEntry(data: any) {
+    return this.request('/manual-entries', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateManualEntry(id: string, data: any) {
+    return this.request(`/manual-entries/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateManualEntryPaymentStatus(id: string, paymentStatus: string, partialAmount?: number) {
+    return this.request(`/manual-entries/${id}/payment-status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ paymentStatus, partialAmount }),
+    });
+  }
+
+  async updateManualEntryStatus(id: string, status: string) {
+    return this.request(`/manual-entries/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    });
+  }
+
+  async deleteManualEntry(id: string) {
+    return this.request(`/manual-entries/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // --- CUSTOMERS CRM API ---
+  async getCustomers(params: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    tier?: string;
+    sortBy?: string;
+    sortOrder?: string;
+  } = {}) {
+    let url = '/customers';
+    const qParams = new URLSearchParams();
+    if (params.page) qParams.append('page', params.page.toString());
+    if (params.limit) qParams.append('limit', params.limit.toString());
+    if (params.search) qParams.append('search', params.search);
+    if (params.tier) qParams.append('tier', params.tier);
+    if (params.sortBy) qParams.append('sortBy', params.sortBy);
+    if (params.sortOrder) qParams.append('sortOrder', params.sortOrder);
+    
+    if (qParams.toString()) url += `?${qParams.toString()}`;
+    return this.request(url);
+  }
+
+  async getCustomerDetails(phone: string) {
+    return this.request(`/customers/${phone}`);
+  }
+
+  async updateCustomerProfile(phone: string, data: { name?: string; email?: string; notes?: string }) {
+    return this.request(`/customers/${phone}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
+  }
+
+  async adjustCustomerPoints(phone: string, points: number, note?: string) {
+    return this.request(`/customers/${phone}/adjust-points`, {
+      method: 'POST',
+      body: JSON.stringify({ points, note })
+    });
+  }
+
+  async triggerCustomerMigration() {
+    return this.request('/customers/migrate', {
+      method: 'POST'
     });
   }
 }

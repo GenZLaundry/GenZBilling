@@ -54,19 +54,19 @@ const UPISettings: React.FC<UPISettingsProps> = ({ onClose }) => {
     const upiUrl = `upi://pay?pa=${config.upiId}&pn=${encodeURIComponent(config.payeeName)}&am=${verificationAmount}&cu=INR&tn=Payment Configuration Verification`;
     const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(upiUrl)}&ecc=H&margin=20&color=2c3e50&bgcolor=FFFFFF`;
     
-    // Open verification window
     const verificationWindow = window.open('', '_blank', 'width=500,height=700');
     if (verificationWindow) {
       verificationWindow.document.write(`
         <!DOCTYPE html>
         <html>
         <head>
-          <title>🔍 Payment Configuration Verification</title>
+          <title>Payment Configuration Verification</title>
+          <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
           <style>
             * { margin: 0; padding: 0; box-sizing: border-box; }
             body { 
               font-family: 'Inter', 'Segoe UI', system-ui, sans-serif; 
-              background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+              background: #09090b;
               min-height: 100vh;
               display: flex;
               align-items: center;
@@ -74,248 +74,102 @@ const UPISettings: React.FC<UPISettingsProps> = ({ onClose }) => {
               padding: 20px;
             }
             .container {
-              background: rgba(255, 255, 255, 0.95);
+              background: rgba(24, 24, 27, 0.85);
               backdrop-filter: blur(20px);
-              color: #2c3e50;
-              padding: 40px;
-              border-radius: 25px;
-              box-shadow: 0 25px 50px rgba(0,0,0,0.2);
+              color: #ffffff;
+              padding: 36px;
+              border-radius: 20px;
+              box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+              border: 1px solid rgba(255,255,255,0.08);
               max-width: 420px;
               width: 100%;
-              border: 1px solid rgba(255, 255, 255, 0.3);
-              animation: slideIn 0.5s ease-out;
+              animation: slideIn 0.3s ease-out;
             }
             @keyframes slideIn {
-              from { opacity: 0; transform: translateY(30px); }
+              from { opacity: 0; transform: translateY(12px); }
               to { opacity: 1; transform: translateY(0); }
             }
-            .header {
-              text-align: center;
-              margin-bottom: 30px;
-            }
+            .header { text-align: center; margin-bottom: 28px; }
             .header-icon {
-              font-size: 48px;
-              margin-bottom: 15px;
-              animation: pulse 2s infinite;
+              width: 52px; height: 52px;
+              background: linear-gradient(135deg, #6366f1, #0ea5e9);
+              border-radius: 14px;
+              display: inline-flex; align-items: center; justify-content: center;
+              font-size: 26px; margin-bottom: 14px;
             }
-            @keyframes pulse {
-              0%, 100% { transform: scale(1); }
-              50% { transform: scale(1.05); }
-            }
-            .header h2 {
-              font-size: 24px;
-              font-weight: 700;
-              margin-bottom: 8px;
-              background: linear-gradient(135deg, #667eea, #764ba2);
-              -webkit-background-clip: text;
-              -webkit-text-fill-color: transparent;
-              background-clip: text;
-            }
-            .header p {
-              color: #6c757d;
-              font-size: 14px;
-            }
+            .header h2 { font-size: 22px; font-weight: 700; color: #fff; margin-bottom: 4px; }
+            .header p { color: #a1a1aa; font-size: 14px; }
             .qr-section {
-              text-align: center;
-              margin: 30px 0;
-              padding: 25px;
-              background: linear-gradient(135deg, #f8f9ff, #ffffff);
-              border-radius: 20px;
-              border: 2px solid #e3f2fd;
-              box-shadow: 0 8px 25px rgba(102, 126, 234, 0.1);
+              text-align: center; margin: 24px 0; padding: 24px;
+              background: rgba(255,255,255,0.03); border-radius: 16px;
+              border: 1px solid rgba(255,255,255,0.06);
             }
-            .amount-display {
-              font-size: 36px;
-              font-weight: 800;
-              background: linear-gradient(135deg, #27ae60, #2ecc71);
-              -webkit-background-clip: text;
-              -webkit-text-fill-color: transparent;
-              background-clip: text;
-              margin-bottom: 20px;
-              text-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            }
-            .qr-code {
-              border-radius: 15px;
-              box-shadow: 0 10px 30px rgba(0,0,0,0.15);
-              transition: transform 0.3s ease;
-              background: white;
-              padding: 10px;
-            }
-            .qr-code:hover {
-              transform: scale(1.02);
-            }
+            .amount-display { font-size: 32px; font-weight: 800; color: #10b981; margin-bottom: 16px; }
+            .qr-code { border-radius: 12px; background: white; padding: 8px; }
             .config-card {
-              background: linear-gradient(135deg, #f8f9ff, #ffffff);
-              padding: 25px;
-              border-radius: 18px;
-              margin: 25px 0;
-              border: 1px solid #e3f2fd;
-              box-shadow: 0 5px 15px rgba(102, 126, 234, 0.08);
+              background: rgba(255,255,255,0.03); padding: 20px; border-radius: 14px;
+              margin: 20px 0; border: 1px solid rgba(255,255,255,0.06);
             }
             .config-item {
-              display: flex;
-              justify-content: space-between;
-              align-items: center;
-              margin-bottom: 15px;
-              padding: 12px 0;
-              border-bottom: 1px solid rgba(108, 117, 125, 0.1);
+              display: flex; justify-content: space-between; align-items: center;
+              padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05);
             }
-            .config-item:last-child {
-              border-bottom: none;
-              margin-bottom: 0;
-            }
-            .config-label {
-              font-weight: 600;
-              color: #495057;
-              font-size: 13px;
-              text-transform: uppercase;
-              letter-spacing: 0.5px;
-            }
-            .config-value {
-              font-weight: 700;
-              color: #2c3e50;
-              font-size: 14px;
-              max-width: 200px;
-              text-align: right;
-              word-break: break-all;
-            }
+            .config-item:last-child { border-bottom: none; }
+            .config-label { font-weight: 500; color: #a1a1aa; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; }
+            .config-value { font-weight: 600; color: #fff; font-size: 14px; max-width: 200px; text-align: right; word-break: break-all; }
             .instructions {
-              background: linear-gradient(135deg, #e3f2fd, #f8f9ff);
-              padding: 25px;
-              border-radius: 18px;
-              margin: 25px 0;
-              border-left: 5px solid #2196f3;
-              box-shadow: 0 5px 15px rgba(33, 150, 243, 0.1);
+              background: rgba(99, 102, 241, 0.08); padding: 20px; border-radius: 14px;
+              margin: 20px 0; border-left: 3px solid #6366f1;
             }
-            .instructions h4 {
-              color: #1976d2;
-              margin-bottom: 15px;
-              font-size: 16px;
-              font-weight: 700;
-              display: flex;
-              align-items: center;
-              gap: 8px;
-            }
-            .step-list {
-              list-style: none;
-              counter-reset: step-counter;
-            }
+            .instructions h4 { color: #c7d2fe; margin-bottom: 12px; font-size: 15px; font-weight: 600; }
+            .step-list { list-style: none; counter-reset: step-counter; }
             .step-list li {
-              counter-increment: step-counter;
-              margin-bottom: 12px;
-              padding-left: 35px;
-              position: relative;
-              color: #495057;
-              font-size: 14px;
-              line-height: 1.5;
+              counter-increment: step-counter; margin-bottom: 10px; padding-left: 32px;
+              position: relative; color: #a1a1aa; font-size: 14px; line-height: 1.5;
             }
             .step-list li::before {
-              content: counter(step-counter);
-              position: absolute;
-              left: 0;
-              top: 0;
-              background: linear-gradient(135deg, #2196f3, #1976d2);
-              color: white;
-              width: 24px;
-              height: 24px;
-              border-radius: 50%;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              font-size: 12px;
-              font-weight: 700;
+              content: counter(step-counter); position: absolute; left: 0; top: 0;
+              background: #6366f1; color: white; width: 22px; height: 22px;
+              border-radius: 50%; display: flex; align-items: center; justify-content: center;
+              font-size: 11px; font-weight: 700;
             }
             .warning-card {
-              background: linear-gradient(135deg, #fff3e0, #fffbf0);
-              border: 1px solid #ffcc02;
-              border-left: 5px solid #ff9800;
-              padding: 20px;
-              border-radius: 15px;
-              margin: 25px 0;
-              box-shadow: 0 5px 15px rgba(255, 152, 0, 0.1);
+              background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.15);
+              border-left: 3px solid #f59e0b; padding: 16px; border-radius: 14px; margin: 20px 0;
             }
-            .warning-card h4 {
-              color: #f57c00;
-              margin-bottom: 10px;
-              font-size: 15px;
-              font-weight: 700;
-              display: flex;
-              align-items: center;
-              gap: 8px;
-            }
-            .warning-card p {
-              color: #bf360c;
-              font-size: 13px;
-              line-height: 1.5;
-              margin: 0;
-            }
+            .warning-card h4 { color: #fbbf24; margin-bottom: 6px; font-size: 14px; font-weight: 600; }
+            .warning-card p { color: #a1a1aa; font-size: 13px; line-height: 1.5; margin: 0; }
             .supported-apps {
-              text-align: center;
-              margin-top: 30px;
-              padding: 20px;
-              background: linear-gradient(135deg, #f1f8e9, #ffffff);
-              border-radius: 15px;
-              border: 1px solid #c8e6c9;
+              text-align: center; margin-top: 24px; padding: 16px;
+              background: rgba(16, 185, 129, 0.06); border-radius: 14px;
+              border: 1px solid rgba(16, 185, 129, 0.12);
             }
-            .supported-apps h4 {
-              color: #388e3c;
-              margin-bottom: 15px;
-              font-size: 14px;
-              font-weight: 700;
-            }
-            .app-icons {
-              display: flex;
-              justify-content: center;
-              gap: 15px;
-              flex-wrap: wrap;
-            }
+            .supported-apps h4 { color: #10b981; margin-bottom: 12px; font-size: 13px; font-weight: 600; }
+            .app-icons { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
             .app-icon {
-              background: white;
-              padding: 8px 12px;
-              border-radius: 10px;
-              font-size: 12px;
-              font-weight: 600;
-              color: #2e7d32;
-              border: 1px solid #c8e6c9;
-              box-shadow: 0 2px 8px rgba(46, 125, 50, 0.1);
+              background: rgba(16, 185, 129, 0.1); padding: 6px 12px; border-radius: 6px;
+              font-size: 12px; font-weight: 500; color: #10b981; border: 1px solid rgba(16, 185, 129, 0.15);
             }
             .close-btn {
-              position: absolute;
-              top: 15px;
-              right: 15px;
-              background: rgba(255, 255, 255, 0.9);
-              border: none;
-              border-radius: 50%;
-              width: 35px;
-              height: 35px;
-              cursor: pointer;
-              font-size: 18px;
-              color: #666;
-              transition: all 0.3s ease;
-              box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+              position: absolute; top: 16px; right: 16px; background: rgba(255,255,255,0.06);
+              border: none; border-radius: 8px; width: 32px; height: 32px;
+              cursor: pointer; font-size: 16px; color: #71717a; transition: all 0.2s ease;
             }
-            .close-btn:hover {
-              background: #f44336;
-              color: white;
-              transform: scale(1.1);
-            }
+            .close-btn:hover { background: rgba(244, 63, 94, 0.15); color: #f43f5e; }
           </style>
         </head>
         <body>
-          <div class="container">
+          <div class="container" style="position:relative;">
             <button class="close-btn" onclick="window.close()">×</button>
-            
             <div class="header">
               <div class="header-icon">🔍</div>
               <h2>Configuration Verification</h2>
               <p>Test your UPI payment setup</p>
             </div>
-            
             <div class="qr-section">
               <div class="amount-display">₹${verificationAmount}</div>
               <img src="${qrCodeUrl}" alt="Configuration Verification QR" class="qr-code" />
             </div>
-            
             <div class="config-card">
               <div class="config-item">
                 <span class="config-label">Business UPI ID</span>
@@ -333,12 +187,10 @@ const UPISettings: React.FC<UPISettingsProps> = ({ onClose }) => {
               <div class="config-item">
                 <span class="config-label">Merchant Code</span>
                 <span class="config-value">${config.merchantCode}</span>
-              </div>
-              ` : ''}
+              </div>` : ''}
             </div>
-            
             <div class="instructions">
-              <h4>📋 Verification Steps</h4>
+              <h4>Verification Steps</h4>
               <ol class="step-list">
                 <li>Scan this QR code with your UPI app</li>
                 <li>Verify the business name appears correctly</li>
@@ -347,14 +199,12 @@ const UPISettings: React.FC<UPISettingsProps> = ({ onClose }) => {
                 <li>Close the payment screen after verification</li>
               </ol>
             </div>
-            
             <div class="warning-card">
-              <h4>⚠️ Important Notice</h4>
+              <h4>⚠ Important Notice</h4>
               <p>This is for verification only. Do not complete the payment transaction. Simply verify that your business details appear correctly in your UPI app.</p>
             </div>
-            
             <div class="supported-apps">
-              <h4>✅ Supported Payment Apps</h4>
+              <h4>Supported Payment Apps</h4>
               <div class="app-icons">
                 <span class="app-icon">PhonePe</span>
                 <span class="app-icon">Google Pay</span>
@@ -373,337 +223,307 @@ const UPISettings: React.FC<UPISettingsProps> = ({ onClose }) => {
     setTimeout(() => setIsLoading(false), 1000);
   };
 
+  const tabItems = [
+    { key: 'setup', label: 'Setup' },
+    { key: 'verify', label: 'Verify' },
+    { key: 'guide', label: 'Guide' }
+  ];
+
   return (
-    <div style={{
+    <div className="modal-overlay" style={{
       position: 'fixed',
       top: 0,
       left: 0,
       right: 0,
       bottom: 0,
-      background: 'linear-gradient(135deg, rgba(0,0,0,0.8), rgba(0,0,0,0.9))',
+      background: 'rgba(0, 0, 0, 0.6)',
+      backdropFilter: 'blur(4px)',
       display: 'flex',
       justifyContent: 'center',
       alignItems: 'center',
-      zIndex: 1000,
-      backdropFilter: 'blur(15px)',
-      animation: 'fadeIn 0.3s ease-out',
-      padding: '10px',
+      zIndex: 9999,
+      padding: '16px',
       overflowY: 'auto'
     }}>
       <style>{`
-        @keyframes fadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
+        @keyframes upiModalSlideIn {
+          from { opacity: 0; transform: translateY(-8px) scale(0.98); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
         }
-        @keyframes slideUp {
-          from { opacity: 0; transform: translateY(30px); }
-          to { opacity: 1; transform: translateY(0); }
+
+        .upi-modal-card {
+          animation: upiModalSlideIn 0.2s ease-out;
         }
-        @keyframes glow {
-          0%, 100% { box-shadow: 0 25px 50px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.1); }
-          50% { box-shadow: 0 25px 50px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.2), 0 0 30px rgba(52,152,219,0.3); }
+
+        .upi-field-input {
+          width: 100%;
+          padding: 12px 14px !important;
+          border-radius: 12px !important;
+          border: 1px solid rgba(255, 255, 255, 0.08) !important;
+          font-size: 15px !important;
+          background: rgba(9, 9, 11, 0.6) !important;
+          color: #ffffff !important;
+          font-weight: 500 !important;
+          outline: none;
+          transition: border-color 0.15s ease, box-shadow 0.15s ease;
+          box-sizing: border-box;
+          font-family: 'Outfit', 'Plus Jakarta Sans', system-ui, sans-serif;
         }
-        .modal-container {
-          animation: slideUp 0.4s ease-out, glow 3s ease-in-out infinite;
+        .upi-field-input:focus {
+          border-color: #6366f1 !important;
+          box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15) !important;
         }
-        .tab-button {
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        .upi-field-input::placeholder {
+          color: #71717a !important;
+          font-weight: 400 !important;
         }
-        .tab-button:hover {
+
+        .upi-tab-btn {
+          flex: 1;
+          padding: 10px 16px;
+          border-radius: 10px;
+          border: none;
+          background: transparent;
+          color: #a1a1aa;
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.15s ease;
+          font-family: inherit;
+        }
+        .upi-tab-btn:hover {
+          color: #ffffff;
+          background: rgba(255, 255, 255, 0.04);
+        }
+        .upi-tab-btn.active {
+          background: linear-gradient(135deg, #6366f1, #0ea5e9);
+          color: #ffffff;
+          box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+        }
+
+        .upi-btn-primary {
+          flex: 1;
+          min-width: 140px;
+          padding: 13px 24px;
+          border-radius: 12px;
+          border: none;
+          background: linear-gradient(135deg, #6366f1, #0ea5e9);
+          color: #ffffff;
+          font-size: 15px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          font-family: inherit;
+          box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+        }
+        .upi-btn-primary:hover {
+          box-shadow: 0 6px 20px rgba(99, 102, 241, 0.5);
           transform: translateY(-2px);
         }
-        .input-field {
-          transition: all 0.3s ease;
+        .upi-btn-primary:active {
+          transform: translateY(0);
         }
-        .input-field:focus {
+
+        .upi-btn-ghost {
+          flex: 1;
+          min-width: 140px;
+          padding: 13px 24px;
+          border-radius: 12px;
+          border: 1px solid rgba(255, 255, 255, 0.05);
+          background: rgba(255, 255, 255, 0.03);
+          color: #a1a1aa;
+          font-size: 15px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          font-family: inherit;
+          backdrop-filter: blur(8px);
+        }
+        .upi-btn-ghost:hover {
+          background: rgba(255, 255, 255, 0.08);
+          color: #ffffff;
+          border-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .upi-verify-action {
+          width: 100%;
+          padding: 14px;
+          border-radius: 12px;
+          border: none;
+          font-size: 15px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          font-family: inherit;
+        }
+        .upi-verify-action:not(:disabled) {
+          background: linear-gradient(135deg, #6366f1, #0ea5e9);
+          color: #ffffff;
+          box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+        }
+        .upi-verify-action:not(:disabled):hover {
+          box-shadow: 0 6px 20px rgba(99, 102, 241, 0.5);
           transform: translateY(-2px);
-          box-shadow: 0 8px 25px rgba(52, 152, 219, 0.2);
         }
-        .save-button {
-          background: linear-gradient(135deg, #27ae60, #2ecc71, #58d68d);
-          background-size: 200% 200%;
-          animation: gradientShift 3s ease infinite;
+        .upi-verify-action:disabled {
+          background: rgba(39, 39, 42, 0.75);
+          color: #71717a;
+          cursor: not-allowed;
         }
-        @keyframes gradientShift {
-          0% { background-position: 0% 50%; }
-          50% { background-position: 100% 50%; }
-          100% { background-position: 0% 50%; }
+
+        .upi-close-btn {
+          background: rgba(255, 255, 255, 0.05);
+          border: none;
+          border-radius: 10px;
+          width: 36px;
+          height: 36px;
+          color: #71717a;
+          font-size: 20px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.15s ease;
+          flex-shrink: 0;
         }
-        .verification-section {
-          background: linear-gradient(135deg, rgba(52, 152, 219, 0.1), rgba(52, 152, 219, 0.05));
-          backdrop-filter: blur(10px);
-          border: 1px solid rgba(52, 152, 219, 0.2);
-          transition: all 0.3s ease;
+        .upi-close-btn:hover {
+          background: rgba(244, 63, 94, 0.15);
+          color: #f43f5e;
         }
-        .verification-section:hover {
-          border-color: rgba(52, 152, 219, 0.4);
-          background: linear-gradient(135deg, rgba(52, 152, 219, 0.15), rgba(52, 152, 219, 0.08));
+
+        .upi-amount-chip {
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-radius: 8px;
+          color: #a1a1aa;
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          padding: 8px 14px;
+          transition: all 0.15s ease;
+          background: rgba(255, 255, 255, 0.03);
+          font-family: inherit;
         }
-        
-        /* Responsive Design */
-        @media (max-width: 768px) {
-          .modal-container {
-            width: 95% !important;
+        .upi-amount-chip:hover {
+          border-color: rgba(99, 102, 241, 0.4);
+          color: #c7d2fe;
+          background: rgba(99, 102, 241, 0.08);
+        }
+        .upi-amount-chip.selected {
+          background: linear-gradient(135deg, #6366f1, #0ea5e9);
+          color: #ffffff;
+          border-color: transparent;
+          box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+        }
+
+        .upi-app-tag {
+          background: rgba(16, 185, 129, 0.1);
+          padding: 5px 12px;
+          border-radius: 6px;
+          font-size: 12px;
+          font-weight: 500;
+          border: 1px solid rgba(16, 185, 129, 0.15);
+          color: #10b981;
+        }
+
+        @media (max-width: 640px) {
+          .upi-modal-card {
+            width: 100% !important;
             max-width: none !important;
-            padding: 20px !important;
-            margin: 10px !important;
-            max-height: 95vh !important;
-            overflow-y: auto !important;
+            padding: 24px !important;
+            margin: 8px !important;
+            border-radius: 16px !important;
           }
-          .header-title {
-            font-size: 22px !important;
-          }
-          .header-subtitle {
-            font-size: 13px !important;
-          }
-          .tab-container {
+          .upi-action-row {
             flex-direction: column !important;
-            gap: 4px !important;
-          }
-          .tab-button {
-            padding: 10px 16px !important;
-            font-size: 12px !important;
-          }
-          .input-field {
-            padding: 14px 16px !important;
-            font-size: 14px !important;
-          }
-          .verification-amount-container {
-            flex-direction: column !important;
-            gap: 10px !important;
-            align-items: stretch !important;
-          }
-          .verification-amount-label {
-            min-width: auto !important;
-            text-align: left !important;
-          }
-          .action-buttons {
-            flex-direction: column !important;
-            gap: 10px !important;
-          }
-          .close-button {
-            width: 35px !important;
-            height: 35px !important;
-            font-size: 18px !important;
-          }
-        }
-        
-        @media (max-width: 480px) {
-          .modal-container {
-            width: 98% !important;
-            padding: 15px !important;
-            margin: 5px !important;
-          }
-          .header-icon {
-            padding: 8px !important;
-            font-size: 20px !important;
-          }
-          .header-title {
-            font-size: 20px !important;
-          }
-          .verification-icon {
-            font-size: 36px !important;
-          }
-          .verification-title {
-            font-size: 18px !important;
-          }
-        }
-        
-        /* High DPI / Retina Display Support */
-        @media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
-          .modal-container {
-            border-width: 0.5px;
-          }
-          .input-field {
-            border-width: 1px;
-          }
-        }
-        
-        /* Dark Mode Support */
-        @media (prefers-color-scheme: dark) {
-          .input-field {
-            background: rgba(255,255,255,0.98) !important;
-          }
-        }
-        
-        /* Reduced Motion Support */
-        @media (prefers-reduced-motion: reduce) {
-          .modal-container {
-            animation: none !important;
-          }
-          .tab-button, .input-field, .save-button {
-            transition: none !important;
-          }
-          .save-button {
-            animation: none !important;
-          }
-        }
-        
-        /* High Contrast Mode */
-        @media (prefers-contrast: high) {
-          .modal-container {
-            border: 2px solid white !important;
-          }
-          .input-field {
-            border: 2px solid #333 !important;
-          }
-          .tab-button {
-            border: 1px solid rgba(255,255,255,0.5) !important;
           }
         }
       `}</style>
-      
-      <div className="modal-container" style={{
-        background: 'linear-gradient(135deg, #2c3e50 0%, #34495e 50%, #2c3e50 100%)',
-        borderRadius: '25px',
-        padding: '40px',
+
+      <div className="upi-modal-card" style={{
+        background: 'rgba(24, 24, 27, 0.85)',
+        backdropFilter: 'blur(24px)',
+        WebkitBackdropFilter: 'blur(24px)',
+        borderRadius: '24px',
+        padding: '32px',
         width: '90%',
-        maxWidth: '600px',
+        maxWidth: '520px',
         minWidth: '320px',
         maxHeight: '90vh',
-        color: 'white',
-        boxShadow: '0 25px 50px rgba(0,0,0,0.4)',
-        border: '1px solid rgba(255,255,255,0.1)',
+        color: '#ffffff',
+        boxShadow: '0 16px 48px rgba(0,0,0,0.5)',
+        border: '1px solid rgba(255, 255, 255, 0.08)',
+        borderTop: '1px solid rgba(255, 255, 255, 0.12)',
         position: 'relative',
-        overflow: 'hidden',
         overflowY: 'auto',
-        margin: '20px'
+        margin: '16px',
+        fontFamily: "'Outfit', 'Plus Jakarta Sans', system-ui, sans-serif"
       }}>
-        
-        {/* Decorative Background Elements */}
-        <div style={{
-          position: 'absolute',
-          top: '-50%',
-          right: '-50%',
-          width: '100%',
-          height: '100%',
-          background: 'radial-gradient(circle, rgba(52,152,219,0.1) 0%, transparent 70%)',
-          pointerEvents: 'none'
-        }} />
-        <div style={{
-          position: 'absolute',
-          bottom: '-50%',
-          left: '-50%',
-          width: '100%',
-          height: '100%',
-          background: 'radial-gradient(circle, rgba(46,204,113,0.1) 0%, transparent 70%)',
-          pointerEvents: 'none'
-        }} />
 
         {/* Header */}
         <div style={{ 
           display: 'flex', 
           justifyContent: 'space-between', 
           alignItems: 'flex-start', 
-          marginBottom: '35px',
-          position: 'relative',
-          zIndex: 1,
-          flexWrap: 'wrap',
-          gap: '15px'
+          marginBottom: '28px',
+          gap: '12px'
         }}>
-          <div style={{ flex: 1, minWidth: '200px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '8px', flexWrap: 'wrap' }}>
-              <div className="header-icon" style={{
-                background: 'linear-gradient(135deg, #3498db, #2980b9)',
-                borderRadius: '15px',
-                padding: '12px',
-                fontSize: '24px',
-                boxShadow: '0 8px 20px rgba(52, 152, 219, 0.3)',
-                flexShrink: 0
+          <div style={{ flex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '6px' }}>
+              <div style={{
+                background: 'linear-gradient(135deg, #6366f1, #0ea5e9)',
+                borderRadius: '14px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '44px',
+                height: '44px',
+                fontSize: '22px',
+                flexShrink: 0,
+                boxShadow: '0 4px 15px rgba(99, 102, 241, 0.3)'
               }}>
                 💳
               </div>
-              <h2 className="header-title" style={{ 
-                margin: 0, 
-                fontSize: 'clamp(20px, 5vw, 28px)', 
-                fontWeight: '800',
-                background: 'linear-gradient(135deg, #ffffff, #e8f4fd)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text',
-                lineHeight: '1.2'
-              }}>
-                UPI Payment Hub
-              </h2>
+              <div>
+                <h2 style={{ 
+                  margin: 0, 
+                  fontSize: '22px', 
+                  fontWeight: '700',
+                  color: '#ffffff',
+                  lineHeight: '1.2'
+                }}>
+                  UPI Payment Hub
+                </h2>
+                <p style={{ 
+                  margin: '2px 0 0 0', 
+                  fontSize: '14px',
+                  color: '#a1a1aa',
+                  lineHeight: '1.4'
+                }}>
+                  Configure your digital payment gateway
+                </p>
+              </div>
             </div>
-            <p className="header-subtitle" style={{ 
-              margin: 0, 
-              opacity: 0.8, 
-              fontSize: 'clamp(13px, 3vw, 15px)',
-              color: '#bdc3c7',
-              lineHeight: '1.4'
-            }}>
-              Configure your digital payment gateway with style
-            </p>
           </div>
           {onClose && (
-            <button
-              className="close-button"
-              onClick={onClose}
-              style={{
-                background: 'rgba(255,255,255,0.1)',
-                border: 'none',
-                borderRadius: '50%',
-                width: '45px',
-                height: '45px',
-                color: 'white',
-                fontSize: '22px',
-                cursor: 'pointer',
-                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                backdropFilter: 'blur(10px)',
-                flexShrink: 0
-              }}
-              onMouseOver={(e) => {
-                e.target.style.background = 'rgba(231, 76, 60, 0.8)';
-                e.target.style.transform = 'scale(1.1) rotate(90deg)';
-              }}
-              onMouseOut={(e) => {
-                e.target.style.background = 'rgba(255,255,255,0.1)';
-                e.target.style.transform = 'scale(1) rotate(0deg)';
-              }}
-            >
-              ×
-            </button>
+            <button className="upi-close-btn" onClick={onClose}>×</button>
           )}
         </div>
 
         {/* Tab Navigation */}
-        <div className="tab-container" style={{
+        <div style={{
           display: 'flex',
-          gap: '8px',
-          marginBottom: '30px',
-          background: 'rgba(255,255,255,0.05)',
-          padding: '6px',
-          borderRadius: '15px',
-          position: 'relative',
-          zIndex: 1,
-          flexWrap: 'wrap'
+          gap: '4px',
+          marginBottom: '28px',
+          background: 'rgba(255, 255, 255, 0.03)',
+          padding: '4px',
+          borderRadius: '14px',
+          border: '1px solid rgba(255, 255, 255, 0.05)'
         }}>
-          {[
-            { key: 'setup', label: '⚙️ Setup', icon: '⚙️' },
-            { key: 'verify', label: '🔍 Verify', icon: '🔍' },
-            { key: 'guide', label: '📚 Guide', icon: '📚' }
-          ].map(tab => (
+          {tabItems.map(tab => (
             <button
               key={tab.key}
-              className="tab-button"
+              className={`upi-tab-btn ${activeTab === tab.key ? 'active' : ''}`}
               onClick={() => setActiveTab(tab.key)}
-              style={{
-                flex: 1,
-                padding: '12px 20px',
-                borderRadius: '12px',
-                border: 'none',
-                background: activeTab === tab.key 
-                  ? 'linear-gradient(135deg, #3498db, #2980b9)' 
-                  : 'transparent',
-                color: 'white',
-                fontSize: '14px',
-                fontWeight: '600',
-                cursor: 'pointer',
-                boxShadow: activeTab === tab.key 
-                  ? '0 8px 20px rgba(52, 152, 219, 0.3)' 
-                  : 'none'
-              }}
             >
               {tab.label}
             </button>
@@ -711,225 +531,160 @@ const UPISettings: React.FC<UPISettingsProps> = ({ onClose }) => {
         </div>
 
         {/* Tab Content */}
-        <div style={{ position: 'relative', zIndex: 1 }}>
+        <div>
           {activeTab === 'setup' && (
             <div>
-              <div style={{ marginBottom: '25px' }}>
+              {/* Business UPI ID */}
+              <div style={{ marginBottom: '24px' }}>
                 <label style={{ 
                   display: 'block', 
-                  marginBottom: '12px', 
-                  fontSize: 'clamp(14px, 3vw, 16px)', 
-                  fontWeight: '600',
-                  color: '#ecf0f1'
+                  marginBottom: '8px', 
+                  fontSize: '13px', 
+                  fontWeight: '500',
+                  color: '#a1a1aa',
+                  letterSpacing: '0.3px'
                 }}>
-                  🏪 Business UPI ID *
+                  Business UPI ID <span style={{ color: '#f43f5e' }}>*</span>
                 </label>
                 <input
-                  className="input-field"
+                  className="upi-field-input"
                   type="text"
                   value={config.upiId}
                   onChange={(e) => setConfig({ ...config, upiId: e.target.value })}
-                  placeholder="business@paytm"
-                  style={{
-                    width: '100%',
-                    padding: 'clamp(14px, 3vw, 16px) clamp(16px, 4vw, 20px)',
-                    borderRadius: '15px',
-                    border: '2px solid rgba(255,255,255,0.1)',
-                    fontSize: 'clamp(14px, 3vw, 16px)',
-                    background: 'rgba(255,255,255,0.95)',
-                    color: '#2c3e50',
-                    fontWeight: '500',
-                    boxSizing: 'border-box'
-                  }}
-                  onFocus={(e) => {
-                    e.target.style.borderColor = '#3498db';
-                    e.target.style.background = 'rgba(255,255,255,1)';
-                  }}
-                  onBlur={(e) => {
-                    e.target.style.borderColor = 'rgba(255,255,255,0.1)';
-                    e.target.style.background = 'rgba(255,255,255,0.95)';
-                  }}
+                  placeholder="e.g., business@paytm"
                 />
-                <small style={{ 
-                  color: 'rgba(255,255,255,0.7)', 
-                  fontSize: 'clamp(11px, 2.5vw, 13px)',
-                  display: 'block',
-                  marginTop: '8px',
-                  fontStyle: 'italic',
+                <p style={{ 
+                  color: '#71717a', 
+                  fontSize: '12px',
+                  margin: '6px 0 0 0',
                   lineHeight: '1.4'
                 }}>
-                  💡 Your registered UPI ID for receiving payments (e.g., business@paytm, shop@ybl)
-                </small>
+                  Your registered UPI ID for receiving payments
+                </p>
               </div>
 
-              <div style={{ marginBottom: '25px' }}>
+              {/* Business Name */}
+              <div style={{ marginBottom: '24px' }}>
                 <label style={{ 
                   display: 'block', 
-                  marginBottom: '12px', 
-                  fontSize: '16px', 
-                  fontWeight: '600',
-                  color: '#ecf0f1'
+                  marginBottom: '8px', 
+                  fontSize: '13px', 
+                  fontWeight: '500',
+                  color: '#a1a1aa',
+                  letterSpacing: '0.3px'
                 }}>
-                  🏢 Business Name *
+                  Business Name <span style={{ color: '#f43f5e' }}>*</span>
                 </label>
                 <input
-                  className="input-field"
+                  className="upi-field-input"
                   type="text"
                   value={config.payeeName}
                   onChange={(e) => setConfig({ ...config, payeeName: e.target.value })}
-                  placeholder="Your Business Name"
-                  style={{
-                    width: '100%',
-                    padding: '16px 20px',
-                    borderRadius: '15px',
-                    border: '2px solid rgba(255,255,255,0.1)',
-                    fontSize: '16px',
-                    background: 'rgba(255,255,255,0.95)',
-                    color: '#2c3e50',
-                    fontWeight: '500'
-                  }}
-                  onFocus={(e) => {
-                    e.target.style.borderColor = '#3498db';
-                    e.target.style.background = 'rgba(255,255,255,1)';
-                  }}
-                  onBlur={(e) => {
-                    e.target.style.borderColor = 'rgba(255,255,255,0.1)';
-                    e.target.style.background = 'rgba(255,255,255,0.95)';
-                  }}
+                  placeholder="e.g., My Business Store"
                 />
-                <small style={{ 
-                  color: 'rgba(255,255,255,0.7)', 
-                  fontSize: '13px',
-                  display: 'block',
-                  marginTop: '8px',
-                  fontStyle: 'italic'
+                <p style={{ 
+                  color: '#71717a', 
+                  fontSize: '12px',
+                  margin: '6px 0 0 0',
+                  lineHeight: '1.4'
                 }}>
-                  👥 Name that will appear to customers during payment
-                </small>
+                  Displayed to customers during payment
+                </p>
               </div>
 
-              <div style={{ marginBottom: '30px' }}>
+              {/* Merchant Code */}
+              <div style={{ marginBottom: '8px' }}>
                 <label style={{ 
                   display: 'block', 
-                  marginBottom: '12px', 
-                  fontSize: '16px', 
-                  fontWeight: '600',
-                  color: '#ecf0f1'
+                  marginBottom: '8px', 
+                  fontSize: '13px', 
+                  fontWeight: '500',
+                  color: '#a1a1aa',
+                  letterSpacing: '0.3px'
                 }}>
-                  🏷️ Merchant Code (Optional)
+                  Merchant Code <span style={{ color: '#71717a', fontWeight: '400' }}>(Optional)</span>
                 </label>
                 <input
-                  className="input-field"
+                  className="upi-field-input"
                   type="text"
                   value={config.merchantCode || ''}
                   onChange={(e) => setConfig({ ...config, merchantCode: e.target.value })}
-                  placeholder="MERCHANT001"
-                  style={{
-                    width: '100%',
-                    padding: '16px 20px',
-                    borderRadius: '15px',
-                    border: '2px solid rgba(255,255,255,0.1)',
-                    fontSize: '16px',
-                    background: 'rgba(255,255,255,0.95)',
-                    color: '#2c3e50',
-                    fontWeight: '500'
-                  }}
-                  onFocus={(e) => {
-                    e.target.style.borderColor = '#3498db';
-                    e.target.style.background = 'rgba(255,255,255,1)';
-                  }}
-                  onBlur={(e) => {
-                    e.target.style.borderColor = 'rgba(255,255,255,0.1)';
-                    e.target.style.background = 'rgba(255,255,255,0.95)';
-                  }}
+                  placeholder="e.g., MERCHANT001"
                 />
-                <small style={{ 
-                  color: 'rgba(255,255,255,0.7)', 
-                  fontSize: '13px',
-                  display: 'block',
-                  marginTop: '8px',
-                  fontStyle: 'italic'
+                <p style={{ 
+                  color: '#71717a', 
+                  fontSize: '12px',
+                  margin: '6px 0 0 0',
+                  lineHeight: '1.4'
                 }}>
-                  📊 Optional merchant identifier for transaction tracking
-                </small>
+                  Optional identifier for transaction tracking
+                </p>
               </div>
             </div>
           )}
 
           {activeTab === 'verify' && (
-            <div className="verification-section" style={{
-              borderRadius: '20px',
-              padding: '30px',
-              marginBottom: '30px'
-            }}>
-              <div style={{ textAlign: 'center', marginBottom: '25px' }}>
-                <div style={{ fontSize: '48px', marginBottom: '15px' }}>🔍</div>
+            <div>
+              <div style={{ textAlign: 'center' as const, marginBottom: '24px' }}>
+                <div style={{
+                  width: '52px', height: '52px',
+                  background: 'rgba(99, 102, 241, 0.12)',
+                  borderRadius: '14px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '26px',
+                  marginBottom: '12px'
+                }}>🔍</div>
                 <h3 style={{ 
-                  margin: '0 0 10px 0', 
-                  fontSize: '22px', 
-                  color: '#3498db',
+                  margin: '0 0 4px 0', 
+                  fontSize: '20px', 
+                  color: '#ffffff',
                   fontWeight: '700'
                 }}>
                   Configuration Verification
                 </h3>
-                <p style={{ 
-                  margin: 0, 
-                  opacity: 0.8, 
-                  fontSize: '14px',
-                  color: '#bdc3c7'
-                }}>
+                <p style={{ margin: 0, fontSize: '14px', color: '#a1a1aa' }}>
                   Test your payment setup before going live
                 </p>
               </div>
-              
-              <div style={{ 
-                display: 'flex', 
-                flexDirection: 'column',
-                gap: '15px', 
-                marginBottom: '25px',
-                background: 'rgba(255,255,255,0.05)',
-                padding: '25px',
-                borderRadius: '15px'
+
+              {/* Test Amount */}
+              <div style={{
+                background: 'rgba(255, 255, 255, 0.03)',
+                border: '1px solid rgba(255, 255, 255, 0.06)',
+                borderRadius: '16px',
+                padding: '20px',
+                marginBottom: '20px'
               }}>
                 <label style={{ 
-                  fontSize: 'clamp(14px, 3vw, 16px)', 
-                  fontWeight: '600',
-                  color: '#ecf0f1',
+                  fontSize: '13px', 
+                  fontWeight: '500',
+                  color: '#a1a1aa',
+                  display: 'block',
                   marginBottom: '10px'
                 }}>
-                  💰 Custom Test Amount
+                  Test Amount
                 </label>
                 
                 <div style={{
-                  position: 'relative',
                   display: 'flex',
                   alignItems: 'center',
-                  background: 'rgba(255,255,255,0.95)',
+                  background: 'rgba(9, 9, 11, 0.6)',
                   borderRadius: '12px',
-                  border: '2px solid rgba(255,255,255,0.2)',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
                   overflow: 'hidden',
-                  transition: 'all 0.3s ease'
-                }}
-                onMouseOver={(e) => {
-                  e.currentTarget.style.borderColor = 'rgba(52, 152, 219, 0.5)';
-                  e.currentTarget.style.boxShadow = '0 0 20px rgba(52, 152, 219, 0.2)';
-                }}
-                onMouseOut={(e) => {
-                  e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)';
-                  e.currentTarget.style.boxShadow = 'none';
-                }}
-                >
+                  marginBottom: '14px'
+                }}>
                   <span style={{ 
-                    padding: '14px 18px',
-                    fontSize: 'clamp(14px, 3vw, 16px)', 
+                    padding: '12px 14px',
+                    fontSize: '16px', 
                     fontWeight: '700',
-                    color: '#27ae60',
-                    background: 'linear-gradient(135deg, #e8f5e8, #f0f8f0)',
-                    borderRight: '1px solid rgba(39, 174, 96, 0.2)',
+                    color: '#10b981',
+                    background: 'rgba(16, 185, 129, 0.08)',
+                    borderRight: '1px solid rgba(255, 255, 255, 0.06)',
                     display: 'flex',
-                    alignItems: 'center',
-                    minWidth: '60px',
-                    justifyContent: 'center'
+                    alignItems: 'center'
                   }}>
                     ₹
                   </span>
@@ -939,7 +694,6 @@ const UPISettings: React.FC<UPISettingsProps> = ({ onClose }) => {
                     onChange={(e) => {
                       const value = e.target.value;
                       setTempAmount(value);
-                      // Only update verificationAmount if it's a valid number
                       const numValue = parseInt(value);
                       if (!isNaN(numValue) && numValue >= 1 && numValue <= 999) {
                         setVerificationAmount(numValue);
@@ -951,10 +705,6 @@ const UPISettings: React.FC<UPISettingsProps> = ({ onClose }) => {
                       const finalValue = Math.max(1, Math.min(999, numValue));
                       setVerificationAmount(finalValue);
                       setTempAmount(finalValue.toString());
-                      
-                      e.target.parentElement.style.borderColor = 'rgba(255,255,255,0.2)';
-                      e.target.parentElement.style.boxShadow = 'none';
-                      e.target.parentElement.style.transform = 'translateY(0)';
                     }}
                     min="1"
                     max="999"
@@ -962,136 +712,27 @@ const UPISettings: React.FC<UPISettingsProps> = ({ onClose }) => {
                     placeholder="Enter amount"
                     style={{
                       flex: 1,
-                      padding: '14px 18px',
+                      padding: '12px 14px',
                       border: 'none',
-                      fontSize: 'clamp(14px, 3vw, 16px)',
+                      fontSize: '15px',
                       background: 'transparent',
-                      color: '#2c3e50',
+                      color: '#ffffff',
                       fontWeight: '600',
                       outline: 'none',
-                      minWidth: '100px'
-                    }}
-                    onFocus={(e) => {
-                      e.target.parentElement.style.borderColor = '#3498db';
-                      e.target.parentElement.style.boxShadow = '0 0 25px rgba(52, 152, 219, 0.3)';
-                      e.target.parentElement.style.transform = 'translateY(-2px)';
+                      fontFamily: 'inherit'
                     }}
                   />
-                  <div style={{
-                    padding: '8px 12px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '3px'
-                  }}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const newValue = Math.min(999, verificationAmount + 1);
-                        setVerificationAmount(newValue);
-                        setTempAmount(newValue.toString());
-                      }}
-                      style={{
-                        background: 'linear-gradient(135deg, #3498db, #2980b9)',
-                        border: 'none',
-                        borderRadius: '4px',
-                        color: 'white',
-                        fontSize: '10px',
-                        fontWeight: 'bold',
-                        cursor: 'pointer',
-                        padding: '3px 8px',
-                        transition: 'all 0.2s ease',
-                        lineHeight: '1'
-                      }}
-                      onMouseOver={(e) => e.target.style.background = 'linear-gradient(135deg, #2980b9, #3498db)'}
-                      onMouseOut={(e) => e.target.style.background = 'linear-gradient(135deg, #3498db, #2980b9)'}
-                    >
-                      ▲
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const newValue = Math.max(1, verificationAmount - 1);
-                        setVerificationAmount(newValue);
-                        setTempAmount(newValue.toString());
-                      }}
-                      style={{
-                        background: 'linear-gradient(135deg, #3498db, #2980b9)',
-                        border: 'none',
-                        borderRadius: '4px',
-                        color: 'white',
-                        fontSize: '10px',
-                        fontWeight: 'bold',
-                        cursor: 'pointer',
-                        padding: '3px 8px',
-                        transition: 'all 0.2s ease',
-                        lineHeight: '1'
-                      }}
-                      onMouseOver={(e) => e.target.style.background = 'linear-gradient(135deg, #2980b9, #3498db)'}
-                      onMouseOut={(e) => e.target.style.background = 'linear-gradient(135deg, #3498db, #2980b9)'}
-                    >
-                      ▼
-                    </button>
-                  </div>
                 </div>
                 
-                <div style={{
-                  display: 'flex',
-                  gap: '8px',
-                  marginTop: '15px',
-                  flexWrap: 'wrap',
-                  justifyContent: 'center'
-                }}>
-                  <span style={{
-                    fontSize: 'clamp(11px, 2.5vw, 12px)',
-                    color: 'rgba(255,255,255,0.7)',
-                    fontWeight: '500',
-                    marginRight: '10px',
-                    alignSelf: 'center'
-                  }}>
-                    Quick Select:
-                  </span>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' as const }}>
                   {[1, 5, 10, 50, 100].map(amount => (
                     <button
                       key={amount}
                       type="button"
+                      className={`upi-amount-chip ${verificationAmount === amount ? 'selected' : ''}`}
                       onClick={() => {
                         setVerificationAmount(amount);
                         setTempAmount(amount.toString());
-                      }}
-                      style={{
-                        background: verificationAmount === amount 
-                          ? 'linear-gradient(135deg, #27ae60, #2ecc71)' 
-                          : 'rgba(255,255,255,0.1)',
-                        border: verificationAmount === amount 
-                          ? '2px solid #27ae60' 
-                          : '2px solid rgba(255,255,255,0.2)',
-                        borderRadius: '8px',
-                        color: verificationAmount === amount ? 'white' : '#ecf0f1',
-                        fontSize: 'clamp(11px, 2.5vw, 12px)',
-                        fontWeight: '600',
-                        cursor: 'pointer',
-                        padding: '8px 12px',
-                        transition: 'all 0.3s ease',
-                        minWidth: '45px',
-                        boxShadow: verificationAmount === amount 
-                          ? '0 4px 12px rgba(39, 174, 96, 0.3)' 
-                          : 'none'
-                      }}
-                      onMouseOver={(e) => {
-                        if (verificationAmount !== amount) {
-                          e.target.style.background = 'rgba(255,255,255,0.15)';
-                          e.target.style.borderColor = 'rgba(255,255,255,0.4)';
-                          e.target.style.transform = 'translateY(-2px)';
-                          e.target.style.boxShadow = '0 4px 12px rgba(255,255,255,0.1)';
-                        }
-                      }}
-                      onMouseOut={(e) => {
-                        if (verificationAmount !== amount) {
-                          e.target.style.background = 'rgba(255,255,255,0.1)';
-                          e.target.style.borderColor = 'rgba(255,255,255,0.2)';
-                          e.target.style.transform = 'translateY(0)';
-                          e.target.style.boxShadow = 'none';
-                        }
                       }}
                     >
                       ₹{amount}
@@ -1099,209 +740,134 @@ const UPISettings: React.FC<UPISettingsProps> = ({ onClose }) => {
                   ))}
                 </div>
                 
-                <small style={{
-                  color: 'rgba(255,255,255,0.6)',
-                  fontSize: 'clamp(10px, 2vw, 11px)',
-                  textAlign: 'center',
-                  marginTop: '10px',
-                  fontStyle: 'italic',
-                  lineHeight: '1.4'
+                <p style={{
+                  color: '#71717a',
+                  fontSize: '12px',
+                  textAlign: 'center' as const,
+                  marginTop: '12px'
                 }}>
-                  💡 Choose a preset amount or enter custom value (₹1-₹999)
-                </small>
+                  Choose a preset or enter a custom value (₹1–₹999)
+                </p>
               </div>
               
               <button
+                className="upi-verify-action"
                 onClick={verifyConfiguration}
                 disabled={isLoading || !config.upiId || !config.payeeName}
-                style={{
-                  width: '100%',
-                  padding: '16px',
-                  borderRadius: '15px',
-                  border: 'none',
-                  background: isLoading || !config.upiId || !config.payeeName 
-                    ? 'rgba(255,255,255,0.1)' 
-                    : 'linear-gradient(135deg, #3498db, #2980b9, #5dade2)',
-                  backgroundSize: '200% 200%',
-                  color: 'white',
-                  fontSize: '16px',
-                  fontWeight: '700',
-                  cursor: isLoading || !config.upiId || !config.payeeName ? 'not-allowed' : 'pointer',
-                  transition: 'all 0.3s ease',
-                  boxShadow: '0 8px 25px rgba(52, 152, 219, 0.3)',
-                  animation: !isLoading && config.upiId && config.payeeName ? 'gradientShift 3s ease infinite' : 'none'
-                }}
-                onMouseOver={(e) => {
-                  if (!isLoading && config.upiId && config.payeeName) {
-                    e.target.style.transform = 'translateY(-3px)';
-                    e.target.style.boxShadow = '0 12px 35px rgba(52, 152, 219, 0.4)';
-                  }
-                }}
-                onMouseOut={(e) => {
-                  e.target.style.transform = 'translateY(0)';
-                  e.target.style.boxShadow = '0 8px 25px rgba(52, 152, 219, 0.3)';
-                }}
               >
-                {isLoading ? '⏳ Generating Verification...' : '🚀 Generate Test QR Code'}
+                {isLoading ? 'Generating Verification...' : 'Generate Test QR Code'}
               </button>
               
-              <p style={{ 
-                fontSize: 'clamp(11px, 2.5vw, 13px)', 
-                opacity: 0.8, 
-                margin: '15px 0 0 0', 
-                textAlign: 'center',
-                color: '#bdc3c7',
-                fontStyle: 'italic'
-              }}>
-                ✨ Generate a beautiful verification QR with your custom test amount
-              </p>
+              {(!config.upiId || !config.payeeName) && (
+                <p style={{ 
+                  fontSize: '13px', 
+                  margin: '12px 0 0 0', 
+                  textAlign: 'center' as const,
+                  color: '#f59e0b',
+                  fontWeight: '500'
+                }}>
+                  Complete the Setup tab first to enable verification
+                </p>
+              )}
             </div>
           )}
 
           {activeTab === 'guide' && (
-            <div style={{
-              background: 'rgba(46, 204, 113, 0.1)',
-              borderRadius: '20px',
-              padding: '30px',
-              border: '1px solid rgba(46, 204, 113, 0.2)'
-            }}>
-              <div style={{ textAlign: 'center', marginBottom: '25px' }}>
-                <div style={{ fontSize: '48px', marginBottom: '15px' }}>📚</div>
-                <h3 style={{ 
-                  margin: '0 0 10px 0', 
-                  fontSize: '22px', 
-                  color: '#2ecc71',
-                  fontWeight: '700'
+            <div>
+              {/* Quick Setup Tips */}
+              <div style={{
+                background: 'rgba(16, 185, 129, 0.06)',
+                border: '1px solid rgba(16, 185, 129, 0.12)',
+                borderRadius: '14px',
+                padding: '20px',
+                marginBottom: '16px'
+              }}>
+                <h4 style={{ 
+                  color: '#10b981', 
+                  marginBottom: '12px', 
+                  fontSize: '15px',
+                  fontWeight: '600'
                 }}>
-                  Setup Guidelines
-                </h3>
+                  Quick Setup Tips
+                </h4>
+                <ul style={{ 
+                  margin: 0, 
+                  paddingLeft: '18px',
+                  color: '#a1a1aa',
+                  fontSize: '14px',
+                  lineHeight: '1.8'
+                }}>
+                  <li>Use your registered business UPI ID for receiving payments</li>
+                  <li>Always verify configuration before enabling for customers</li>
+                  <li>Business name will be displayed to customers during payment</li>
+                  <li>QR codes will automatically include exact bill amounts</li>
+                </ul>
+              </div>
+
+              {/* Supported Apps */}
+              <div style={{
+                background: 'rgba(255, 255, 255, 0.03)',
+                border: '1px solid rgba(255, 255, 255, 0.06)',
+                borderRadius: '14px',
+                padding: '20px',
+                marginBottom: '16px'
+              }}>
+                <h4 style={{ 
+                  color: '#ffffff', 
+                  marginBottom: '12px', 
+                  fontSize: '15px',
+                  fontWeight: '600'
+                }}>
+                  Supported UPI Apps
+                </h4>
+                <div style={{ display: 'flex', flexWrap: 'wrap' as const, gap: '8px' }}>
+                  {['PhonePe', 'Google Pay', 'Paytm', 'BHIM', 'Bank UPI Apps'].map(app => (
+                    <span key={app} className="upi-app-tag">{app}</span>
+                  ))}
+                </div>
               </div>
               
+              {/* Security Note */}
               <div style={{
-                fontSize: '14px',
-                lineHeight: '1.6',
-                color: 'rgba(255,255,255,0.9)'
+                background: 'rgba(99, 102, 241, 0.06)',
+                border: '1px solid rgba(99, 102, 241, 0.12)',
+                borderLeft: '3px solid #6366f1',
+                borderRadius: '14px',
+                padding: '16px'
               }}>
-                <div style={{ marginBottom: '20px' }}>
-                  <h4 style={{ color: '#2ecc71', marginBottom: '12px', fontSize: '16px' }}>
-                    🎯 Quick Setup Tips:
-                  </h4>
-                  <ul style={{ margin: '0', paddingLeft: '20px' }}>
-                    <li style={{ marginBottom: '8px' }}>Use your registered business UPI ID for receiving payments</li>
-                    <li style={{ marginBottom: '8px' }}>Always verify configuration before enabling for customers</li>
-                    <li style={{ marginBottom: '8px' }}>Business name will be displayed to customers during payment</li>
-                    <li style={{ marginBottom: '8px' }}>QR codes will automatically include exact bill amounts</li>
-                  </ul>
-                </div>
-                
-                <div style={{ marginBottom: '20px' }}>
-                  <h4 style={{ color: '#2ecc71', marginBottom: '12px', fontSize: '16px' }}>
-                    💳 Supported UPI Apps:
-                  </h4>
-                  <div style={{ 
-                    display: 'flex', 
-                    flexWrap: 'wrap', 
-                    gap: '10px',
-                    marginTop: '10px'
-                  }}>
-                    {['PhonePe', 'Google Pay', 'Paytm', 'BHIM', 'Bank UPI Apps'].map(app => (
-                      <span key={app} style={{
-                        background: 'rgba(46, 204, 113, 0.2)',
-                        padding: '6px 12px',
-                        borderRadius: '20px',
-                        fontSize: '12px',
-                        fontWeight: '600',
-                        border: '1px solid rgba(46, 204, 113, 0.3)'
-                      }}>
-                        {app}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-                
-                <div style={{
-                  background: 'rgba(52, 152, 219, 0.1)',
-                  padding: '15px',
-                  borderRadius: '12px',
-                  border: '1px solid rgba(52, 152, 219, 0.2)',
-                  marginTop: '20px'
+                <h4 style={{ 
+                  color: '#c7d2fe', 
+                  marginBottom: '6px', 
+                  fontSize: '14px',
+                  fontWeight: '600'
                 }}>
-                  <h4 style={{ color: '#3498db', marginBottom: '8px', fontSize: '14px' }}>
-                    🔒 Security Note:
-                  </h4>
-                  <p style={{ margin: 0, fontSize: '13px', opacity: 0.9 }}>
-                    Never share your UPI PIN or complete test transactions. Use the verification feature to test your setup safely.
-                  </p>
-                </div>
+                  🔒 Security Note
+                </h4>
+                <p style={{ 
+                  margin: 0, 
+                  fontSize: '13px', 
+                  color: '#a1a1aa',
+                  lineHeight: '1.5'
+                }}>
+                  Never share your UPI PIN or complete test transactions. Use the verification feature to test your setup safely.
+                </p>
               </div>
             </div>
           )}
         </div>
 
         {/* Action Buttons */}
-        <div className="action-buttons" style={{ 
+        <div className="upi-action-row" style={{ 
           display: 'flex', 
-          gap: '15px', 
-          marginTop: '30px',
-          position: 'relative',
-          zIndex: 1,
-          flexWrap: 'wrap'
+          gap: '12px', 
+          marginTop: '28px',
+          flexWrap: 'wrap' as const
         }}>
-          <button
-            className="save-button"
-            onClick={handleSave}
-            style={{
-              flex: 1,
-              minWidth: '140px',
-              padding: 'clamp(12px, 3vw, 16px)',
-              borderRadius: '15px',
-              border: 'none',
-              color: 'white',
-              fontSize: 'clamp(14px, 3vw, 16px)',
-              fontWeight: '700',
-              cursor: 'pointer',
-              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-              boxShadow: '0 8px 25px rgba(39, 174, 96, 0.3)'
-            }}
-            onMouseOver={(e) => {
-              e.target.style.transform = 'translateY(-3px)';
-              e.target.style.boxShadow = '0 12px 35px rgba(39, 174, 96, 0.4)';
-            }}
-            onMouseOut={(e) => {
-              e.target.style.transform = 'translateY(0)';
-              e.target.style.boxShadow = '0 8px 25px rgba(39, 174, 96, 0.3)';
-            }}
-          >
-            💾 Save Configuration
+          <button className="upi-btn-primary" onClick={handleSave}>
+            Save Configuration
           </button>
           {onClose && (
-            <button
-              onClick={onClose}
-              style={{
-                flex: 1,
-                minWidth: '140px',
-                padding: 'clamp(12px, 3vw, 16px)',
-                borderRadius: '15px',
-                border: '2px solid rgba(255,255,255,0.2)',
-                background: 'rgba(255,255,255,0.05)',
-                color: 'white',
-                fontSize: 'clamp(14px, 3vw, 16px)',
-                fontWeight: '600',
-                cursor: 'pointer',
-                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                backdropFilter: 'blur(10px)'
-              }}
-              onMouseOver={(e) => {
-                e.target.style.background = 'rgba(255,255,255,0.1)';
-                e.target.style.transform = 'translateY(-3px)';
-                e.target.style.boxShadow = '0 8px 25px rgba(255,255,255,0.1)';
-              }}
-              onMouseOut={(e) => {
-                e.target.style.background = 'rgba(255,255,255,0.05)';
-                e.target.style.transform = 'translateY(0)';
-                e.target.style.boxShadow = 'none';
-              }}
-            >
+            <button className="upi-btn-ghost" onClick={onClose}>
               Cancel
             </button>
           )}

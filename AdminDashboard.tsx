@@ -173,7 +173,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
     soundAlerts: true,
     printLogo: true,
     thankYouMessage: 'Thank you for choosing us!',
-    termsAndConditions: '1. Not responsible for color bleeding.\n2. Collect within 15 days.'
+    termsAndConditions: '1. Please collect garments within 15 days.\n2. Bring this receipt for delivery.'
   });
 
   // Update time every second

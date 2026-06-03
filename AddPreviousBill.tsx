@@ -41,6 +41,104 @@ const AddPreviousBill: React.FC<AddPreviousBillProps> = ({ onClose, onBillAdded 
     gstNumber: ''
   });
   const [searchQuery, setSearchQuery] = useState('');
+  const [customerSuggestions, setCustomerSuggestions] = useState<Array<{ name: string; phone: string; lastBill?: string }>>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
+  const searchCustomers = async (query: string) => {
+    if (!query || query.trim().length < 1) {
+      setCustomerSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+    const q = query.toLowerCase().trim();
+    const customerMap = new Map<string, { name: string; phone: string; lastBill?: string; count: number }>();
+
+    // 1. Gather suggestions from local storage
+    try {
+      const localHistory = JSON.parse(localStorage.getItem('laundry_bill_history') || '[]');
+      if (Array.isArray(localHistory)) {
+        localHistory.forEach((bill: any) => {
+          const name = bill.customerName || '';
+          if (name.toLowerCase().includes(q)) {
+            const key = name.toLowerCase().trim();
+            if (!customerMap.has(key)) {
+              customerMap.set(key, { name, phone: bill.customerPhone || '', lastBill: bill.createdAt, count: 1 });
+            } else {
+              const existing = customerMap.get(key)!;
+              existing.count++;
+              if (bill.createdAt > (existing.lastBill || '')) {
+                existing.lastBill = bill.createdAt;
+                existing.phone = bill.customerPhone || existing.phone;
+              }
+            }
+          }
+        });
+      }
+    } catch (e) {
+      console.error('Error parsing local history:', e);
+    }
+
+    try {
+      const localManual = JSON.parse(localStorage.getItem('laundry_manual_entries') || '[]');
+      if (Array.isArray(localManual)) {
+        localManual.forEach((entry: any) => {
+          const name = entry.customerName || '';
+          if (name.toLowerCase().includes(q)) {
+            const key = name.toLowerCase().trim();
+            if (!customerMap.has(key)) {
+              customerMap.set(key, { name, phone: entry.phone || '', lastBill: entry.createdAt, count: 1 });
+            } else {
+              const existing = customerMap.get(key)!;
+              existing.count++;
+              if (entry.createdAt > (existing.lastBill || '')) {
+                existing.lastBill = entry.createdAt;
+                existing.phone = entry.phone || existing.phone;
+              }
+            }
+          }
+        });
+      }
+    } catch (e) {
+      console.error('Error parsing local manual entries:', e);
+    }
+
+    let suggestions = Array.from(customerMap.values())
+      .sort((a, b) => b.count - a.count)
+      .map(c => ({ name: c.name, phone: c.phone, lastBill: c.lastBill }));
+
+    setCustomerSuggestions(suggestions.slice(0, 6));
+    setShowSuggestions(suggestions.length > 0);
+
+    // 2. Fetch from CRM API
+    try {
+      const response = await apiService.getCustomers({ search: query, limit: 10 });
+      if (response && response.success && Array.isArray(response.data)) {
+        response.data.forEach((c: any) => {
+          const key = c.name.toLowerCase().trim();
+          if (!customerMap.has(key)) {
+            customerMap.set(key, { name: c.name, phone: c.phone, lastBill: c.lastVisit, count: c.totalOrders || 1 });
+          } else {
+            const existing = customerMap.get(key)!;
+            if (!existing.phone && c.phone) {
+              existing.phone = c.phone;
+            }
+            if (c.lastVisit && c.lastVisit > (existing.lastBill || '')) {
+              existing.lastBill = c.lastVisit;
+            }
+          }
+        });
+
+        suggestions = Array.from(customerMap.values())
+          .sort((a, b) => b.count - a.count)
+          .map(c => ({ name: c.name, phone: c.phone, lastBill: c.lastBill }));
+
+        setCustomerSuggestions(suggestions.slice(0, 8));
+        setShowSuggestions(suggestions.length > 0);
+      }
+    } catch (apiError) {
+      console.log('Customer API search failed:', apiError);
+    }
+  };
   
   const itemInputRef = useRef<HTMLInputElement>(null);
 
@@ -279,19 +377,81 @@ const AddPreviousBill: React.FC<AddPreviousBillProps> = ({ onClose, onBillAdded 
             }}>
               <h3 style={{ color: 'white', marginBottom: '15px' }}>👤 Customer & Date Information</h3>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 200px', gap: '15px' }}>
-                <input
-                  type="text"
-                  placeholder="Customer Name *"
-                  value={customer.name}
-                  onChange={(e) => setCustomer({ ...customer, name: e.target.value })}
-                  style={{
-                    padding: '12px',
-                    borderRadius: '8px',
-                    border: 'none',
-                    background: 'rgba(255, 255, 255, 0.9)',
-                    fontSize: '16px'
-                  }}
-                />
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type="text"
+                    placeholder="Customer Name *"
+                    value={customer.name}
+                    onChange={(e) => {
+                      setCustomer({ ...customer, name: e.target.value });
+                      searchCustomers(e.target.value);
+                    }}
+                    onFocus={() => {
+                      if (customer.name.trim().length >= 1) {
+                        searchCustomers(customer.name);
+                      }
+                    }}
+                    onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      borderRadius: showSuggestions && customerSuggestions.length > 0 ? '8px 8px 0 0' : '8px',
+                      border: 'none',
+                      background: 'rgba(255, 255, 255, 0.9)',
+                      fontSize: '16px',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                  {showSuggestions && customerSuggestions.length > 0 && (
+                    <div style={{
+                      position: 'absolute',
+                      top: '100%',
+                      left: 0,
+                      right: 0,
+                      background: 'white',
+                      border: '1px solid #ccc',
+                      borderTop: 'none',
+                      borderRadius: '0 0 8px 8px',
+                      zIndex: 1000,
+                      boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
+                      maxHeight: '200px',
+                      overflowY: 'auto'
+                    }}>
+                      {customerSuggestions.map((s, i) => (
+                        <div
+                          key={i}
+                          onMouseDown={() => {
+                            setCustomer({ name: s.name, phone: s.phone });
+                            setShowSuggestions(false);
+                          }}
+                          style={{
+                            padding: '10px 12px',
+                            cursor: 'pointer',
+                            borderBottom: i < customerSuggestions.length - 1 ? '1px solid #eee' : 'none',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            transition: 'background 0.15s',
+                            color: '#333'
+                          }}
+                          onMouseEnter={e => (e.currentTarget.style.background = '#f5f5f5')}
+                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                        >
+                          <div>
+                            <div style={{ fontWeight: '600', fontSize: '14px' }}>
+                              👤 {s.name}
+                            </div>
+                            {s.phone && (
+                              <div style={{ color: '#666', fontSize: '12px', marginTop: '2px' }}>
+                                📞 {s.phone}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 <input
                   type="tel"
                   placeholder="📱 Phone Number"
