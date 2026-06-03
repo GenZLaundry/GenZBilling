@@ -98,6 +98,14 @@ const billSchema = new mongoose.Schema({
     enum: ['pending', 'completed', 'delivered'],
     default: 'completed'
   },
+  deliveryDate: {
+    type: String,
+    default: ''
+  },
+  serviceType: {
+    type: String,
+    default: ''
+  },
   paymentStatus: {
     type: String,
     enum: ['paid', 'unpaid', 'partial'],

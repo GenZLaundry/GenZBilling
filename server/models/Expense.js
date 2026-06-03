@@ -18,8 +18,13 @@ const expenseSchema = new mongoose.Schema({
   category: {
     type: String,
     required: true,
-    enum: ['RENT', 'UTILITIES', 'SUPPLIES', 'MAINTENANCE', 'SALARY', 'MARKETING', 'TRANSPORT', 'FOOD', 'OTHER'],
-    default: 'OTHER'
+    enum: [
+      // New categories
+      'SABJI', 'GROCERY', 'FOOD', 'BREAKFAST', 'STORE_EXPENCES', 'SALARY', 'SELF_EXPENSES', 'DIET',
+      // Old categories for backwards compatibility
+      'RENT', 'UTILITIES', 'SUPPLIES', 'MAINTENANCE', 'MARKETING', 'TRANSPORT', 'OTHER'
+    ],
+    default: 'STORE_EXPENCES'
   },
   type: {
     type: String,

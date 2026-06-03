@@ -10,7 +10,11 @@ router.get('/', async (req, res) => {
     // Build filter query
     const filter = {};
     if (category && category !== 'ALL') {
-      filter.category = category;
+      if (category.includes(',')) {
+        filter.category = { $in: category.split(',').map(c => c.trim()) };
+      } else {
+        filter.category = category;
+      }
     }
     if (startDate || endDate) {
       filter.date = {};
@@ -170,7 +174,7 @@ router.post('/', async (req, res) => {
       title: title.trim(),
       description: description?.trim() || '',
       amount: parseFloat(amount),
-      category: category || 'OTHER',
+      category: category || 'STORE_EXPENCES',
       type: type === 'RETURN' ? 'RETURN' : 'EXPENSE',
       date: date ? new Date(date) : new Date()
     });
@@ -212,7 +216,7 @@ router.put('/:id', async (req, res) => {
         title: title.trim(),
         description: description?.trim() || '',
         amount: parseFloat(amount),
-        category: category || 'OTHER',
+        category: category || 'STORE_EXPENCES',
         type: type === 'RETURN' ? 'RETURN' : 'EXPENSE',
         date: date ? new Date(date) : undefined,
         updatedAt: new Date()

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { printThermalBill, BillData } from './ThermalPrintManager';
-import { printCleanThermalBill } from './CleanThermalPrint';
+import { printCleanThermalBill, printCleanThermalOrderReceipt } from './CleanThermalPrint';
 import { ShopConfig, PendingBill } from './types';
 import PendingBillSelector from './PendingBillSelector';
 import FunctionalQRCode from './FunctionalQRCode';
@@ -91,6 +91,21 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
   const [customerSuggestions, setCustomerSuggestions] = useState<Array<{name: string, phone: string, lastBill?: string}>>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [lastGeneratedBill, setLastGeneratedBill] = useState<ShareableBillData | null>(null);
+  const [showStickerPrintModal, setShowStickerPrintModal] = useState(false);
+  const [stickerPrintCopies, setStickerPrintCopies] = useState('1');
+  
+  // Order Receipt States
+  const [showOrderReceiptModal, setShowOrderReceiptModal] = useState(false);
+  const [receiptDeliveryDate, setReceiptDeliveryDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 2); // Default to today + 2 days
+    return d.toISOString().split('T')[0];
+  });
+  const [receiptServiceType, setReceiptServiceType] = useState('Wash & Iron');
+  const [receiptCustomServiceType, setReceiptCustomServiceType] = useState('');
+  const [receiptAdvancePaid, setReceiptAdvancePaid] = useState('0');
+  const [receiptPaymentMethod, setReceiptPaymentMethod] = useState<'Cash' | 'UPI' | 'Card'>('Cash');
+  const [receiptPrintTags, setReceiptPrintTags] = useState(true);
   
   const [activeNotification, setActiveNotification] = useState<{
     id: string;
@@ -886,6 +901,174 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
     }
   };
 
+  const processOrderReceipt = async () => {
+    if (!customer.name || orderItems.length === 0) {
+      showAlert({ message: 'Please enter customer name and add items', type: 'warning' });
+      return;
+    }
+
+    setIsProcessing(true);
+    setShowOrderReceiptModal(false);
+
+    try {
+      const finalServiceType = receiptServiceType === 'Custom' ? receiptCustomServiceType : receiptServiceType;
+      const advancePaidNum = parseFloat(receiptAdvancePaid) || 0;
+      const total = calculateTotal();
+      const currentOrderSubtotal = orderItems.reduce((sum, item) => sum + item.total, 0);
+      const pendingBillsSubtotal = selectedPendingBills.reduce((sum, bill) => sum + bill.grandTotal, 0);
+
+      // Load logo preference
+      const savedPrefs = localStorage.getItem('genz_system_prefs');
+      let thankYou = 'Please keep this receipt for collection.';
+      let printLogo = true;
+      if (savedPrefs) {
+        try {
+          const prefs = JSON.parse(savedPrefs);
+          if (prefs.thankYouMessage) thankYou = prefs.thankYouMessage;
+          if (prefs.printLogo !== undefined) printLogo = prefs.printLogo;
+        } catch (e) {}
+      }
+
+      const billData: PendingBill = {
+        id: `local_${Date.now()}`,
+        businessName: shopConfig.shopName,
+        address: shopConfig.address,
+        phone: shopConfig.contact,
+        billNumber,
+        billDate,
+        customerName: customer.name,
+        customerPhone: customer.phone ? `${countryCode}${customer.phone}` : '',
+        items: orderItems.map(item => ({
+          name: `${item.name} (${item.washType})`,
+          quantity: item.quantity,
+          rate: item.price,
+          amount: item.total
+        })),
+        subtotal: currentOrderSubtotal + pendingBillsSubtotal + previousBalance,
+        discount,
+        deliveryCharge,
+        previousBalance,
+        grandTotal: total,
+        status: 'pending',
+        paymentStatus: advancePaidNum === 0 ? 'unpaid' : (advancePaidNum >= total ? 'paid' : 'partial'),
+        amountPaid: advancePaidNum,
+        amountDue: total - advancePaidNum,
+        paymentHistory: advancePaidNum > 0 ? [{ amount: advancePaidNum, date: new Date().toISOString(), note: 'Advance: ' + receiptPaymentMethod }] : [],
+        deliveryDate: receiptDeliveryDate,
+        serviceType: finalServiceType,
+        thankYouMessage: thankYou,
+        printLogo: printLogo,
+        createdAt: new Date().toISOString()
+      };
+
+      console.log('🧾 Processing order receipt:', billData);
+
+      // Save to localStorage first (always, for offline capability)
+      let localStorageSaveSuccess = false;
+      try {
+        // Save to general bill history
+        const existingHistory = JSON.parse(localStorage.getItem('laundry_bill_history') || '[]');
+        existingHistory.unshift({ ...billData, _syncedToDb: false });
+        if (existingHistory.length > 500) existingHistory.splice(500);
+        localStorage.setItem('laundry_bill_history', JSON.stringify(existingHistory));
+
+        // Save to pending bills local list
+        const existingPending = JSON.parse(localStorage.getItem('laundry_pending_bills') || '[]');
+        existingPending.unshift(billData);
+        localStorage.setItem('laundry_pending_bills', JSON.stringify(existingPending));
+
+        localStorageSaveSuccess = true;
+        console.log('✅ Order receipt saved to localStorage first');
+      } catch (localError) {
+        console.error('❌ localStorage save error:', localError);
+      }
+
+      // Save to database
+      let databaseSaveSuccess = false;
+      try {
+        console.log('💾 Saving pending order to database...');
+        const response = await apiService.createBill(billData);
+        if (response.success) {
+          console.log('✅ Pending order saved to database:', response.data);
+          databaseSaveSuccess = true;
+          // Mark local copies as synced
+          try {
+            const serverBillId = (response.data as any)?._id || (response.data as any)?.id;
+            const existingHistory = JSON.parse(localStorage.getItem('laundry_bill_history') || '[]');
+            const updatedHistory = existingHistory.map((b: any) => 
+              b.billNumber === billData.billNumber 
+                ? { ...b, _syncedToDb: true, _id: serverBillId } 
+                : b
+            );
+            localStorage.setItem('laundry_bill_history', JSON.stringify(updatedHistory));
+
+            // Sync database ID for local pending bill too
+            const existingPending = JSON.parse(localStorage.getItem('laundry_pending_bills') || '[]');
+            const updatedPending = existingPending.map((b: any) => 
+              b.billNumber === billData.billNumber 
+                ? { ...b, _id: serverBillId } 
+                : b
+            );
+            localStorage.setItem('laundry_pending_bills', JSON.stringify(updatedPending));
+          } catch (e) { /* ignore */ }
+
+          // AUTOMATICALLY SEND BACKGROUND SMS
+          if (billData.customerPhone && billData.customerPhone.length >= 10) {
+            try {
+              console.log('📱 Automatically triggering background SMS for pending order...');
+              apiService.sendBillGeneratedSMS(
+                billData.customerPhone,
+                billData.customerName || 'Customer',
+                billData.items.map(i => ({ name: i.name, quantity: i.quantity }))
+              ).catch(err => console.warn('⚠️ Auto-SMS failed:', err));
+            } catch (smsError) {
+              console.warn('⚠️ Could not send auto-SMS:', smsError);
+            }
+          }
+        } else {
+          console.warn('⚠️ Database save failed:', response.message);
+        }
+      } catch (apiError) {
+        console.warn('⚠️ Database unavailable, pending order saved locally and will sync later:', apiError);
+      }
+
+      // Print the Order Receipt using premium thermal layout
+      console.log('🖨️ Printing order receipt...');
+      await printCleanThermalOrderReceipt(billData, (message) => showAlert({ message, type: 'error' }));
+
+      // Print clothing tags if option is selected
+      if (receiptPrintTags) {
+        setTimeout(async () => {
+          console.log('🖨️ Triggering clothing tags print...');
+          await printClothingTags();
+        }, 1000);
+      }
+
+      showAlert({ 
+        message: `✅ Order receipt generated successfully! Saved to pending orders.\nOrder Number: ${billData.billNumber}`, 
+        type: 'success' 
+      });
+
+      // Reset cart and customer data
+      setOrderItems([]);
+      setCustomer({ name: '', phone: '' });
+      setSelectedPendingBills([]);
+      setDiscount(0);
+      setDeliveryCharge(0);
+      setPreviousBalance(0);
+      setReceiptAdvancePaid('0');
+      
+      // Generate next bill number
+      setBillNumber(`GZ${Date.now().toString().slice(-6)}`);
+    } catch (error) {
+      console.error('❌ Order receipt processing failed:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      showAlert({ message: `Order receipt processing failed: ${errorMessage}`, type: 'error' });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const printClothingTags = async () => {
     if (!customer.name || orderItems.length === 0) {
       showAlert({ message: 'Please add items and customer name first', type: 'warning' });
@@ -1190,15 +1373,12 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
     });
   };
 
-  const printPackStickers = async () => {
-    const inputCopies = window.prompt("Enter number of stickers to print:", "1");
-    if (inputCopies === null) return; // User cancelled
-    const copies = parseInt(inputCopies, 10);
-    if (isNaN(copies) || copies <= 0) {
-      showAlert({ message: 'Please enter a valid number of copies', type: 'warning' });
-      return;
-    }
+  const printPackStickers = () => {
+    setStickerPrintCopies('1');
+    setShowStickerPrintModal(true);
+  };
 
+  const executeStickerPrint = async (copies: number) => {
     const logoDataUrl = await getFlattenedStickerLogo();
 
     // Fallback: browser print window
@@ -1216,6 +1396,12 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
       
       const leftSticker = `
         <div class="sticker">
+          <!-- Top Row: Flanking side texts and center logo -->
+          <div class="top-side-text left">
+            PREMIUM<br/>CARE
+            <div class="side-divider"><span>✦</span></div>
+          </div>
+          
           <div class="logo-container">
             <img src="${logoDataUrl}" alt="Gen-Z Logo" onerror="this.style.display='none'; document.getElementById('text-logo-l-${r}').style.display='block';" />
             <div id="text-logo-l-${r}" class="text-logo" style="display: none;">
@@ -1223,45 +1409,25 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
             </div>
           </div>
 
-          <div class="subheader-container">
-            <div class="sub-line"></div>
-            <div class="subheader-text">LAUNDRY & DRY CLEANERS</div>
-            <div class="sub-line"></div>
+          <div class="top-side-text right">
+            QUALITY<br/>YOU TRUST
+            <div class="side-divider"><span>✦</span></div>
           </div>
 
-          <div class="care-pill">
-            <div class="care-item">
-              <svg class="care-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M2 9h20M4 9l1.5 9A3 3 0 0 0 8.5 21h7a3 3 0 0 0 3-3L20 9" />
-                <path d="M22 9c-1.5-.5-3.5-.5-5 0s-3.5.5-5 0-3.5-.5-5 0-3.5.5-5 0" />
-              </svg>
-              <span class="care-label">FRESH</span>
-            </div>
-            <div class="care-divider"></div>
-            <div class="care-item">
-              <svg class="care-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M20.38 3.46L16 6.54V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2.54L3.62 3.46a1 1 0 0 0-1.34.3L.43 6.54a1 1 0 0 0 .3 1.34l4.27 3a1 1 0 0 0 1 .12L6 10.5V20a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-9.5l.05.5a1 1 0 0 0 1-.12l4.27-3a1 1 0 0 0 .3-1.34L21.72 3.76a1 1 0 0 0-1.34-.3z" />
-              </svg>
-              <span class="care-label">CLEAN</span>
-            </div>
-            <div class="care-divider"></div>
-            <div class="care-item">
-              <svg class="care-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="1" y="3" width="15" height="13" rx="2" ry="2" />
-                <polygon points="16 8 20 8 23 11 23 16 16 16 16 8" />
-                <circle cx="5.5" cy="18.5" r="2.5" />
-                <circle cx="18.5" cy="18.5" r="2.5" />
-              </svg>
-              <span class="care-label">DELIVERED</span>
-            </div>
+          <!-- Brand Name Text -->
+          <div class="brand-title">GEN-Z</div>
+          <div class="brand-subtitle">LAUNDRY & DRY CLEANERS</div>
+
+
+
+          <!-- Black Chevron Ribbon Tagline Banner -->
+          <div class="black-banner">
+            &bigstar; CLEANED WITH CARE &bull; DELIVERED WITH TRUST &bigstar;
           </div>
 
-          <div class="tagline-container">
-            <div class="tagline-text">CLEANED WITH CARE &bull; DELIVERED WITH TRUST</div>
-          </div>
-
+          <!-- Website Contrast Capsule Footer -->
           <div class="website-capsule">
-            <svg class="globe-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg class="globe-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="12" cy="12" r="10" />
               <line x1="2" y1="12" x2="22" y2="12" />
               <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
@@ -1275,6 +1441,12 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
       if (rightIndex < copies) {
         rightSticker = `
         <div class="sticker">
+          <!-- Top Row: Flanking side texts and center logo -->
+          <div class="top-side-text left">
+            PREMIUM<br/>CARE
+            <div class="side-divider"><span>✦</span></div>
+          </div>
+          
           <div class="logo-container">
             <img src="${logoDataUrl}" alt="Gen-Z Logo" onerror="this.style.display='none'; document.getElementById('text-logo-r-${r}').style.display='block';" />
             <div id="text-logo-r-${r}" class="text-logo" style="display: none;">
@@ -1282,45 +1454,25 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
             </div>
           </div>
 
-          <div class="subheader-container">
-            <div class="sub-line"></div>
-            <div class="subheader-text">LAUNDRY & DRY CLEANERS</div>
-            <div class="sub-line"></div>
+          <div class="top-side-text right">
+            QUALITY<br/>YOU TRUST
+            <div class="side-divider"><span>✦</span></div>
           </div>
 
-          <div class="care-pill">
-            <div class="care-item">
-              <svg class="care-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M2 9h20M4 9l1.5 9A3 3 0 0 0 8.5 21h7a3 3 0 0 0 3-3L20 9" />
-                <path d="M22 9c-1.5-.5-3.5-.5-5 0s-3.5.5-5 0-3.5-.5-5 0-3.5.5-5 0" />
-              </svg>
-              <span class="care-label">FRESH</span>
-            </div>
-            <div class="care-divider"></div>
-            <div class="care-item">
-              <svg class="care-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M20.38 3.46L16 6.54V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2.54L3.62 3.46a1 1 0 0 0-1.34.3L.43 6.54a1 1 0 0 0 .3 1.34l4.27 3a1 1 0 0 0 1 .12L6 10.5V20a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-9.5l.05.5a1 1 0 0 0 1-.12l4.27-3a1 1 0 0 0 .3-1.34L21.72 3.76a1 1 0 0 0-1.34-.3z" />
-              </svg>
-              <span class="care-label">CLEAN</span>
-            </div>
-            <div class="care-divider"></div>
-            <div class="care-item">
-              <svg class="care-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="1" y="3" width="15" height="13" rx="2" ry="2" />
-                <polygon points="16 8 20 8 23 11 23 16 16 16 16 8" />
-                <circle cx="5.5" cy="18.5" r="2.5" />
-                <circle cx="18.5" cy="18.5" r="2.5" />
-              </svg>
-              <span class="care-label">DELIVERED</span>
-            </div>
+          <!-- Brand Name Text -->
+          <div class="brand-title">GEN-Z</div>
+          <div class="brand-subtitle">LAUNDRY & DRY CLEANERS</div>
+
+
+
+          <!-- Black Chevron Ribbon Tagline Banner -->
+          <div class="black-banner">
+            &bigstar; CLEANED WITH CARE &bull; DELIVERED WITH TRUST &bigstar;
           </div>
 
-          <div class="tagline-container">
-            <div class="tagline-text">CLEANED WITH CARE &bull; DELIVERED WITH TRUST</div>
-          </div>
-
+          <!-- Website Contrast Capsule Footer -->
           <div class="website-capsule">
-            <svg class="globe-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg class="globe-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="12" cy="12" r="10" />
               <line x1="2" y1="12" x2="22" y2="12" />
               <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
@@ -1351,14 +1503,14 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
     @page {
-      size: 105mm 55mm;
+      size: 105mm 50mm;
       margin: 0 !important;
     }
 
     @media print {
       html, body {
         width: 105mm !important;
-        height: 55mm !important;
+        height: 50mm !important;
         margin: 0 !important;
         padding: 0 !important;
       }
@@ -1377,34 +1529,37 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
       padding: 0;
       background: white;
       width: 105mm;
-      height: 55mm;
+      height: 50mm;
       overflow: hidden;
     }
 
     .print-row {
       display: flex;
-      justify-content: space-between;
+      justify-content: flex-start;
       width: 105mm;
       height: 50mm;
-      padding: 0 1mm;
+      padding: 0.5mm 0 0 1mm;
       box-sizing: border-box;
-      align-items: center;
+      align-items: flex-start;
     }
 
     .sticker {
       width: 48mm;
-      height: 46mm;
+      height: 47mm;
       background: white;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
       align-items: center;
       box-sizing: border-box;
-      border: 1px solid #111;
-      border-radius: 8px;
-      padding: 2.5mm 3mm;
+      border: none;
+      padding: 1.5mm 1mm 1.5mm 1mm;
       position: relative;
       overflow: hidden;
+    }
+
+    .sticker + .sticker {
+      margin-left: 5mm;
     }
 
     .sticker.blank {
@@ -1416,9 +1571,33 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
       display: flex;
       justify-content: center;
       align-items: center;
-      width: 100%;
-      height: 10.5mm;
+      width: 50%;
+      height: 13mm;
+      z-index: 2;
+    }
+
+    .brand-title {
+      font-size: 18pt;
+      font-weight: 900;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: #000;
+      text-align: center;
+      line-height: 1;
+      margin-top: 2.2mm;
       margin-bottom: 0.5mm;
+      z-index: 2;
+    }
+
+    .brand-subtitle {
+      font-size: 6.5pt;
+      font-weight: 900;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+      color: #000;
+      text-align: center;
+      line-height: 1;
+      margin-bottom: 1.5mm;
       z-index: 2;
     }
 
@@ -1433,12 +1612,63 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
     }
 
     .glow-text {
-      font-size: 14pt;
+      font-size: 16pt;
       font-weight: 900;
-      letter-spacing: 1px;
+      letter-spacing: 1.5px;
       text-transform: uppercase;
       line-height: 1;
-      color: #111;
+      color: #000;
+    }
+
+    .top-side-text {
+      position: absolute;
+      top: 5mm;
+      font-size: 5.2pt;
+      font-weight: 900;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      text-align: center;
+      color: #000;
+      width: 13mm;
+      z-index: 2;
+      line-height: 1.15;
+    }
+
+    .top-side-text.left {
+      left: 1.5mm;
+    }
+
+    .top-side-text.right {
+      right: 1.5mm;
+    }
+
+    .side-divider {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      margin-top: 1mm;
+      position: relative;
+    }
+
+    .side-divider::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 50%;
+      height: 0.5px;
+      background: #000;
+    }
+
+    .side-divider span {
+      background: #fff;
+      font-size: 5pt;
+      padding: 0 0.8mm;
+      z-index: 3;
+      color: #000;
+      position: relative;
+      line-height: 1;
     }
 
     .subheader-container {
@@ -1452,73 +1682,100 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
 
     .sub-line {
       flex: 1;
-      height: 0.5px;
-      background: #111;
+      height: 0.8px;
+      background: #000;
     }
 
     .subheader-text {
-      font-size: 5pt;
-      font-weight: 600;
-      letter-spacing: 2px;
+      font-size: 5.5pt;
+      font-weight: 900;
+      letter-spacing: 1px;
       text-transform: uppercase;
       white-space: nowrap;
-      color: #111;
+      color: #000;
     }
 
-    .care-pill {
-      background: #fff;
-      color: #111;
-      border: 1px solid #111;
-      border-radius: 50px;
-      width: 100%;
-      height: 8.5mm;
+    .icons-row {
       display: flex;
       align-items: center;
       justify-content: space-around;
-      padding: 0 1mm;
+      width: 100%;
+      padding: 0;
       z-index: 2;
     }
 
-    .care-item {
+    .icon-col {
       display: flex;
+      flex-direction: column;
       align-items: center;
-      gap: 0.8mm;
+      gap: 1mm;
+      width: 12mm;
     }
 
-    .care-icon {
-      width: 4.2mm;
-      height: 4.2mm;
-      color: #111;
-    }
-
-    .care-label {
-      font-size: 4.5pt;
-      font-weight: 800;
-      letter-spacing: 0.8px;
-      color: #111;
-    }
-
-    .care-divider {
-      width: 0.5px;
-      height: 3.5mm;
-      background: #ccc;
-    }
-
-    .tagline-container {
+    .circle-icon {
+      width: 7.5mm;
+      height: 7.5mm;
+      border: 1px solid #000;
+      border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 100%;
-      z-index: 2;
+      padding: 1.5mm;
+      background: #fff;
     }
 
-    .tagline-text {
-      font-size: 4pt;
-      font-weight: 600;
-      letter-spacing: 1.2px;
+    .circle-icon svg {
+      width: 100%;
+      height: 100%;
+      color: #000;
+    }
+
+    .icon-label {
+      font-size: 4.5pt;
+      font-weight: 900;
+      letter-spacing: 0.5px;
       text-transform: uppercase;
+      color: #000;
+    }
+
+    .row-divider {
+      height: 8mm;
+      width: 1px;
+      background: #000;
+      position: relative;
+      margin-bottom: 3.5mm;
+    }
+
+    .row-divider::after {
+      content: '✦';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: #fff;
+      font-size: 6pt;
+      padding: 0.5mm 0;
+      color: #000;
+    }
+
+    .black-banner {
+      background: #000;
+      color: #fff;
+      padding: 1.2mm 1.5mm;
+      width: 100%;
+      text-align: center;
+      font-size: 4.5pt;
+      font-weight: 900;
+      letter-spacing: 0.2px;
+      text-transform: uppercase;
+      z-index: 2;
+      position: relative;
+      clip-path: polygon(2% 0%, 98% 0%, 96% 50%, 98% 100%, 2% 100%, 4% 50%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
       white-space: nowrap;
-      color: #444;
     }
 
     .website-capsule {
@@ -1526,13 +1783,18 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
       color: #fff;
       border-radius: 50px;
       width: 100%;
-      height: 6.5mm;
+      height: 7.2mm;
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 1.5mm;
+      position: relative;
       z-index: 2;
+      border: 1px solid #000;
+      box-shadow: inset 0 0 0 1px #fff;
     }
+
+
 
     .globe-icon {
       width: 3.2mm;
@@ -1541,10 +1803,13 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
     }
 
     .website-text {
-      font-size: 5.5pt;
-      font-weight: 800;
+      font-size: 9.5pt;
+      font-weight: 900;
       letter-spacing: 0.8px;
       color: #fff;
+      text-align: center;
+      text-transform: lowercase;
+      line-height: 1;
     }
   </style>
 </head>
@@ -2998,33 +3263,306 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
               </div>
             )}
 
-            <button
-              onClick={processOrder}
-              disabled={!customer.name || (orderItems.length === 0 && selectedPendingBills.length === 0 && previousBalance === 0) || isProcessing}
-              className="btn btn-success"
-              style={{
-                width: '100%',
-                padding: '16px',
-                borderRadius: '12px',
-                fontSize: '15px',
-                letterSpacing: '1.5px',
-                fontWeight: '800',
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                gap: '10px',
-                boxShadow: '0 4px 12px rgba(16, 185, 129, 0.2)'
-              }}
-            >
-              {isProcessing ? (
-                <><i className="fas fa-spinner fa-spin"></i> Processing...</>
-              ) : (
-                <><i className="fas fa-print"></i> PRINT BILL</>
-              )}
-            </button>
+            <div style={{ display: 'flex', gap: '12px', width: '100%' }}>
+              <button
+                onClick={processOrder}
+                disabled={!customer.name || (orderItems.length === 0 && selectedPendingBills.length === 0 && previousBalance === 0) || isProcessing}
+                className="btn btn-success"
+                style={{
+                  flex: 1.4,
+                  padding: '16px',
+                  borderRadius: '12px',
+                  fontSize: '14px',
+                  letterSpacing: '1px',
+                  fontWeight: '800',
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  gap: '8px',
+                  boxShadow: '0 4px 12px rgba(16, 185, 129, 0.2)'
+                }}
+              >
+                {isProcessing ? (
+                  <><i className="fas fa-spinner fa-spin"></i> Processing...</>
+                ) : (
+                  <><i className="fas fa-print"></i> PRINT BILL</>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  // Set default delivery date to today + 2 days
+                  const d = new Date();
+                  d.setDate(d.getDate() + 2);
+                  setReceiptDeliveryDate(d.toISOString().split('T')[0]);
+                  
+                  // Auto-detect service type from cart items if possible
+                  if (orderItems.length > 0) {
+                    const firstWashType = orderItems[0].washType;
+                    if (firstWashType === 'WASH+IRON') setReceiptServiceType('Wash & Iron');
+                    else if (firstWashType === 'DRY CLEAN') setReceiptServiceType('Dry Clean');
+                    else if (firstWashType === 'WASH') setReceiptServiceType('Wash Only');
+                    else if (firstWashType === 'IRON') setReceiptServiceType('Iron Only');
+                  }
+                  
+                  setShowOrderReceiptModal(true);
+                }}
+                disabled={!customer.name || orderItems.length === 0 || isProcessing}
+                className="btn"
+                style={{
+                  flex: 1,
+                  padding: '16px',
+                  borderRadius: '12px',
+                  fontSize: '14px',
+                  letterSpacing: '1px',
+                  fontWeight: '800',
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  gap: '8px',
+                  background: (!customer.name || orderItems.length === 0 || isProcessing)
+                    ? 'var(--bg-base)'
+                    : 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
+                  border: 'none',
+                  color: (!customer.name || orderItems.length === 0 || isProcessing)
+                    ? 'var(--text-muted)'
+                    : 'white',
+                  boxShadow: (!customer.name || orderItems.length === 0 || isProcessing)
+                    ? 'none'
+                    : '0 4px 12px rgba(59, 130, 246, 0.2)',
+                  cursor: (!customer.name || orderItems.length === 0 || isProcessing) ? 'not-allowed' : 'pointer'
+                }}
+              >
+                <i className="fas fa-receipt"></i> ORDER RECEIPT
+              </button>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Order Receipt Configuration Modal */}
+      {showOrderReceiptModal && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.75)', zIndex: 2000,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          backdropFilter: 'blur(8px)'
+        }}>
+          <div style={{
+            background: 'var(--bg-elevated)',
+            borderRadius: 'var(--radius-xl)',
+            padding: '28px',
+            width: '420px',
+            border: '1px solid var(--border-subtle)',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
+            position: 'relative'
+          }}>
+            <h3 style={{ margin: '0 0 6px 0', color: 'var(--text-primary)', fontSize: '18px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <i className="fas fa-file-invoice" style={{ color: '#3b82f6' }}></i>
+              Order Deposit Receipt
+            </h3>
+            <p style={{ margin: '0 0 20px 0', fontSize: '12px', color: 'var(--text-muted)' }}>
+              Confirm laundry deposit settings for <strong>{customer.name}</strong> ({orderItems.reduce((s, i) => s + i.quantity, 0)} items).
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px' }}>
+              {/* Delivery Date */}
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Delivery / Pickup Date
+                </label>
+                <input
+                  type="date"
+                  value={receiptDeliveryDate}
+                  onChange={(e) => setReceiptDeliveryDate(e.target.value)}
+                  className="professional-input"
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    background: 'var(--bg-base)',
+                    border: '1px solid var(--border-subtle)',
+                    color: 'var(--text-primary)'
+                  }}
+                />
+                {/* Quick Date Presets */}
+                <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
+                  {['Tomorrow', 'In 2 Days', 'In 3 Days'].map((label, idx) => {
+                    const days = idx + 1;
+                    const d = new Date();
+                    d.setDate(d.getDate() + days);
+                    const dateStr = d.toISOString().split('T')[0];
+                    const isSelected = receiptDeliveryDate === dateStr;
+                    return (
+                      <button
+                        key={label}
+                        type="button"
+                        onClick={() => setReceiptDeliveryDate(dateStr)}
+                        style={{
+                          padding: '4px 10px',
+                          borderRadius: '6px',
+                          border: 'none',
+                          cursor: 'pointer',
+                          fontSize: '11px',
+                          fontWeight: '600',
+                          background: isSelected ? '#3b82f6' : 'var(--bg-base)',
+                          color: isSelected ? 'white' : 'var(--text-secondary)'
+                        }}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Service Type */}
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Service Type
+                </label>
+                <select
+                  value={receiptServiceType}
+                  onChange={(e) => setReceiptServiceType(e.target.value)}
+                  className="professional-input"
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    background: 'var(--bg-base)',
+                    border: '1px solid var(--border-subtle)',
+                    color: 'var(--text-primary)',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <option value="Wash & Iron">Wash & Iron</option>
+                  <option value="Dry Clean">Dry Clean</option>
+                  <option value="Wash Only">Wash Only</option>
+                  <option value="Iron Only">Iron Only</option>
+                  <option value="Steam Iron">Steam Iron</option>
+                  <option value="Premium Care">Premium Care</option>
+                  <option value="Custom">Custom / Mixed...</option>
+                </select>
+                {receiptServiceType === 'Custom' && (
+                  <input
+                    type="text"
+                    placeholder="Enter custom service type (e.g. Wash & Hang)"
+                    value={receiptCustomServiceType}
+                    onChange={(e) => setReceiptCustomServiceType(e.target.value)}
+                    className="professional-input"
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      borderRadius: '8px',
+                      fontSize: '14px',
+                      background: 'var(--bg-base)',
+                      border: '1px solid var(--border-subtle)',
+                      color: 'var(--text-primary)',
+                      marginTop: '8px'
+                    }}
+                  />
+                )}
+              </div>
+
+              {/* Advance Payment Details */}
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Advance Paid (Optional)
+                </label>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <div style={{ position: 'relative', flex: 1.2 }}>
+                    <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', fontSize: '14px', color: 'var(--text-muted)' }}>₹</span>
+                    <input
+                      type="number"
+                      placeholder="0.00"
+                      value={receiptAdvancePaid}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const maxVal = calculateTotal();
+                        if (parseFloat(val) > maxVal) {
+                          setReceiptAdvancePaid(maxVal.toString());
+                        } else {
+                          setReceiptAdvancePaid(val);
+                        }
+                      }}
+                      className="professional-input"
+                      style={{
+                        width: '100%',
+                        padding: '10px 12px 10px 24px',
+                        borderRadius: '8px',
+                        fontSize: '14px',
+                        background: 'var(--bg-base)',
+                        border: '1px solid var(--border-subtle)',
+                        color: 'var(--text-primary)'
+                      }}
+                    />
+                  </div>
+                  <select
+                    value={receiptPaymentMethod}
+                    onChange={(e) => setReceiptPaymentMethod(e.target.value as any)}
+                    className="professional-input"
+                    disabled={parseFloat(receiptAdvancePaid) <= 0}
+                    style={{
+                      flex: 1,
+                      padding: '10px 12px',
+                      borderRadius: '8px',
+                      fontSize: '14px',
+                      background: 'var(--bg-base)',
+                      border: '1px solid var(--border-subtle)',
+                      color: 'var(--text-primary)',
+                      cursor: parseFloat(receiptAdvancePaid) <= 0 ? 'not-allowed' : 'pointer',
+                      opacity: parseFloat(receiptAdvancePaid) <= 0 ? 0.5 : 1
+                    }}
+                  >
+                    <option value="Cash">Cash</option>
+                    <option value="UPI">UPI</option>
+                    <option value="Card">Card</option>
+                  </select>
+                </div>
+                {parseFloat(receiptAdvancePaid) > 0 && (
+                  <div style={{ fontSize: '11px', color: '#10b981', marginTop: '6px', fontWeight: '600' }}>
+                    Balance Due: ₹{calculateTotal() - (parseFloat(receiptAdvancePaid) || 0)}
+                  </div>
+                )}
+              </div>
+
+              {/* Print Tags Option */}
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', color: 'var(--text-primary)', marginTop: '4px' }}>
+                <input
+                  type="checkbox"
+                  checked={receiptPrintTags}
+                  onChange={(e) => setReceiptPrintTags(e.target.checked)}
+                  style={{ accentColor: '#3b82f6', width: '16px', height: '16px' }}
+                />
+                Print clothing tag stickers too
+              </label>
+            </div>
+
+            {/* Action Buttons */}
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                type="button"
+                onClick={processOrderReceipt}
+                className="btn btn-success"
+                style={{ flex: 1.5, background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', color: 'white', padding: '12px', borderRadius: '8px', fontWeight: '700', cursor: 'pointer' }}
+              >
+                <i className="fas fa-print"></i> Generate & Print
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowOrderReceiptModal(false)}
+                className="btn btn-ghost"
+                style={{ flex: 1, padding: '12px', borderRadius: '8px', fontWeight: '600' }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Pending Bill Selector Modal */}
       {showPendingBillSelector && (
@@ -3111,6 +3649,103 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
               </button>
               <button onClick={() => setShowTagOffsetSettings(false)} className="btn btn-ghost">
                 Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sticker Print Modal */}
+      {showStickerPrintModal && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.7)', zIndex: 2000,
+          display: 'flex', alignItems: 'center', justifyContent: 'center'
+        }}>
+          <div style={{
+            background: 'var(--bg-elevated)', borderRadius: 'var(--radius-xl)',
+            padding: '24px', width: '320px', border: '1px solid var(--border-subtle)',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.5)', textAlign: 'center'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
+              <div className="alert-icon alert-icon-info" style={{
+                background: 'rgba(168, 85, 247, 0.1)',
+                color: '#a855f7',
+                width: '48px',
+                height: '48px',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '20px'
+              }}>
+                <i className="fas fa-box"></i>
+              </div>
+            </div>
+            <h3 style={{ margin: '0 0 8px 0', color: 'var(--text-primary)', fontSize: '16px', fontWeight: '700' }}>
+              Sticker Print
+            </h3>
+            <p style={{ margin: '0 0 20px 0', fontSize: '13px', color: 'var(--text-secondary)' }}>
+              Enter the number of stickers to print:
+            </p>
+            <div style={{ marginBottom: '24px' }}>
+              <input
+                type="number"
+                min="1"
+                max="100"
+                value={stickerPrintCopies}
+                onChange={(e) => setStickerPrintCopies(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    const val = parseInt(stickerPrintCopies, 10);
+                    if (!isNaN(val) && val > 0) {
+                      setShowStickerPrintModal(false);
+                      executeStickerPrint(val);
+                    }
+                  }
+                }}
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--border-subtle)',
+                  background: 'var(--bg-base)',
+                  color: 'var(--text-primary)',
+                  fontSize: '16px',
+                  textAlign: 'center',
+                  fontWeight: '600',
+                  outline: 'none'
+                }}
+                autoFocus
+              />
+            </div>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                onClick={() => setShowStickerPrintModal(false)}
+                className="btn btn-ghost"
+                style={{ flex: 1 }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  const val = parseInt(stickerPrintCopies, 10);
+                  if (!isNaN(val) && val > 0) {
+                    setShowStickerPrintModal(false);
+                    executeStickerPrint(val);
+                  } else {
+                    showAlert({ message: 'Please enter a valid number of copies', type: 'warning' });
+                  }
+                }}
+                className="btn btn-primary"
+                style={{
+                  flex: 1,
+                  background: 'linear-gradient(135deg, #a855f7 0%, #6366f1 100%)',
+                  border: 'none',
+                  color: 'white'
+                }}
+              >
+                Print
               </button>
             </div>
           </div>

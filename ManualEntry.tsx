@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAlert } from './GlobalAlert';
 import apiService from './api';
 import CountryCodePicker from './CountryCodePicker';
+import { printCleanThermalOrderReceipt } from './CleanThermalPrint';
 
 interface ManualEntryItem {
   serviceType: 'WASH' | 'IRON' | 'WASH+IRON' | 'DRY CLEAN';
@@ -64,11 +65,16 @@ const ManualEntry: React.FC<ManualEntryProps> = ({ onClose }) => {
   const [status, setStatus] = useState<ManualEntryData['status']>('pending');
   const [remark, setRemark] = useState('');
   
-  const [activeTab, setActiveTab] = useState<'form' | 'list'>('form');
+  const [activeTab, setActiveTab] = useState<'form' | 'list' | 'receipts'>('form');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [customerSuggestions, setCustomerSuggestions] = useState<Array<{ name: string; phone: string; lastBill?: string }>>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+
+  // Order Receipt states
+  const [receipts, setReceipts] = useState<any[]>([]);
+  const [loadingReceipts, setLoadingReceipts] = useState(false);
+  const [receiptSearchQuery, setReceiptSearchQuery] = useState('');
 
   const searchCustomers = async (query: string) => {
     if (!query || query.trim().length < 1) {
@@ -183,8 +189,62 @@ const ManualEntry: React.FC<ManualEntryProps> = ({ onClose }) => {
     }
   };
 
+  const fetchReceipts = async () => {
+    setLoadingReceipts(true);
+    try {
+      console.log('🔄 Fetching pending order receipts...');
+      const response = await apiService.getPendingBills();
+      if (response && response.success && Array.isArray(response.data)) {
+        setReceipts(response.data);
+      } else {
+        const savedPending = JSON.parse(localStorage.getItem('laundry_pending_bills') || '[]');
+        setReceipts(savedPending);
+      }
+    } catch (error) {
+      console.warn('⚠️ Server offline, falling back to local pending bills:', error);
+      const savedPending = JSON.parse(localStorage.getItem('laundry_pending_bills') || '[]');
+      setReceipts(savedPending);
+    } finally {
+      setLoadingReceipts(false);
+    }
+  };
+
+  const handleDeleteReceipt = (billId: string, billNumber: string) => {
+    showConfirm(`Are you sure you want to delete Order Receipt #${billNumber}? This will permanently remove it.`, async () => {
+      setLoadingReceipts(true);
+      try {
+        console.log(`🗑️ Deleting pending receipt id: ${billId}, number: ${billNumber}`);
+        // 1. Delete from database
+        const res = await apiService.deleteBill(billId);
+        if (res && res.success) {
+          showAlert({ message: 'Order receipt deleted successfully!', type: 'success' });
+        } else {
+          console.warn('⚠️ Database delete failed, removing locally:', res?.message);
+        }
+
+        // 2. Synchronize deletions offline in localStorage
+        const localPending = JSON.parse(localStorage.getItem('laundry_pending_bills') || '[]');
+        const updatedPending = localPending.filter((b: any) => b.billNumber !== billNumber && b.id !== billId && b._id !== billId);
+        localStorage.setItem('laundry_pending_bills', JSON.stringify(updatedPending));
+
+        const localHistory = JSON.parse(localStorage.getItem('laundry_bill_history') || '[]');
+        const updatedHistory = localHistory.filter((b: any) => b.billNumber !== billNumber && b.id !== billId && b._id !== billId);
+        localStorage.setItem('laundry_bill_history', JSON.stringify(updatedHistory));
+
+        // Refresh list
+        fetchReceipts();
+      } catch (error: any) {
+        console.error('Delete failed:', error);
+        showAlert({ message: `Error deleting order receipt: ${error.message || 'Unknown error'}`, type: 'error' });
+      } finally {
+        setLoadingReceipts(false);
+      }
+    });
+  };
+
   useEffect(() => {
     fetchEntries();
+    fetchReceipts();
     
     // Check for legacy offline data
     try {
@@ -633,7 +693,7 @@ const ManualEntry: React.FC<ManualEntryProps> = ({ onClose }) => {
           </button>
           <button
             type="button"
-            onClick={() => setActiveTab('list')}
+            onClick={() => { setActiveTab('list'); fetchEntries(); }}
             style={{
               flex: 1,
               padding: '14px 20px',
@@ -653,6 +713,29 @@ const ManualEntry: React.FC<ManualEntryProps> = ({ onClose }) => {
             }}
           >
             📋 Entered Data ({entries.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => { setActiveTab('receipts'); fetchReceipts(); }}
+            style={{
+              flex: 1,
+              padding: '14px 20px',
+              background: activeTab === 'receipts' ? 'rgba(14, 165, 233, 0.06)' : 'transparent',
+              color: activeTab === 'receipts' ? '#0ea5e9' : '#9ca3af',
+              border: 'none',
+              borderBottom: activeTab === 'receipts' ? '2px solid #0ea5e9' : '2px solid transparent',
+              fontSize: '14px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              transition: 'all 0.15s ease',
+              outline: 'none'
+            }}
+          >
+            🧾 Order Receipts ({receipts.length})
           </button>
         </div>
 
@@ -1462,6 +1545,209 @@ const ManualEntry: React.FC<ManualEntryProps> = ({ onClose }) => {
                   )}
                 </div>
               )}
+            </>
+          )}
+
+          {/* Order Receipts Tab */}
+          {activeTab === 'receipts' && (
+            <>
+              {/* Search Bar for Receipts */}
+              {receipts.length > 0 && (
+                <div style={{ marginBottom: '16px', position: 'relative' }}>
+                  <div style={{
+                    position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)',
+                    color: '#6b7280', fontSize: '14px', pointerEvents: 'none'
+                  }}>
+                    <i className="fas fa-search"></i>
+                  </div>
+                  <input
+                    type="text"
+                    value={receiptSearchQuery}
+                    onChange={(e) => setReceiptSearchQuery(e.target.value)}
+                    placeholder="Search receipts by name, phone, or order ID..."
+                    style={{
+                      width: '100%', padding: '10px 12px 10px 36px', borderRadius: '8px',
+                      border: '1px solid rgba(255,255,255,0.08)', fontSize: '13px',
+                      background: 'rgba(9,9,11,0.4)', color: '#fff', fontWeight: '500',
+                      outline: 'none', boxSizing: 'border-box', transition: 'border-color 0.15s ease'
+                    }}
+                    onFocus={(e) => e.target.style.borderColor = '#0ea5e9'}
+                    onBlur={(e) => e.target.style.borderColor = 'rgba(255,255,255,0.08)'}
+                  />
+                </div>
+              )}
+
+              {/* Loading spinner */}
+              {loadingReceipts && receipts.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px 20px', color: '#9ca3af' }}>
+                  <span style={{ fontSize: '15px', fontWeight: '500' }}>Loading pending receipts...</span>
+                </div>
+              ) : (() => {
+                const filteredReceipts = receipts.filter(r => {
+                  if (!receiptSearchQuery.trim()) return true;
+                  const q = receiptSearchQuery.toLowerCase();
+                  return (
+                    (r.customerName || '').toLowerCase().includes(q) ||
+                    (r.customerPhone || '').includes(q) ||
+                    (r.billNumber || '').toLowerCase().includes(q)
+                  );
+                });
+
+                if (filteredReceipts.length > 0) {
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      {filteredReceipts.map((receipt) => {
+                        const totalQty = receipt.items.reduce((s: number, i: any) => s + i.quantity, 0);
+                        const isPartial = receipt.paymentStatus === 'partial';
+                        const isPaid = receipt.paymentStatus === 'paid';
+                        
+                        return (
+                          <div key={receipt.id || receipt._id} style={{
+                            background: 'rgba(255,255,255,0.03)',
+                            border: '1px solid rgba(255,255,255,0.06)',
+                            borderRadius: '10px',
+                            padding: '14px 16px',
+                            transition: 'border-color 0.15s ease'
+                          }}
+                          onMouseOver={(e) => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)')}
+                          onMouseOut={(e) => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)')}
+                          >
+                            {/* Top row: Name, phone, status badges */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <span style={{ fontSize: '15px', fontWeight: '600', color: '#f9fafb' }}>
+                                  {receipt.customerName || 'Walk-in Customer'}
+                                </span>
+                                <span style={{ fontSize: '12px', color: '#6b7280' }}>
+                                  {receipt.customerPhone || 'No phone'}
+                                </span>
+                              </div>
+                              <div style={{ display: 'flex', gap: '6px' }}>
+                                <span style={{
+                                  background: 'rgba(245,158,11,0.15)',
+                                  color: '#fbbf24',
+                                  border: '1px solid rgba(245,158,11,0.25)',
+                                  borderRadius: '6px', padding: '3px 8px', fontSize: '10px',
+                                  fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px'
+                                }}>
+                                  Order ID: {receipt.billNumber}
+                                </span>
+                                <span style={{
+                                  background: isPaid ? 'rgba(16,185,129,0.15)'
+                                    : isPartial ? 'rgba(245,158,11,0.15)'
+                                    : 'rgba(239,68,68,0.15)',
+                                  color: isPaid ? '#34d399'
+                                    : isPartial ? '#fbbf24'
+                                    : '#f87171',
+                                  border: `1px solid ${isPaid ? 'rgba(16,185,129,0.25)'
+                                    : isPartial ? 'rgba(245,158,11,0.25)'
+                                    : 'rgba(239,68,68,0.25)'}`,
+                                  borderRadius: '6px', padding: '3px 8px', fontSize: '10px',
+                                  fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px'
+                                }}>
+                                  {isPaid ? '✓ Paid'
+                                    : isPartial ? `◐ Partial (₹${receipt.amountPaid || 0})`
+                                    : '✕ Unpaid'}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Items list badges */}
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
+                              {receipt.items && receipt.items.map((item: any, idx: number) => {
+                                const cleanName = item.name.split('(')[0].trim();
+                                return (
+                                  <span key={idx} style={{
+                                    background: 'rgba(255,255,255,0.05)',
+                                    color: '#d1d5db',
+                                    border: '1px solid rgba(255,255,255,0.08)',
+                                    padding: '2px 8px', borderRadius: '5px', fontSize: '11px', fontWeight: '600'
+                                  }}>
+                                    {cleanName}: {item.quantity}
+                                  </span>
+                                );
+                              })}
+                            </div>
+
+                            {/* Dates row */}
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
+                              <span style={{
+                                background: 'rgba(255,255,255,0.04)', color: '#d1d5db',
+                                padding: '3px 8px', borderRadius: '5px', fontSize: '11px', fontWeight: '500'
+                              }}>
+                                📅 Service: {receipt.serviceType || 'Wash & Iron'}
+                              </span>
+                              <span style={{
+                                background: 'rgba(255,255,255,0.04)', color: '#d1d5db',
+                                padding: '3px 8px', borderRadius: '5px', fontSize: '11px', fontWeight: '500'
+                              }}>
+                                📅 Delivery Due: {receipt.deliveryDate ? receipt.deliveryDate.split('-').reverse().join('/') : '—'}
+                              </span>
+                            </div>
+
+                            {/* Payment details row */}
+                            <div style={{ display: 'flex', gap: '16px', fontSize: '12px', color: '#9ca3af', marginBottom: '12px', paddingLeft: '2px' }}>
+                              <span>Total: <strong>₹{receipt.grandTotal}</strong></span>
+                              {receipt.amountPaid > 0 && <span>Paid: <strong style={{ color: '#34d399' }}>₹{receipt.amountPaid}</strong></span>}
+                              <span>Due: <strong style={{ color: '#fbbf24' }}>₹{receipt.amountDue}</strong></span>
+                            </div>
+
+                            {/* Action buttons */}
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px', alignItems: 'center' }}>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  printCleanThermalOrderReceipt(receipt, (msg) => showAlert({ message: msg, type: 'error' }));
+                                }}
+                                style={{
+                                  background: 'rgba(59,130,246,0.12)', color: '#60a5fa',
+                                  border: '1px solid rgba(59,130,246,0.2)', borderRadius: '6px',
+                                  padding: '5px 12px', fontSize: '11px', fontWeight: '700',
+                                  cursor: 'pointer', transition: 'all 0.15s ease',
+                                  display: 'flex', alignItems: 'center', gap: '4px'
+                                }}
+                                onMouseOver={(e) => (e.target as HTMLElement).style.background = 'rgba(59,130,246,0.2)'}
+                                onMouseOut={(e) => (e.target as HTMLElement).style.background = 'rgba(59,130,246,0.12)'}
+                              >
+                                <i className="fas fa-print"></i> Print Receipt
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteReceipt(receipt._id || receipt.id, receipt.billNumber)}
+                                style={{
+                                  background: 'rgba(239,68,68,0.12)', color: '#f87171',
+                                  border: '1px solid rgba(239,68,68,0.2)', borderRadius: '6px',
+                                  padding: '5px 12px', fontSize: '11px', fontWeight: '700',
+                                  cursor: 'pointer', transition: 'all 0.15s ease',
+                                  display: 'flex', alignItems: 'center', gap: '4px'
+                                }}
+                                onMouseOver={(e) => (e.target as HTMLElement).style.background = 'rgba(239,68,68,0.2)'}
+                                onMouseOut={(e) => (e.target as HTMLElement).style.background = 'rgba(239,68,68,0.12)'}
+                              >
+                                <i className="fas fa-trash-alt"></i> Delete
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                } else {
+                  return (
+                    <div style={{
+                      textAlign: 'center', padding: '40px 20px', color: '#6b7280'
+                    }}>
+                      <div style={{ fontSize: '32px', marginBottom: '12px', opacity: 0.4 }}>🧾</div>
+                      <div style={{ fontSize: '15px', fontWeight: '500', marginBottom: '4px', color: '#9ca3af' }}>
+                        {receiptSearchQuery ? 'No matching receipts found' : 'No order receipts yet'}
+                      </div>
+                      <div style={{ fontSize: '13px' }}>
+                        {receiptSearchQuery ? 'Try a different search term' : 'Order receipts generated during checkout will be displayed here.'}
+                      </div>
+                    </div>
+                  );
+                }
+              })()}
             </>
           )}
         </div>

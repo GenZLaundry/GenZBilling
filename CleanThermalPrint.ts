@@ -37,6 +37,8 @@ export interface BillData {
   amountDue?: number;
   paymentStatus?: 'paid' | 'unpaid' | 'partial';
   paymentHistory?: Array<{ amount: number; date: string; note: string }>;
+  deliveryDate?: string;
+  serviceType?: string;
   printLogo?: boolean;
 }
 
@@ -609,6 +611,236 @@ export const printCleanThermalBill = (billData: BillData, onError?: (message: st
       printWindow.print();
       printWindow.close();
     }, 2000);
+  };
+};
+
+export const printCleanThermalOrderReceipt = (billData: BillData, onError?: (message: string) => void) => {
+  const printWindow = window.open('', '_blank', 'width=320,height=700,scrollbars=no');
+  if (!printWindow) {
+    if (onError) {
+      onError('Please allow popups for thermal printing');
+    } else {
+      alert('Please allow popups for thermal printing');
+    }
+    return;
+  }
+
+  const currentDate = billData.billDate 
+    ? new Date(billData.billDate).toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: '2-digit', 
+        year: 'numeric'
+      })
+    : new Date().toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: '2-digit', 
+        year: 'numeric'
+      });
+  
+  const currentTime = new Date().toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  });
+
+  const formattedDeliveryDate = billData.deliveryDate
+    ? billData.deliveryDate.split('-').reverse().join('/')
+    : currentDate;
+
+  const serviceType = billData.serviceType || 'Wash & Iron';
+  const totalItems = billData.items.reduce((sum, item) => sum + item.quantity, 0);
+
+  // Generate QR code pointing to online status tracker
+  const trackUrl = `https://genzlaundry.com/track?id=${billData.billNumber}`;
+  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(trackUrl)}&ecc=M&margin=0&color=000000&bgcolor=FFFFFF`;
+
+  const orderReceiptHTML = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Order Receipt</title>
+  <style>
+    @page { margin: 0 !important; }
+    * { margin: 0 !important; padding: 0 !important; box-sizing: border-box !important; }
+    
+    body {
+      width: 80mm !important; padding: 0 4mm 4mm 4mm !important;
+      font-family: Arial, Helvetica, "Liberation Sans", sans-serif !important;
+      font-size: 10pt !important;
+      line-height: 1.4 !important; background: #ffffff !important; color: #000000 !important;
+      font-weight: 600 !important;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+      -webkit-font-smoothing: antialiased !important;
+    }
+    
+    @media print {
+      @page {
+        margin: 0 !important;
+      }
+      body {
+        margin: 0 !important;
+        padding-top: 0 !important;
+      }
+    }
+    
+    .center { text-align: center !important; }
+    .bold { font-weight: 700 !important; }
+    .extra-bold { font-weight: 800 !important; }
+    .black-bold { font-weight: 900 !important; }
+    
+    /* HEADER */
+    .header {
+      text-align: center !important;
+      padding: 0 0 1mm 0 !important;
+      margin-bottom: 1.5mm !important;
+    }
+    
+    .business-name {
+      font-size: 18pt !important;
+      font-weight: 900 !important;
+      letter-spacing: 1.5px !important;
+      margin-bottom: 1px !important;
+      text-transform: uppercase !important;
+    }
+    
+    .business-subtitle {
+      font-size: 10pt !important;
+      font-weight: 800 !important;
+      letter-spacing: 0.5px !important;
+      margin-bottom: 1.5mm !important;
+      text-transform: uppercase !important;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- BRAND HEADER -->
+  <div class="header">
+    <!-- SVG Coat Hanger + Smiley Logo -->
+    <svg width="55" height="55" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: block; margin: 0 auto 2mm auto;">
+      <!-- Hanger hook -->
+      <path d="M50,28 C50,15 62,15 62,23 C62,30 50,30 50,38" stroke="black" stroke-width="4.5" stroke-linecap="round" fill="none" />
+      <!-- Smiley Face Circle -->
+      <circle cx="50" cy="62" r="22" stroke="black" stroke-width="4.5" fill="white" />
+      <!-- Hanger Shoulders overlapping circle top -->
+      <path d="M22,46 C32,38 42,38 50,38 C58,38 68,38 78,46" stroke="black" stroke-width="4.5" stroke-linecap="round" fill="none" />
+      <!-- Eyes -->
+      <circle cx="42" cy="58" r="3.5" fill="black" />
+      <circle cx="58" cy="58" r="3.5" fill="black" />
+      <!-- Mouth -->
+      <path d="M42,67 Q50,74 58,67" stroke="black" stroke-width="3" stroke-linecap="round" fill="none" />
+    </svg>
+    <div class="business-name">GEN-Z</div>
+    <div class="business-subtitle">LAUNDRY & DRY CLEANERS</div>
+  </div>
+  
+  <!-- DIVIDER -->
+  <div style="border-bottom: 1.2px dashed #000; margin-bottom: 1.5mm;"></div>
+  
+  <!-- DOCUMENT TITLE -->
+  <div class="center bold extra-bold" style="font-size: 13pt; letter-spacing: 1.5px; margin-bottom: 1.5mm; text-transform: uppercase;">
+    ORDER RECEIPT
+  </div>
+  
+  <!-- INFO GRID -->
+  <table style="width: 100%; border-collapse: collapse; margin: 1mm 0 2mm 0;">
+    <tr>
+      <td style="font-size: 9.5pt; font-weight: 700; width: 52%; padding: 0.8mm 0; text-align: left; vertical-align: middle;">
+        Order ID&nbsp;&nbsp;: <span class="black-bold" style="font-size: 10.5pt;">${billData.billNumber}</span>
+      </td>
+      <td style="font-size: 9.5pt; font-weight: 700; width: 48%; padding: 0.8mm 0; text-align: right; vertical-align: middle;">
+        Date : ${currentDate}
+      </td>
+    </tr>
+    <tr>
+      <td style="font-size: 9.5pt; font-weight: 700; padding: 0.8mm 0; text-align: left; vertical-align: middle; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 42mm;">
+        Customer : ${billData.customerName || 'Walk-in'}
+      </td>
+      <td style="font-size: 9.5pt; font-weight: 700; padding: 0.8mm 0; text-align: right; vertical-align: middle;">
+        Time : ${currentTime}
+      </td>
+    </tr>
+    <tr>
+      <td colspan="2" style="font-size: 9.5pt; font-weight: 700; padding: 0.8mm 0; text-align: left; vertical-align: middle;">
+        Mobile&nbsp;&nbsp;&nbsp;: ${billData.customerPhone || 'N/A'}
+      </td>
+    </tr>
+  </table>
+  
+  <!-- DIVIDER -->
+  <div style="border-bottom: 1.2px dashed #000; margin-bottom: 1.5mm;"></div>
+  
+  <!-- ITEMS TABLE -->
+  <div style="display: flex; justify-content: space-between; padding: 1.5mm 0; font-size: 9.5pt; font-weight: 900; border-bottom: 1.5px solid #000; letter-spacing: 0.5px; text-transform: uppercase;">
+    <span>Item</span>
+    <span>Qty</span>
+  </div>
+  
+  <div style="margin-bottom: 2mm;">
+    ${billData.items.map(item => {
+      // Strip details inside parenthesis if any, or print normal item name
+      const nameOnly = item.name.split('(')[0].trim();
+      return `
+    <div style="display: flex; justify-content: space-between; padding: 1.8mm 0; font-size: 10pt; font-weight: 700; border-bottom: 1px dotted #000; align-items: center;">
+      <span style="text-transform: capitalize;">${nameOnly}</span>
+      <span style="font-family: monospace; font-size: 11pt; font-weight: 800;">${item.quantity.toString().padStart(2, '0')}</span>
+    </div>`;
+    }).join('')}
+  </div>
+  
+  <!-- TOTAL ITEMS -->
+  <div style="display: flex; justify-content: space-between; padding: 2.5mm 0; font-size: 11pt; font-weight: 900; border-top: 1.2px dashed #000; border-bottom: 1.2px dashed #000; margin-top: 1mm; margin-bottom: 2mm; align-items: center;">
+    <span>Total Items</span>
+    <span style="font-family: monospace; font-size: 12pt;">${totalItems.toString().padStart(2, '0')}</span>
+  </div>
+  
+  <!-- ORDER STATUS/PICKUP DETAILS -->
+  <div style="padding: 1.5mm 0; font-size: 10pt; font-weight: 700; line-height: 1.5; margin-bottom: 2mm;">
+    <div>Service Type&nbsp;&nbsp;: <span style="font-weight: 900; text-transform: capitalize;">${serviceType}</span></div>
+    <div>Delivery Date : <span style="font-weight: 900;">${formattedDeliveryDate}</span></div>
+  </div>
+  
+  <!-- QR CODE BLOCK -->
+  <div style="display: flex; align-items: center; gap: 4mm; padding: 3mm 0; border-top: 1.2px dashed #000; border-bottom: 1.2px dashed #000; margin: 1mm 0 3mm 0;">
+    <img src="${qrCodeUrl}" style="width: 22mm; height: 22mm; border: 1px solid #000; padding: 1px; display: block; image-rendering: pixelated;" />
+    <div style="font-size: 8.5pt; font-weight: 800; line-height: 1.4; text-align: left; color: #000;">
+      Scan QR for order updates<br>
+      Please keep this receipt<br>
+      for collection.
+    </div>
+  </div>
+  
+  <!-- SIGNATURES -->
+  <div style="display: flex; justify-content: space-between; margin-top: 5mm; padding-bottom: 4mm; border-bottom: 1.2px dashed #000; margin-bottom: 2.5mm;">
+    <div style="text-align: center; width: 45%;">
+      <div style="font-size: 9pt; font-weight: 800; margin-bottom: 9mm;">Received By</div>
+      <div style="border-top: 1.2px solid #000; width: 100%;"></div>
+    </div>
+    <div style="text-align: center; width: 45%;">
+      <div style="font-size: 9pt; font-weight: 800; margin-bottom: 9mm;">Customer Sign</div>
+      <div style="border-top: 1.2px solid #000; width: 100%;"></div>
+    </div>
+  </div>
+  
+  <!-- FOOTER -->
+  <div class="center bold extra-bold" style="padding-top: 1mm; font-size: 9.5pt; letter-spacing: 0.5px; text-transform: uppercase;">
+    &#9829; Thank You! Visit Again
+  </div>
+
+</body>
+</html>
+  `;
+
+  printWindow.document.write(orderReceiptHTML);
+  printWindow.document.close();
+  
+  printWindow.onload = () => {
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 1500);
   };
 };
 
