@@ -1,0 +1,932 @@
+diff --git a/ExpenseManager.tsx b/ExpenseManager.tsx
+index 5d85125..046d20e 100644
+--- a/ExpenseManager.tsx
++++ b/ExpenseManager.tsx
+@@ -1,4 +1,4 @@
+-import React, { useState, useEffect } from 'react';
++import React, { useState, useEffect, useRef } from 'react';
+ import apiService from './api';
+ import { useAlert } from './GlobalAlert';
+ 
+@@ -273,7 +273,7 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({ onClose }) => {
+     }
+   };
+ 
+-  const handleEdit = (expense: Expense) => {
++    const handleEdit = (expense: Expense) => {
+     setEditingExpense(expense);
+     setFormData({
+       title: expense.title,
+@@ -344,417 +344,417 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({ onClose }) => {
+     };
+     
+     return {
+-      value: category,
+-      ...(compatibilityMap[category] || { label: category, icon: 'fa-clipboard-list', color: '#95a5a6' })
+-    };
+-  };
+-
+-  const generatePDFReport = () => {
+-    const printWindow = window.open('', '_blank', 'width=900,height=700');
+-    if (!printWindow) {
+-      showCustomAlert('Please allow popups to download the report', 'error');
+-      return;
+-    }
+-
+-    const filteredExpenses = allExpenses.filter(exp => 
+-      searchQuery ? exp.title.toLowerCase().includes(searchQuery.toLowerCase()) : true
+-    );
+-
+-    const totalAmount = filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+-    const periodText = viewMode === 'day' 
+-      ? new Date(selectedDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
+-      : viewMode === 'month'
+-      ? `${['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][selectedMonth - 1]} ${selectedYear}`
+-      : viewMode === 'year'
+-      ? `${selectedYear}`
+-      : `${new Date(customStartDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} to ${new Date(customEndDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+-
+-    const reportHTML = `
+-<!DOCTYPE html>
+-<html>
+-<head>
+-  <title>Expense Report - ${periodText}</title>
+-  <style>
+-    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+-    
+-    @page { 
+-      size: A4; 
+-      margin: 15mm; 
+-    }
+-    @media print {
+-      body { 
+-        margin: 0; 
+-        padding: 0; 
+-        background: white; 
+-        -webkit-print-color-adjust: exact; 
+-        print-color-adjust: exact; 
+-      }
+-      .no-print { display: none !important; }
+-      .summary-item { 
+-        -webkit-print-color-adjust: exact !important; 
+-        print-color-adjust: exact !important; 
+-        box-shadow: none !important;
+-        border: 1px solid #e2e8f0 !important;
+-      }
+-      .category-badge { 
+-        -webkit-print-color-adjust: exact !important; 
+-        print-color-adjust: exact !important; 
+-      }
+-    }
+-    body {
+-      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+-      padding: 10px 20px;
+-      background: white;
+-      color: #0f172a;
+-      line-height: 1.5;
+-    }
+-    .header-container {
+-      display: flex;
+-      justify-content: space-between;
+-      align-items: flex-start;
+-      border-bottom: 2px solid #e2e8f0;
+-      padding-bottom: 20px;
+-      margin-bottom: 25px;
+-    }
+-    .header-text h1 {
+-      margin: 0 0 6px 0;
+-      color: #0f172a;
+-      font-size: 26px;
+-      font-weight: 800;
+-      letter-spacing: -0.02em;
+-    }
+-    .business-name {
+-      margin: 0 0 12px 0;
+-      color: #ef4444;
+-      font-size: 14px;
+-      font-weight: 700;
+-      letter-spacing: 0.05em;
+-      text-transform: uppercase;
+-    }
+-    .meta-grid {
+-      display: grid;
+-      grid-template-columns: repeat(1, auto);
+-      gap: 4px;
+-    }
+-    .meta-item {
+-      margin: 0;
+-      color: #475569;
+-      font-size: 12px;
+-    }
+-    .meta-item strong {
+-      color: #0f172a;
+-    }
+-    .header-logo {
+-      flex-shrink: 0;
+-    }
+-    .header-logo img {
+-      height: 60px;
+-      width: auto;
+-      max-width: 180px;
+-      object-fit: contain;
+-    }
+-    
+-    .summary {
+-      display: grid;
+-      grid-template-columns: repeat(3, 1fr);
+-      gap: 16px;
+-      margin-bottom: 25px;
+-    }
+-    .summary-item {
+-      background: #f8fafc;
+-      border: 1px solid #e2e8f0;
+-      padding: 16px 20px;
+-      border-radius: 12px;
+-      text-align: left;
+-      position: relative;
+-      overflow: hidden;
+-    }
+-    .summary-item::before {
+-      content: '';
+-      position: absolute;
+-      top: 0;
+-      left: 0;
+-      width: 4px;
+-      height: 100%;
+-    }
+-    .summary-item.total::before { background: #ef4444; }
+-    .summary-item.records::before { background: #3b82f6; }
+-    .summary-item.avg::before { background: #10b981; }
+-
+-    .summary-item .label {
+-      font-size: 10px;
+-      color: #64748b;
+-      text-transform: uppercase;
+-      font-weight: 700;
+-      letter-spacing: 0.05em;
+-      margin-bottom: 6px;
+-    }
+-    .summary-item .value {
+-      font-size: 20px;
+-      font-weight: 800;
+-      color: #0f172a;
+-      letter-spacing: -0.01em;
+-    }
+-    
+-    table {
+-      width: 100%;
+-      border-collapse: collapse;
+-      margin-bottom: 30px;
+-    }
+-    thead {
+-      background: #0f172a;
+-      color: white;
+-    }
+-    th {
+-      padding: 12px 14px;
+-      text-align: left;
+-      font-weight: 700;
+-      font-size: 11px;
+-      text-transform: uppercase;
+-      letter-spacing: 0.05em;
+-    }
+-    th:first-child { border-radius: 6px 0 0 0; }
+-    th:last-child { border-radius: 0 6px 0 0; text-align: right; }
+-    td {
+-      padding: 10px 14px;
+-      border-bottom: 1px solid #e2e8f0;
+-      font-size: 12px;
+-      color: #334155;
+-    }
+-    tbody tr:nth-child(even) {
+-      background: #f8fafc;
+-    }
+-    .category-badge {
+-      display: inline-flex;
+-      align-items: center;
+-      padding: 3px 10px;
+-      border-radius: 12px;
+-      font-size: 10px;
+-      font-weight: 700;
+-      color: white;
+-      text-transform: uppercase;
+-      letter-spacing: 0.03em;
+-    }
+-    .amount {
+-      font-weight: 700;
+-      color: #0f172a;
+-      text-align: right;
+-    }
+-    .total-row {
+-      background: #f1f5f9;
+-      font-weight: 700;
+-    }
+-    .total-row td {
+-      border-top: 2px solid #0f172a;
+-      border-bottom: 2px solid #0f172a;
+-      font-size: 14px;
+-      color: #0f172a;
+-    }
+-    .footer {
+-      margin-top: 40px;
+-      padding-top: 20px;
+-      border-top: 1px solid #e2e8f0;
+-      text-align: center;
+-      color: #94a3b8;
+-      font-size: 11px;
+-    }
+-    .no-print {
+-      text-align: center;
+-      margin: 20px 0;
+-    }
+-    .print-btn {
+-      background: #ef4444;
+-      color: white;
+-      border: none;
+-      padding: 12px 30px;
+-      border-radius: 8px;
+-      font-size: 15px;
+-      cursor: pointer;
+-      font-weight: 600;
+-      transition: all 0.2s;
+-      box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.2);
+-    }
+-    .print-btn:hover {
+-      background: #dc2626;
+-      box-shadow: 0 10px 15px -3px rgba(239, 68, 68, 0.3);
+-    }
+-  </style>
+-</head>
+-<body>
+-  <div class="no-print">
+-    <button class="print-btn" onclick="window.print()">??????? Print / Save as PDF</button>
+-  </div>
+-
+-  <div class="header-container">
+-    <div class="header-text">
+-      <h1>EXPENSE REPORT</h1>
+-      <div class="business-name">GenZ Laundry</div>
+-      <div class="meta-grid">
+-        <p class="meta-item"><strong>Period:</strong> ${periodText}</p>
+-        <p class="meta-item"><strong>Generated:</strong> ${new Date().toLocaleString('en-IN')}</p>
+-        ${searchQuery ? `<p class="meta-item"><strong>Search Filter:</strong> "${searchQuery}"</p>` : ''}
+-        ${selectedCategories.length > 0 ? `<p class="meta-item"><strong>Categories:</strong> ${selectedCategories.map(c => getCategoryInfo(c).label).join(', ')}</p>` : ''}
+-      </div>
+-    </div>
+-    <div class="header-logo">
+-      <img src="/bill_logo.png" alt="GenZ Laundry Logo" onerror="this.onerror=null; this.src='/bill_logo.jpg';" />
+-    </div>
+-  </div>
+-
+-  <div class="summary">
+-    <div class="summary-item total">
+-      <div class="label">Total Expenses</div>
+-      <div class="value">???${totalAmount.toLocaleString('en-IN')}</div>
+-    </div>
+-    <div class="summary-item records">
+-      <div class="label">Total Records</div>
+-      <div class="value">${filteredExpenses.length}</div>
+-    </div>
+-    <div class="summary-item avg">
+-      <div class="label">Average Amount</div>
+-      <div class="value">???${filteredExpenses.length > 0 ? (totalAmount / filteredExpenses.length).toLocaleString('en-IN', { maximumFractionDigits: 2 }) : 0}</div>
+-    </div>
+-  </div>
+-
+-  <table>
+-    <thead>
+-      <tr>
+-        <th style="width: 5%;">S.No</th>
+-        <th style="width: 15%;">Date</th>
+-        <th style="width: 25%;">Title</th>
+-        <th style="width: 30%;">Description</th>
+-        <th style="width: 10%;">Category</th>
+-        <th style="width: 15%;">Amount</th>
+-      </tr>
+-    </thead>
+-    <tbody>
+-      ${filteredExpenses.map((expense, index) => {
+-        const categoryInfo = getCategoryInfo(expense.category);
+-        return `
+-          <tr>
+-            <td>${index + 1}</td>
+-            <td>${new Date(expense.date).toLocaleDateString('en-IN')}</td>
+-            <td><strong>${expense.title}</strong></td>
+-            <td>${expense.description || '-'}</td>
+-            <td>
+-              <span class="category-badge" style="background: ${categoryInfo.color};">
+-                ${categoryInfo.label}
+-              </span>
+-            </td>
+-            <td class="amount">???${expense.amount.toLocaleString('en-IN')}</td>
+-          </tr>
+-        `;
+-      }).join('')}
+-      <tr class="total-row">
+-        <td colspan="5" style="text-align: right; padding-right: 20px;">TOTAL:</td>
+-        <td class="amount">???${totalAmount.toLocaleString('en-IN')}</td>
+-      </tr>
+-    </tbody>
+-  </table>
+-
+-  <div class="footer">
+-    <p><strong>GenZ Laundry Management System</strong></p>
+-    <p>This is a computer-generated report. No signature required.</p>
+-  </div>
+-
+-  <script>
+-    // Auto print after a short delay
+-    setTimeout(() => {
+-      // window.print();
+-    }, 500);
+-  </script>
+-</body>
+-</html>
+-    `;
+-
+-    printWindow.document.write(reportHTML);
+-    printWindow.document.close();
+-  };
+-
+-  const downloadExcelReport = () => {
+-    const filteredExpenses = allExpenses.filter(exp => 
+-      searchQuery ? exp.title.toLowerCase().includes(searchQuery.toLowerCase()) : true
+-    );
+-
+-    const totalAmount = filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+-    const periodText = viewMode === 'day' 
+-      ? new Date(selectedDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
+-      : viewMode === 'month'
+-      ? `${['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][selectedMonth - 1]} ${selectedYear}`
+-      : viewMode === 'year'
+-      ? `${selectedYear}`
+-      : `${new Date(customStartDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} to ${new Date(customEndDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+-
+-    // Create CSV content
+-    let csvContent = `Expense Report - ${periodText}\n`;
+-    csvContent += `Generated on: ${new Date().toLocaleString('en-IN')}\n`;
+-    if (searchQuery) csvContent += `Filter: "${searchQuery}"\n`;
+-    csvContent += `\n`;
+-    csvContent += `Total Expenses:,???${totalAmount.toLocaleString('en-IN')}\n`;
+-    csvContent += `Total Records:,${filteredExpenses.length}\n`;
+-    csvContent += `Average Amount:,???${filteredExpenses.length > 0 ? (totalAmount / filteredExpenses.length).toFixed(2) : 0}\n`;
+-    csvContent += `\n`;
+-    csvContent += `S.No,Date,Title,Description,Category,Amount\n`;
+-
+-    filteredExpenses.forEach((expense, index) => {
+-      const categoryInfo = getCategoryInfo(expense.category);
+-      csvContent += `${index + 1},`;
+-      csvContent += `${new Date(expense.date).toLocaleDateString('en-IN')},`;
+-      csvContent += `"${expense.title.replace(/"/g, '""')}",`;
+-      csvContent += `"${(expense.description || '-').replace(/"/g, '""')}",`;
+-      csvContent += `${categoryInfo.label},`;
+-      csvContent += `???${expense.amount.toLocaleString('en-IN')}\n`;
+-    });
+-
+-    csvContent += `\n`;
+-    csvContent += `TOTAL:,,,,,???${totalAmount.toLocaleString('en-IN')}\n`;
+-
+-    // Create download link
+-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+-    const link = document.createElement('a');
+-    const url = URL.createObjectURL(blob);
+-    link.setAttribute('href', url);
+-    link.setAttribute('download', `Expense_Report_${periodText.replace(/\s+/g, '_')}.csv`);
+-    link.style.visibility = 'hidden';
+-    document.body.appendChild(link);
+-    link.click();
+-    document.body.removeChild(link);
+-
+-    showCustomAlert('Excel report downloaded successfully!', 'success');
+-  };
+-
+-  const inputStyle: React.CSSProperties = {
+-    padding: '10px 14px',
+-    borderRadius: '8px',
+-    border: '1px solid rgba(255, 255, 255, 0.08)',
+-    background: 'rgba(9, 9, 11, 0.6)',
+-    color: 'white',
+-    fontSize: '13px',
+-    outline: 'none',
+-    width: '100%',
+-    transition: 'all 0.15s ease'
+-  };
+-
+-  const labelStyle: React.CSSProperties = {
+-    display: 'block',
+-    fontSize: '11px',
+-    fontWeight: 'bold',
+-    color: 'var(--text-secondary)',
+-    textTransform: 'uppercase',
+-    letterSpacing: '0.05em',
+-    marginBottom: '6px'
+-  };
+-
+-  return (
+-    <div style={{
+-      background: 'transparent', width: '100%',
+-      display: 'flex', flexDirection: 'column',
+-      animation: 'slideIn 0.3s ease-out'
+-    }}>
+-      <div style={{
+-        background: 'var(--bg-surface)', borderRadius: 'var(--radius-lg)', width: '100%',
+-        display: 'flex', flexDirection: 'column', overflow: 'hidden',
+-        border: '1px solid var(--border-subtle)'
++      value: category,
++      ...(compatibilityMap[category] || { label: category, icon: 'fa-clipboard-list', color: '#95a5a6' })
++    };
++  };
++
++  const generatePDFReport = () => {
++    const printWindow = window.open('', '_blank', 'width=900,height=700');
++    if (!printWindow) {
++      showCustomAlert('Please allow popups to download the report', 'error');
++      return;
++    }
++
++    const filteredExpenses = allExpenses.filter(exp => 
++      searchQuery ? exp.title.toLowerCase().includes(searchQuery.toLowerCase()) : true
++    );
++
++    const totalAmount = filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0);
++    const periodText = viewMode === 'day' 
++      ? new Date(selectedDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
++      : viewMode === 'month'
++      ? `${['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][selectedMonth - 1]} ${selectedYear}`
++      : viewMode === 'year'
++      ? `${selectedYear}`
++      : `${new Date(customStartDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} to ${new Date(customEndDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`;
++
++    const reportHTML = `
++<!DOCTYPE html>
++<html>
++<head>
++  <title>Expense Report - ${periodText}</title>
++  <style>
++    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
++    
++    @page { 
++      size: A4; 
++      margin: 15mm; 
++    }
++    @media print {
++      body { 
++        margin: 0; 
++        padding: 0; 
++        background: white; 
++        -webkit-print-color-adjust: exact; 
++        print-color-adjust: exact; 
++      }
++      .no-print { display: none !important; }
++      .summary-item { 
++        -webkit-print-color-adjust: exact !important; 
++        print-color-adjust: exact !important; 
++        box-shadow: none !important;
++        border: 1px solid #e2e8f0 !important;
++      }
++      .category-badge { 
++        -webkit-print-color-adjust: exact !important; 
++        print-color-adjust: exact !important; 
++      }
++    }
++    body {
++      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
++      padding: 10px 20px;
++      background: white;
++      color: #0f172a;
++      line-height: 1.5;
++    }
++    .header-container {
++      display: flex;
++      justify-content: space-between;
++      align-items: flex-start;
++      border-bottom: 2px solid #e2e8f0;
++      padding-bottom: 20px;
++      margin-bottom: 25px;
++    }
++    .header-text h1 {
++      margin: 0 0 6px 0;
++      color: #0f172a;
++      font-size: 26px;
++      font-weight: 800;
++      letter-spacing: -0.02em;
++    }
++    .business-name {
++      margin: 0 0 12px 0;
++      color: #ef4444;
++      font-size: 14px;
++      font-weight: 700;
++      letter-spacing: 0.05em;
++      text-transform: uppercase;
++    }
++    .meta-grid {
++      display: grid;
++      grid-template-columns: repeat(1, auto);
++      gap: 4px;
++    }
++    .meta-item {
++      margin: 0;
++      color: #475569;
++      font-size: 12px;
++    }
++    .meta-item strong {
++      color: #0f172a;
++    }
++    .header-logo {
++      flex-shrink: 0;
++    }
++    .header-logo img {
++      height: 60px;
++      width: auto;
++      max-width: 180px;
++      object-fit: contain;
++    }
++    
++    .summary {
++      display: grid;
++      grid-template-columns: repeat(3, 1fr);
++      gap: 16px;
++      margin-bottom: 25px;
++    }
++    .summary-item {
++      background: #f8fafc;
++      border: 1px solid #e2e8f0;
++      padding: 16px 20px;
++      border-radius: 12px;
++      text-align: left;
++      position: relative;
++      overflow: hidden;
++    }
++    .summary-item::before {
++      content: '';
++      position: absolute;
++      top: 0;
++      left: 0;
++      width: 4px;
++      height: 100%;
++    }
++    .summary-item.total::before { background: #ef4444; }
++    .summary-item.records::before { background: #3b82f6; }
++    .summary-item.avg::before { background: #10b981; }
++
++    .summary-item .label {
++      font-size: 10px;
++      color: #64748b;
++      text-transform: uppercase;
++      font-weight: 700;
++      letter-spacing: 0.05em;
++      margin-bottom: 6px;
++    }
++    .summary-item .value {
++      font-size: 20px;
++      font-weight: 800;
++      color: #0f172a;
++      letter-spacing: -0.01em;
++    }
++    
++    table {
++      width: 100%;
++      border-collapse: collapse;
++      margin-bottom: 30px;
++    }
++    thead {
++      background: #0f172a;
++      color: white;
++    }
++    th {
++      padding: 12px 14px;
++      text-align: left;
++      font-weight: 700;
++      font-size: 11px;
++      text-transform: uppercase;
++      letter-spacing: 0.05em;
++    }
++    th:first-child { border-radius: 6px 0 0 0; }
++    th:last-child { border-radius: 0 6px 0 0; text-align: right; }
++    td {
++      padding: 10px 14px;
++      border-bottom: 1px solid #e2e8f0;
++      font-size: 12px;
++      color: #334155;
++    }
++    tbody tr:nth-child(even) {
++      background: #f8fafc;
++    }
++    .category-badge {
++      display: inline-flex;
++      align-items: center;
++      padding: 3px 10px;
++      border-radius: 12px;
++      font-size: 10px;
++      font-weight: 700;
++      color: white;
++      text-transform: uppercase;
++      letter-spacing: 0.03em;
++    }
++    .amount {
++      font-weight: 700;
++      color: #0f172a;
++      text-align: right;
++    }
++    .total-row {
++      background: #f1f5f9;
++      font-weight: 700;
++    }
++    .total-row td {
++      border-top: 2px solid #0f172a;
++      border-bottom: 2px solid #0f172a;
++      font-size: 14px;
++      color: #0f172a;
++    }
++    .footer {
++      margin-top: 40px;
++      padding-top: 20px;
++      border-top: 1px solid #e2e8f0;
++      text-align: center;
++      color: #94a3b8;
++      font-size: 11px;
++    }
++    .no-print {
++      text-align: center;
++      margin: 20px 0;
++    }
++    .print-btn {
++      background: #ef4444;
++      color: white;
++      border: none;
++      padding: 12px 30px;
++      border-radius: 8px;
++      font-size: 15px;
++      cursor: pointer;
++      font-weight: 600;
++      transition: all 0.2s;
++      box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.2);
++    }
++    .print-btn:hover {
++      background: #dc2626;
++      box-shadow: 0 10px 15px -3px rgba(239, 68, 68, 0.3);
++    }
++  </style>
++</head>
++<body>
++  <div class="no-print">
++    <button class="print-btn" onclick="window.print()">??????? Print / Save as PDF</button>
++  </div>
++
++  <div class="header-container">
++    <div class="header-text">
++      <h1>EXPENSE REPORT</h1>
++      <div class="business-name">GenZ Laundry</div>
++      <div class="meta-grid">
++        <p class="meta-item"><strong>Period:</strong> ${periodText}</p>
++        <p class="meta-item"><strong>Generated:</strong> ${new Date().toLocaleString('en-IN')}</p>
++        ${searchQuery ? `<p class="meta-item"><strong>Search Filter:</strong> "${searchQuery}"</p>` : ''}
++        ${selectedCategories.length > 0 ? `<p class="meta-item"><strong>Categories:</strong> ${selectedCategories.map(c => getCategoryInfo(c).label).join(', ')}</p>` : ''}
++      </div>
++    </div>
++    <div class="header-logo">
++      <img src="/bill_logo.png" alt="GenZ Laundry Logo" onerror="this.onerror=null; this.src='/bill_logo.jpg';" />
++    </div>
++  </div>
++
++  <div class="summary">
++    <div class="summary-item total">
++      <div class="label">Total Expenses</div>
++      <div class="value">???${totalAmount.toLocaleString('en-IN')}</div>
++    </div>
++    <div class="summary-item records">
++      <div class="label">Total Records</div>
++      <div class="value">${filteredExpenses.length}</div>
++    </div>
++    <div class="summary-item avg">
++      <div class="label">Average Amount</div>
++      <div class="value">???${filteredExpenses.length > 0 ? (totalAmount / filteredExpenses.length).toLocaleString('en-IN', { maximumFractionDigits: 2 }) : 0}</div>
++    </div>
++  </div>
++
++  <table>
++    <thead>
++      <tr>
++        <th style="width: 5%;">S.No</th>
++        <th style="width: 15%;">Date</th>
++        <th style="width: 25%;">Title</th>
++        <th style="width: 30%;">Description</th>
++        <th style="width: 10%;">Category</th>
++        <th style="width: 15%;">Amount</th>
++      </tr>
++    </thead>
++    <tbody>
++      ${filteredExpenses.map((expense, index) => {
++        const categoryInfo = getCategoryInfo(expense.category);
++        return `
++          <tr>
++            <td>${index + 1}</td>
++            <td>${new Date(expense.date).toLocaleDateString('en-IN')}</td>
++            <td><strong>${expense.title}</strong></td>
++            <td>${expense.description || '-'}</td>
++            <td>
++              <span class="category-badge" style="background: ${categoryInfo.color};">
++                ${categoryInfo.label}
++              </span>
++            </td>
++            <td class="amount">???${expense.amount.toLocaleString('en-IN')}</td>
++          </tr>
++        `;
++      }).join('')}
++      <tr class="total-row">
++        <td colspan="5" style="text-align: right; padding-right: 20px;">TOTAL:</td>
++        <td class="amount">???${totalAmount.toLocaleString('en-IN')}</td>
++      </tr>
++    </tbody>
++  </table>
++
++  <div class="footer">
++    <p><strong>GenZ Laundry Management System</strong></p>
++    <p>This is a computer-generated report. No signature required.</p>
++  </div>
++
++  <script>
++    // Auto print after a short delay
++    setTimeout(() => {
++      // window.print();
++    }, 500);
++  </script>
++</body>
++</html>
++    `;
++
++    printWindow.document.write(reportHTML);
++    printWindow.document.close();
++  };
++
++  const downloadExcelReport = () => {
++    const filteredExpenses = allExpenses.filter(exp => 
++      searchQuery ? exp.title.toLowerCase().includes(searchQuery.toLowerCase()) : true
++    );
++
++    const totalAmount = filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0);
++    const periodText = viewMode === 'day' 
++      ? new Date(selectedDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
++      : viewMode === 'month'
++      ? `${['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][selectedMonth - 1]} ${selectedYear}`
++      : viewMode === 'year'
++      ? `${selectedYear}`
++      : `${new Date(customStartDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} to ${new Date(customEndDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`;
++
++    // Create CSV content
++    let csvContent = `Expense Report - ${periodText}\n`;
++    csvContent += `Generated on: ${new Date().toLocaleString('en-IN')}\n`;
++    if (searchQuery) csvContent += `Filter: "${searchQuery}"\n`;
++    csvContent += `\n`;
++    csvContent += `Total Expenses:,???${totalAmount.toLocaleString('en-IN')}\n`;
++    csvContent += `Total Records:,${filteredExpenses.length}\n`;
++    csvContent += `Average Amount:,???${filteredExpenses.length > 0 ? (totalAmount / filteredExpenses.length).toFixed(2) : 0}\n`;
++    csvContent += `\n`;
++    csvContent += `S.No,Date,Title,Description,Category,Amount\n`;
++
++    filteredExpenses.forEach((expense, index) => {
++      const categoryInfo = getCategoryInfo(expense.category);
++      csvContent += `${index + 1},`;
++      csvContent += `${new Date(expense.date).toLocaleDateString('en-IN')},`;
++      csvContent += `"${expense.title.replace(/"/g, '""')}",`;
++      csvContent += `"${(expense.description || '-').replace(/"/g, '""')}",`;
++      csvContent += `${categoryInfo.label},`;
++      csvContent += `???${expense.amount.toLocaleString('en-IN')}\n`;
++    });
++
++    csvContent += `\n`;
++    csvContent += `TOTAL:,,,,,???${totalAmount.toLocaleString('en-IN')}\n`;
++
++    // Create download link
++    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
++    const link = document.createElement('a');
++    const url = URL.createObjectURL(blob);
++    link.setAttribute('href', url);
++    link.setAttribute('download', `Expense_Report_${periodText.replace(/\s+/g, '_')}.csv`);
++    link.style.visibility = 'hidden';
++    document.body.appendChild(link);
++    link.click();
++    document.body.removeChild(link);
++
++    showCustomAlert('Excel report downloaded successfully!', 'success');
++  };
++
++  const inputStyle: React.CSSProperties = {
++    padding: '10px 14px',
++    borderRadius: '8px',
++    border: '1px solid rgba(255, 255, 255, 0.08)',
++    background: 'rgba(9, 9, 11, 0.6)',
++    color: 'white',
++    fontSize: '13px',
++    outline: 'none',
++    width: '100%',
++    transition: 'all 0.15s ease'
++  };
++
++  const labelStyle: React.CSSProperties = {
++    display: 'block',
++    fontSize: '11px',
++    fontWeight: 'bold',
++    color: 'var(--text-secondary)',
++    textTransform: 'uppercase',
++    letterSpacing: '0.05em',
++    marginBottom: '6px'
++  };
++
++  return (
++    <div style={{
++      background: 'transparent', width: '100%',
++      display: 'flex', flexDirection: 'column',
++      animation: 'slideIn 0.3s ease-out'
++    }}>
++      <div style={{
++        background: 'var(--bg-surface)', borderRadius: 'var(--radius-lg)', width: '100%',
++        display: 'flex', flexDirection: 'column', overflow: 'hidden',
++        border: '1px solid var(--border-subtle)'
+       }}>
+         
+         {/* No Header here since it is managed by FinanceManager */}
+@@ -1390,21 +1390,64 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({ onClose }) => {
+           </div>
+         </div>
+ 
+-        {/* Add/Edit Form */}
++                {/* Add/Edit Form - Modal Popup Overlay */}
+         {showAddForm && (
+           <div style={{
+-            padding: '24px',
+-            background: 'rgba(20, 20, 25, 0.95)',
+-            backdropFilter: 'blur(20px)',
+-            borderBottom: '1px solid var(--border-subtle)',
++            position: 'fixed',
++            top: 0,
++            left: 0,
++            right: 0,
++            bottom: 0,
++            background: 'rgba(0, 0, 0, 0.75)',
++            backdropFilter: 'blur(8px)',
++            zIndex: 9999,
+             display: 'flex',
+-            flexDirection: 'column',
+-            gap: '20px'
++            alignItems: 'center',
++            justifyContent: 'center',
++            padding: '20px'
+           }}>
+-            <h3 style={{ margin: 0, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '16px', fontWeight: '600' }}>
+-              <i className={`fas ${editingExpense ? 'fa-edit' : 'fa-plus-circle'}`} style={{ color: 'var(--accent)' }}></i>
+-              {editingExpense ? 'Edit Expense Record' : 'Create New Expense Record'}
+-            </h3>
++            <div style={{
++              background: 'rgba(20, 20, 25, 0.98)',
++              border: '1px solid var(--border-subtle)',
++              borderRadius: 'var(--radius-xl)',
++              boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
++              width: '100%',
++              maxWidth: '680px',
++              maxHeight: '90vh',
++              overflowY: 'auto',
++              display: 'flex',
++              flexDirection: 'column',
++              padding: '30px',
++              gap: '20px'
++            }}>
++              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '16px' }}>
++                <h3 style={{ margin: 0, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '18px', fontWeight: '700' }}>
++                  <i className={`fas ${editingExpense ? 'fa-edit' : 'fa-plus-circle'}`} style={{ color: 'var(--accent)' }}></i>
++                  {editingExpense ? 'Edit Expense Record' : 'Create New Expense Record'}
++                </h3>
++                <button 
++                  onClick={resetForm} 
++                  type="button"
++                  style={{
++                    background: 'rgba(255,255,255,0.05)',
++                    border: 'none',
++                    borderRadius: '50%',
++                    width: '32px',
++                    height: '32px',
++                    color: 'var(--text-secondary)',
++                    display: 'flex',
++                    alignItems: 'center',
++                    justifyContent: 'center',
++                    cursor: 'pointer',
++                    fontSize: '16px',
++                    transition: 'all 0.2s'
++                  }}
++                  onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.15)'; e.currentTarget.style.color = '#f87171'; }}
++                  onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
++                >
++                  <i className="fas fa-times"></i>
++                </button>
++              </div>
+ 
+             {/* Quick Templates Carousel */}
+             {!editingExpense && (
+@@ -1605,6 +1648,7 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({ onClose }) => {
+               </div>
+             </form>
+           </div>
++          </div>
+         )}
+ 
+         {/* Main Body Layout: Two columns if categories are selected */}

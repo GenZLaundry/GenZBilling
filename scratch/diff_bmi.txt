@@ -1,0 +1,1545 @@
+diff --git a/BillingMachineInterface.tsx b/BillingMachineInterface.tsx
+index c90c7f8..d6c9980 100644
+--- a/BillingMachineInterface.tsx
++++ b/BillingMachineInterface.tsx
+@@ -1,6 +1,6 @@
+ import React, { useState, useRef, useEffect } from 'react';
+ import { printThermalBill, BillData } from './ThermalPrintManager';
+-import { printCleanThermalBill } from './CleanThermalPrint';
++import { printCleanThermalBill, printCleanThermalOrderReceipt } from './CleanThermalPrint';
+ import { ShopConfig, PendingBill } from './types';
+ import PendingBillSelector from './PendingBillSelector';
+ import FunctionalQRCode from './FunctionalQRCode';
+@@ -76,6 +76,10 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
+   const [selectedPendingBills, setSelectedPendingBills] = useState<PendingBill[]>([]);
+   const [searchQuery, setSearchQuery] = useState('');
+   const [showUPISettings, setShowUPISettings] = useState(false);
++  const [showTagOffsetSettings, setShowTagOffsetSettings] = useState(false);
++  const [tagPrintOffset, setTagPrintOffset] = useState<number>(() => {
++    return parseInt(localStorage.getItem('tag_print_offset') || '0', 10);
++  });
+   const [showItemListManager, setShowItemListManager] = useState(false);
+   const [showManualEntry, setShowManualEntry] = useState(false);
+   const [reminderTrigger, setReminderTrigger] = useState(0);
+@@ -87,6 +91,21 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
+   const [customerSuggestions, setCustomerSuggestions] = useState<Array<{name: string, phone: string, lastBill?: string}>>([]);
+   const [showSuggestions, setShowSuggestions] = useState(false);
+   const [lastGeneratedBill, setLastGeneratedBill] = useState<ShareableBillData | null>(null);
++  const [showStickerPrintModal, setShowStickerPrintModal] = useState(false);
++  const [stickerPrintCopies, setStickerPrintCopies] = useState('1');
++  
++  // Order Receipt States
++  const [showOrderReceiptModal, setShowOrderReceiptModal] = useState(false);
++  const [receiptDeliveryDate, setReceiptDeliveryDate] = useState(() => {
++    const d = new Date();
++    d.setDate(d.getDate() + 2); // Default to today + 2 days
++    return d.toISOString().split('T')[0];
++  });
++  const [receiptServiceType, setReceiptServiceType] = useState('Wash & Iron');
++  const [receiptCustomServiceType, setReceiptCustomServiceType] = useState('');
++  const [receiptAdvancePaid, setReceiptAdvancePaid] = useState('0');
++  const [receiptPaymentMethod, setReceiptPaymentMethod] = useState<'Cash' | 'UPI' | 'Card'>('Cash');
++  const [receiptPrintTags, setReceiptPrintTags] = useState(true);
+   
+   const [activeNotification, setActiveNotification] = useState<{
+     id: string;
+@@ -882,6 +901,174 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
+     }
+   };
+ 
++  const processOrderReceipt = async () => {
++    if (!customer.name || orderItems.length === 0) {
++      showAlert({ message: 'Please enter customer name and add items', type: 'warning' });
++      return;
++    }
++
++    setIsProcessing(true);
++    setShowOrderReceiptModal(false);
++
++    try {
++      const finalServiceType = receiptServiceType === 'Custom' ? receiptCustomServiceType : receiptServiceType;
++      const advancePaidNum = parseFloat(receiptAdvancePaid) || 0;
++      const total = calculateTotal();
++      const currentOrderSubtotal = orderItems.reduce((sum, item) => sum + item.total, 0);
++      const pendingBillsSubtotal = selectedPendingBills.reduce((sum, bill) => sum + bill.grandTotal, 0);
++
++      // Load logo preference
++      const savedPrefs = localStorage.getItem('genz_system_prefs');
++      let thankYou = 'Please keep this receipt for collection.';
++      let printLogo = true;
++      if (savedPrefs) {
++        try {
++          const prefs = JSON.parse(savedPrefs);
++          if (prefs.thankYouMessage) thankYou = prefs.thankYouMessage;
++          if (prefs.printLogo !== undefined) printLogo = prefs.printLogo;
++        } catch (e) {}
++      }
++
++      const billData: PendingBill = {
++        id: `local_${Date.now()}`,
++        businessName: shopConfig.shopName,
++        address: shopConfig.address,
++        phone: shopConfig.contact,
++        billNumber,
++        billDate,
++        customerName: customer.name,
++        customerPhone: customer.phone ? `${countryCode}${customer.phone}` : '',
++        items: orderItems.map(item => ({
++          name: `${item.name} (${item.washType})`,
++          quantity: item.quantity,
++          rate: item.price,
++          amount: item.total
++        })),
++        subtotal: currentOrderSubtotal + pendingBillsSubtotal + previousBalance,
++        discount,
++        deliveryCharge,
++        previousBalance,
++        grandTotal: total,
++        status: 'pending',
++        paymentStatus: advancePaidNum === 0 ? 'unpaid' : (advancePaidNum >= total ? 'paid' : 'partial'),
++        amountPaid: advancePaidNum,
++        amountDue: total - advancePaidNum,
++        paymentHistory: advancePaidNum > 0 ? [{ amount: advancePaidNum, date: new Date().toISOString(), note: 'Advance: ' + receiptPaymentMethod }] : [],
++        deliveryDate: receiptDeliveryDate,
++        serviceType: finalServiceType,
++        thankYouMessage: thankYou,
++        printLogo: printLogo,
++        createdAt: new Date().toISOString()
++      };
++
++      console.log('???? Processing order receipt:', billData);
++
++      // Save to localStorage first (always, for offline capability)
++      let localStorageSaveSuccess = false;
++      try {
++        // Save to general bill history
++        const existingHistory = JSON.parse(localStorage.getItem('laundry_bill_history') || '[]');
++        existingHistory.unshift({ ...billData, _syncedToDb: false });
++        if (existingHistory.length > 500) existingHistory.splice(500);
++        localStorage.setItem('laundry_bill_history', JSON.stringify(existingHistory));
++
++        // Save to pending bills local list
++        const existingPending = JSON.parse(localStorage.getItem('laundry_pending_bills') || '[]');
++        existingPending.unshift(billData);
++        localStorage.setItem('laundry_pending_bills', JSON.stringify(existingPending));
++
++        localStorageSaveSuccess = true;
++        console.log('??? Order receipt saved to localStorage first');
++      } catch (localError) {
++        console.error('??? localStorage save error:', localError);
++      }
++
++      // Save to database
++      let databaseSaveSuccess = false;
++      try {
++        console.log('???? Saving pending order to database...');
++        const response = await apiService.createBill(billData);
++        if (response.success) {
++          console.log('??? Pending order saved to database:', response.data);
++          databaseSaveSuccess = true;
++          // Mark local copies as synced
++          try {
++            const serverBillId = (response.data as any)?._id || (response.data as any)?.id;
++            const existingHistory = JSON.parse(localStorage.getItem('laundry_bill_history') || '[]');
++            const updatedHistory = existingHistory.map((b: any) => 
++              b.billNumber === billData.billNumber 
++                ? { ...b, _syncedToDb: true, _id: serverBillId } 
++                : b
++            );
++            localStorage.setItem('laundry_bill_history', JSON.stringify(updatedHistory));
++
++            // Sync database ID for local pending bill too
++            const existingPending = JSON.parse(localStorage.getItem('laundry_pending_bills') || '[]');
++            const updatedPending = existingPending.map((b: any) => 
++              b.billNumber === billData.billNumber 
++                ? { ...b, _id: serverBillId } 
++                : b
++            );
++            localStorage.setItem('laundry_pending_bills', JSON.stringify(updatedPending));
++          } catch (e) { /* ignore */ }
++
++          // AUTOMATICALLY SEND BACKGROUND SMS
++          if (billData.customerPhone && billData.customerPhone.length >= 10) {
++            try {
++              console.log('???? Automatically triggering background SMS for pending order...');
++              apiService.sendBillGeneratedSMS(
++                billData.customerPhone,
++                billData.customerName || 'Customer',
++                billData.items.map(i => ({ name: i.name, quantity: i.quantity }))
++              ).catch(err => console.warn('?????? Auto-SMS failed:', err));
++            } catch (smsError) {
++              console.warn('?????? Could not send auto-SMS:', smsError);
++            }
++          }
++        } else {
++          console.warn('?????? Database save failed:', response.message);
++        }
++      } catch (apiError) {
++        console.warn('?????? Database unavailable, pending order saved locally and will sync later:', apiError);
++      }
++
++      // Print the Order Receipt using premium thermal layout
++      console.log('??????? Printing order receipt...');
++      await printCleanThermalOrderReceipt(billData, (message) => showAlert({ message, type: 'error' }));
++
++      // Print clothing tags if option is selected
++      if (receiptPrintTags) {
++        setTimeout(async () => {
++          console.log('??????? Triggering clothing tags print...');
++          await printClothingTags();
++        }, 1000);
++      }
++
++      showAlert({ 
++        message: `??? Order receipt generated successfully! Saved to pending orders.\nOrder Number: ${billData.billNumber}`, 
++        type: 'success' 
++      });
++
++      // Reset cart and customer data
++      setOrderItems([]);
++      setCustomer({ name: '', phone: '' });
++      setSelectedPendingBills([]);
++      setDiscount(0);
++      setDeliveryCharge(0);
++      setPreviousBalance(0);
++      setReceiptAdvancePaid('0');
++      
++      // Generate next bill number
++      setBillNumber(`GZ${Date.now().toString().slice(-6)}`);
++    } catch (error) {
++      console.error('??? Order receipt processing failed:', error);
++      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
++      showAlert({ message: `Order receipt processing failed: ${errorMessage}`, type: 'error' });
++    } finally {
++      setIsProcessing(false);
++    }
++  };
++
+   const printClothingTags = async () => {
+     if (!customer.name || orderItems.length === 0) {
+       showAlert({ message: 'Please add items and customer name first', type: 'warning' });
+@@ -928,6 +1115,24 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
+       // Don't block printing if history save fails
+     }
+ 
++    // Try TSPL direct print via thermal server (TSC TL240)
++    try {
++      const tsplResponse = await fetch('http://localhost:3001/api/print/tspl-tags', {
++        method: 'POST',
++        headers: { 'Content-Type': 'application/json' },
++        body: JSON.stringify({ tags, printerName: 'TSC TL240', shiftDots: tagPrintOffset })
++      });
++      const tsplResult = await tsplResponse.json();
++      if (tsplResult.success) {
++        showAlert({ message: `??? ${tags.length} tags sent to TSC TL240`, type: 'success' });
++        return; // Done ??? no browser print needed
++      }
++      console.warn('TSPL print failed, falling back to browser print:', tsplResult.message);
++    } catch (tsplError) {
++      console.warn('Thermal server not running, using browser print fallback:', tsplError);
++    }
++
++    // Fallback: browser print window
+     const printWindow = window.open('', '_blank', 'width=800,height=600');
+     if (!printWindow) {
+       showAlert({ message: 'Please allow popups for tag printing', type: 'warning' });
+@@ -940,18 +1145,19 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
+ <head>
+   <title>Clothing Tags - TSC TL240</title>
+   <style>
++    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800;900&display=swap');
+     * { margin: 0; padding: 0; box-sizing: border-box; }
+ 
+-    /* TSC TL240 continuous roll ??? each tag is one page */
+-    /* Adjust width/height to match your actual roll size */
++    /* TSC TL240 ??? 37mm wide roll, 40mm height */
+     @page {
+-      size: 50mm 30mm;
++      size: 37mm 40mm;
+       margin: 0 !important;
+     }
+ 
+     @media print {
+       html, body {
+-        width: 50mm !important;
++        width: 37mm !important;
++        height: 40mm !important;
+         margin: 0 !important;
+         padding: 0 !important;
+       }
+@@ -965,114 +1171,650 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
+     }
+ 
+     body {
+-      font-family: 'Arial', sans-serif;
++      font-family: 'Outfit', 'Arial Black', 'Arial', sans-serif;
+       margin: 0;
+       padding: 0;
+       background: white;
+-      width: 50mm;
++      width: 37mm;
++      height: 40mm;
+     }
+ 
+     .tag {
+-      width: 50mm;
+-      height: 30mm;
+-      padding: 1.5mm 2mm;
++      width: 37mm;
++      height: 38mm;
++      margin: 1mm auto;
++      padding: 1mm 1.5mm;
+       background: white;
+       display: flex;
+       flex-direction: column;
+       justify-content: space-between;
+       box-sizing: border-box;
+-      overflow: hidden;
+-      border: 0.3px solid #ccc;
+     }
+ 
+     .top-header {
+       text-align: center;
+       padding-bottom: 0.8mm;
+-      border-bottom: 0.5px solid #000;
+-      line-height: 1.2;
++      border-bottom: 1.2px dashed #000;
+     }
+     .brand-line1 {
+-      font-size: 7px;
++      font-size: 11pt;
+       font-weight: 900;
+       display: block;
+       letter-spacing: 0.3px;
++      line-height: 1.1;
++      text-transform: uppercase;
++      white-space: nowrap;
+     }
+     .brand-line2 {
+-      font-size: 5.5px;
+-      font-weight: 700;
++      font-size: 6.5pt;
++      font-weight: 800;
+       display: block;
+-      color: #333;
++      line-height: 1.1;
++      letter-spacing: 0.8px;
++      text-transform: uppercase;
++      margin-top: 0.2mm;
++      white-space: nowrap;
+     }
+ 
+     .tag-date {
+-      font-size: 5.5px;
+-      font-weight: bold;
++      font-size: 7.5pt;
++      font-weight: 700;
+       text-align: center;
+-      color: #555;
+       line-height: 1;
++      margin: 0.3mm 0;
++      color: #000;
++      letter-spacing: 0.8px;
++      white-space: nowrap;
+     }
+ 
+     .customer-name {
+       text-align: center;
+-      font-size: 10px;
+-      font-weight: 900;
++      font-size: 13pt;
++      font-weight: 700;
+       text-transform: uppercase;
+-      letter-spacing: 0.5px;
++      letter-spacing: 0.6px;
+       line-height: 1.1;
+-      word-wrap: break-word;
+-      overflow-wrap: break-word;
++      white-space: nowrap;
++      overflow: hidden;
++      text-overflow: ellipsis;
++      max-width: 100%;
++      padding: 0.8mm 0;
++      border-top: 1.5px solid #000;
++      border-bottom: 1.5px solid #000;
++      margin: 0.2mm 0;
++    }
++
++    .service-type {
++      text-align: center;
++      font-size: 8pt;
++      font-weight: 800;
++      letter-spacing: 1px;
++      text-transform: uppercase;
++      margin: 0.2mm 0;
++      white-space: nowrap;
++    }
++
++    .bill-info {
++      display: flex;
++      justify-content: space-between;
++      align-items: center;
++      margin: 0.2mm 0;
++    }
++
++    .bill-no {
++      font-family: 'Courier New', Courier, monospace;
++      font-size: 10pt;
++      font-weight: bold;
++    }
++
++    .tag-number {
++      font-size: 9pt;
++      font-weight: 800;
++      border: 1px solid #000;
++      color: #000;
++      padding: 0.3mm 1.5mm;
++      border-radius: 3px;
++      white-space: nowrap;
++    }
++
++    .website {
++      text-align: center;
++      font-size: 7pt;
++      font-weight: 500;
++      padding-top: 0.5mm;
++      border-top: 1px dashed #000;
++      letter-spacing: 1.2px;
++      text-transform: lowercase;
++      white-space: nowrap;
++    }
++  </style>
++</head>
++<body>
++
++  ${tags.map((tag, index) => {
++    const nameLen = (tag.customerName || '').length;
++    let fontSize = '13pt';
++    if (nameLen > 15) fontSize = '8pt';
++    else if (nameLen > 11) fontSize = '9.5pt';
++    else if (nameLen > 7) fontSize = '11pt';
++
++    // Normalize washType
++    const rawType = (tag.washType || '').toUpperCase().trim();
++    let serviceLabel = rawType;
++    if (rawType === 'WASH') serviceLabel = 'WASH ONLY';
++    else if (rawType === 'IRON') serviceLabel = 'IRON ONLY';
++    else if (rawType === 'WASH+IRON') serviceLabel = 'WASH + IRON';
++    else if (rawType === 'DRY CLEAN') serviceLabel = 'DRY CLEAN';
++
++    return `
++    <div class="tag">
++      <div class="top-header">
++        <span class="brand-line1">Gen-Z Laundry</span>
++        <span class="brand-line2">&amp; Dry Cleaners</span>
++      </div>
++
++      <div class="tag-date">&bull; ${tag.date} &bull;</div>
++
++      <div class="customer-name" style="font-size: ${fontSize}">${tag.customerName}</div>
++
++      <div class="service-type">${serviceLabel}</div>
++
++      <div class="bill-info">
++        <span class="bill-no">${tag.billNumber}</span>
++        <span class="tag-number">${tag.tagIndex} / ${tag.totalTags}</span>
++      </div>
++
++      <div class="website">www.genzlaundry.com</div>
++    </div>
++  `;
++  }).join('')}
++
++  <script>
++    window.onload = function() {
++      setTimeout(function() {
++        window.print();
++        setTimeout(function() { window.close(); }, 1500);
++      }, 600);
++    }
++  </script>
++</body>
++</html>
++    `;
++
++    printWindow.document.write(tagHTML);
++    printWindow.document.close();
++  };
++
++  const getFlattenedStickerLogo = (): Promise<string> => {
++    return new Promise<string>((resolve) => {
++      const img = new Image();
++      img.src = '/sticker.png';
++      img.onload = () => {
++        const canvas = document.createElement('canvas');
++        canvas.width = img.width;
++        canvas.height = img.height;
++        const ctx = canvas.getContext('2d');
++        if (ctx) {
++          ctx.fillStyle = '#FFFFFF';
++          ctx.fillRect(0, 0, canvas.width, canvas.height);
++          ctx.drawImage(img, 0, 0);
++          try {
++            resolve(canvas.toDataURL('image/jpeg', 0.95));
++          } catch (e) {
++            resolve('/sticker.png');
++          }
++        } else {
++          resolve('/sticker.png');
++        }
++      };
++      img.onerror = () => {
++        resolve('/sticker.png');
++      };
++    });
++  };
++
++  const printPackStickers = () => {
++    setStickerPrintCopies('1');
++    setShowStickerPrintModal(true);
++  };
++
++  const executeStickerPrint = async (copies: number) => {
++    const logoDataUrl = await getFlattenedStickerLogo();
++
++    // Fallback: browser print window
++    const printWindow = window.open('', '_blank', 'width=800,height=600');
++    if (!printWindow) {
++      showAlert({ message: 'Please allow popups for sticker printing', type: 'warning' });
++      return;
++    }
++
++    let rowsHTML = '';
++    const numRows = Math.ceil(copies / 2);
++    for (let r = 0; r < numRows; r++) {
++      const leftIndex = r * 2;
++      const rightIndex = r * 2 + 1;
++      
++      const leftSticker = `
++        <div class="sticker">
++          <!-- Top Row: Flanking side texts and center logo -->
++          <div class="top-side-text left">
++            PREMIUM<br/>CARE
++            <div class="side-divider"><span>???</span></div>
++          </div>
++          
++          <div class="logo-container">
++            <img src="${logoDataUrl}" alt="Gen-Z Logo" onerror="this.style.display='none'; document.getElementById('text-logo-l-${r}').style.display='block';" />
++            <div id="text-logo-l-${r}" class="text-logo" style="display: none;">
++              <div class="glow-text">Gen-Z</div>
++            </div>
++          </div>
++
++          <div class="top-side-text right">
++            QUALITY<br/>YOU TRUST
++            <div class="side-divider"><span>???</span></div>
++          </div>
++
++          <!-- Brand Name Text -->
++          <div class="brand-title">GEN-Z</div>
++          <div class="brand-subtitle">LAUNDRY & DRY CLEANERS</div>
++
++
++
++          <!-- Black Chevron Ribbon Tagline Banner -->
++          <div class="black-banner">
++            &bigstar; CLEANED WITH CARE &bull; DELIVERED WITH TRUST &bigstar;
++          </div>
++
++          <!-- Website Contrast Capsule Footer -->
++          <div class="website-capsule">
++            <svg class="globe-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
++              <circle cx="12" cy="12" r="10" />
++              <line x1="2" y1="12" x2="22" y2="12" />
++              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
++            </svg>
++            <span class="website-text">www.genzlaundry.com</span>
++          </div>
++        </div>
++      `;
++
++      let rightSticker = '';
++      if (rightIndex < copies) {
++        rightSticker = `
++        <div class="sticker">
++          <!-- Top Row: Flanking side texts and center logo -->
++          <div class="top-side-text left">
++            PREMIUM<br/>CARE
++            <div class="side-divider"><span>???</span></div>
++          </div>
++          
++          <div class="logo-container">
++            <img src="${logoDataUrl}" alt="Gen-Z Logo" onerror="this.style.display='none'; document.getElementById('text-logo-r-${r}').style.display='block';" />
++            <div id="text-logo-r-${r}" class="text-logo" style="display: none;">
++              <div class="glow-text">Gen-Z</div>
++            </div>
++          </div>
++
++          <div class="top-side-text right">
++            QUALITY<br/>YOU TRUST
++            <div class="side-divider"><span>???</span></div>
++          </div>
++
++          <!-- Brand Name Text -->
++          <div class="brand-title">GEN-Z</div>
++          <div class="brand-subtitle">LAUNDRY & DRY CLEANERS</div>
++
++
++
++          <!-- Black Chevron Ribbon Tagline Banner -->
++          <div class="black-banner">
++            &bigstar; CLEANED WITH CARE &bull; DELIVERED WITH TRUST &bigstar;
++          </div>
++
++          <!-- Website Contrast Capsule Footer -->
++          <div class="website-capsule">
++            <svg class="globe-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
++              <circle cx="12" cy="12" r="10" />
++              <line x1="2" y1="12" x2="22" y2="12" />
++              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
++            </svg>
++            <span class="website-text">www.genzlaundry.com</span>
++          </div>
++        </div>
++        `;
++      } else {
++        rightSticker = `<div class="sticker blank"></div>`;
++      }
++
++      rowsHTML += `
++        <div class="print-row">
++          ${leftSticker}
++          ${rightSticker}
++        </div>
++      `;
++    }
++
++    const stickerHTML = `
++<!DOCTYPE html>
++<html>
++<head>
++  <title>Packaging Stickers - Gen-Z Laundry</title>
++  <style>
++    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800;900&display=swap');
++    * { margin: 0; padding: 0; box-sizing: border-box; }
++
++    @page {
++      size: 105mm 50mm;
++      margin: 0 !important;
++    }
++
++    @media print {
++      html, body {
++        width: 105mm !important;
++        height: 50mm !important;
++        margin: 0 !important;
++        padding: 0 !important;
++      }
++      .print-row {
++        page-break-after: always;
++        page-break-inside: avoid;
++      }
++      .print-row:last-child {
++        page-break-after: avoid;
++      }
++    }
++
++    body {
++      font-family: 'Outfit', 'Helvetica Neue', Arial, sans-serif;
++      margin: 0;
++      padding: 0;
++      background: white;
++      width: 105mm;
++      height: 50mm;
++      overflow: hidden;
++    }
++
++    .print-row {
++      display: flex;
++      justify-content: flex-start;
++      width: 105mm;
++      height: 50mm;
++      padding: 0.5mm 0 0 1mm;
++      box-sizing: border-box;
++      align-items: flex-start;
++    }
++
++    .sticker {
++      width: 48mm;
++      height: 47mm;
++      background: white;
++      display: flex;
++      flex-direction: column;
++      justify-content: space-between;
++      align-items: center;
++      box-sizing: border-box;
++      border: none;
++      padding: 1.5mm 1mm 1.5mm 1mm;
++      position: relative;
++      overflow: hidden;
++    }
++
++    .sticker + .sticker {
++      margin-left: 5mm;
++    }
++
++    .sticker.blank {
++      border: none;
++      visibility: hidden;
++    }
++
++    .logo-container {
++      display: flex;
++      justify-content: center;
++      align-items: center;
++      width: 50%;
++      height: 13mm;
++      z-index: 2;
++    }
++
++    .brand-title {
++      font-size: 18pt;
++      font-weight: 900;
++      letter-spacing: 1.5px;
++      text-transform: uppercase;
++      color: #000;
++      text-align: center;
++      line-height: 1;
++      margin-top: 2.2mm;
++      margin-bottom: 0.5mm;
++      z-index: 2;
++    }
++
++    .brand-subtitle {
++      font-size: 6.5pt;
++      font-weight: 900;
++      letter-spacing: 0.6px;
++      text-transform: uppercase;
++      color: #000;
++      text-align: center;
++      line-height: 1;
++      margin-bottom: 1.5mm;
++      z-index: 2;
++    }
++
++    .logo-container img {
+       max-width: 100%;
++      max-height: 100%;
++      object-fit: contain;
++    }
++
++    .text-logo {
++      text-align: center;
++    }
++
++    .glow-text {
++      font-size: 16pt;
++      font-weight: 900;
++      letter-spacing: 1.5px;
++      text-transform: uppercase;
++      line-height: 1;
++      color: #000;
++    }
++
++    .top-side-text {
++      position: absolute;
++      top: 5mm;
++      font-size: 5.2pt;
++      font-weight: 900;
++      letter-spacing: 0.5px;
++      text-transform: uppercase;
++      text-align: center;
++      color: #000;
++      width: 13mm;
++      z-index: 2;
++      line-height: 1.15;
++    }
++
++    .top-side-text.left {
++      left: 1.5mm;
++    }
++
++    .top-side-text.right {
++      right: 1.5mm;
++    }
++
++    .side-divider {
++      display: flex;
++      align-items: center;
++      justify-content: center;
++      width: 100%;
++      margin-top: 1mm;
++      position: relative;
++    }
++
++    .side-divider::before {
++      content: '';
++      position: absolute;
++      left: 0;
++      right: 0;
++      top: 50%;
++      height: 0.5px;
++      background: #000;
++    }
++
++    .side-divider span {
++      background: #fff;
++      font-size: 5pt;
++      padding: 0 0.8mm;
++      z-index: 3;
++      color: #000;
++      position: relative;
++      line-height: 1;
++    }
++
++    .subheader-container {
++      display: flex;
++      align-items: center;
++      justify-content: center;
++      width: 100%;
++      gap: 1.5mm;
++      z-index: 2;
++    }
++
++    .sub-line {
++      flex: 1;
++      height: 0.8px;
++      background: #000;
++    }
++
++    .subheader-text {
++      font-size: 5.5pt;
++      font-weight: 900;
++      letter-spacing: 1px;
++      text-transform: uppercase;
++      white-space: nowrap;
++      color: #000;
++    }
++
++    .icons-row {
++      display: flex;
++      align-items: center;
++      justify-content: space-around;
++      width: 100%;
++      padding: 0;
++      z-index: 2;
++    }
++
++    .icon-col {
++      display: flex;
++      flex-direction: column;
++      align-items: center;
++      gap: 1mm;
++      width: 12mm;
++    }
++
++    .circle-icon {
++      width: 7.5mm;
++      height: 7.5mm;
++      border: 1px solid #000;
++      border-radius: 50%;
++      display: flex;
++      align-items: center;
++      justify-content: center;
++      padding: 1.5mm;
++      background: #fff;
++    }
++
++    .circle-icon svg {
++      width: 100%;
++      height: 100%;
++      color: #000;
++    }
++
++    .icon-label {
++      font-size: 4.5pt;
++      font-weight: 900;
++      letter-spacing: 0.5px;
++      text-transform: uppercase;
++      color: #000;
++    }
++
++    .row-divider {
++      height: 8mm;
++      width: 1px;
++      background: #000;
++      position: relative;
++      margin-bottom: 3.5mm;
++    }
++
++    .row-divider::after {
++      content: '???';
++      position: absolute;
++      top: 50%;
++      left: 50%;
++      transform: translate(-50%, -50%);
++      background: #fff;
++      font-size: 6pt;
++      padding: 0.5mm 0;
++      color: #000;
++    }
++
++    .black-banner {
++      background: #000;
++      color: #fff;
++      padding: 1.2mm 1.5mm;
++      width: 100%;
++      text-align: center;
++      font-size: 4.5pt;
++      font-weight: 900;
++      letter-spacing: 0.2px;
++      text-transform: uppercase;
++      z-index: 2;
++      position: relative;
++      clip-path: polygon(2% 0%, 98% 0%, 96% 50%, 98% 100%, 2% 100%, 4% 50%);
++      display: flex;
++      align-items: center;
++      justify-content: center;
++      line-height: 1;
++      white-space: nowrap;
+     }
+ 
+-    .bill-info {
++    .website-capsule {
++      background: #000;
++      color: #fff;
++      border-radius: 50px;
++      width: 100%;
++      height: 7.2mm;
+       display: flex;
+-      justify-content: space-between;
+       align-items: center;
+-      font-size: 6px;
+-      font-weight: bold;
+-      font-family: 'Courier New', monospace;
++      justify-content: center;
++      gap: 1.5mm;
++      position: relative;
++      z-index: 2;
++      border: 1px solid #000;
++      box-shadow: inset 0 0 0 1px #fff;
+     }
+ 
+-    .tag-number {
+-      font-size: 7px;
+-      font-weight: 900;
+-      border: 0.8px solid #000;
+-      padding: 0.5px 2px;
+-      border-radius: 1px;
++
++
++    .globe-icon {
++      width: 3.2mm;
++      height: 3.2mm;
++      color: #fff;
+     }
+ 
+-    .website {
++    .website-text {
++      font-size: 9.5pt;
++      font-weight: 900;
++      letter-spacing: 0.8px;
++      color: #fff;
+       text-align: center;
+-      font-size: 5px;
+-      font-weight: bold;
+-      padding-top: 0.5mm;
+-      border-top: 0.5px solid #000;
+-      color: #444;
++      text-transform: lowercase;
++      line-height: 1;
+     }
+   </style>
+ </head>
+ <body>
+-
+-  ${tags.map((tag, index) => `
+-    <div class="tag">
+-      <div class="top-header">
+-        <span class="brand-line1">Gen-Z Laundry</span>
+-        <span class="brand-line2">&amp; Dry Cleaners</span>
+-      </div>
+-
+-      <div class="tag-date">${tag.date}</div>
+-
+-      <div class="customer-name">${tag.customerName}</div>
+-
+-      <div class="bill-info">
+-        <span>${tag.billNumber}</span>
+-        <span class="tag-number">${tag.tagIndex} / ${tag.totalTags}</span>
+-      </div>
+-
+-      <div class="website">www.genzlaundry.com</div>
+-    </div>
+-  `).join('')}
+-
++  ${rowsHTML}
+   <script>
+     window.onload = function() {
+       setTimeout(function() {
+@@ -1080,12 +1822,12 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
+         setTimeout(function() { window.close(); }, 1500);
+       }, 600);
+     }
+-  </script>
++  <\/script>
+ </body>
+ </html>
+     `;
+ 
+-    printWindow.document.write(tagHTML);
++    printWindow.document.write(stickerHTML);
+     printWindow.document.close();
+   };
+ 
+@@ -2003,6 +2745,24 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
+                 Previous ({selectedPendingBills.length})
+               </button>
+ 
++              <button
++                onClick={printPackStickers}
++                className="professional-btn"
++                style={{
++                  padding: '6px 10px',
++                  borderRadius: '4px',
++                  background: 'linear-gradient(135deg, #a855f7 0%, #6366f1 100%)',
++                  color: 'white',
++                  fontSize: '11px',
++                  fontWeight: '600',
++                  border: 'none',
++                  cursor: 'pointer'
++                }}
++                title="Print packaging brand sticker"
++              >
++                <i className="fas fa-box" style={{ marginRight: '4px' }}></i> Sticker
++              </button>
++
+               <button
+                 onClick={() => setShowQuickDiscount(true)}
+                 className="professional-btn"
+@@ -2382,6 +3142,15 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
+               >
+                 <i className="fas fa-tag"></i> Print Tags
+               </button>
++              {/* Tag offset settings button */}
++              <button
++                onClick={() => setShowTagOffsetSettings(true)}
++                className="btn btn-ghost"
++                style={{ padding: '14px', borderRadius: '12px', fontSize: '13px' }}
++                title="Adjust tag print position"
++              >
++                <i className="fas fa-sliders-h"></i>
++              </button>
+ 
+               <button
+                 onClick={clearOrder}
+@@ -2494,34 +3263,307 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
+               </div>
+             )}
+ 
+-            <button
+-              onClick={processOrder}
+-              disabled={!customer.name || (orderItems.length === 0 && selectedPendingBills.length === 0 && previousBalance === 0) || isProcessing}
+-              className="btn btn-success"
+-              style={{
+-                width: '100%',
+-                padding: '16px',
+-                borderRadius: '12px',
+-                fontSize: '15px',
+-                letterSpacing: '1.5px',
+-                fontWeight: '800',
+-                display: 'flex',
+-                justifyContent: 'center',
+-                alignItems: 'center',
+-                gap: '10px',
+-                boxShadow: '0 4px 12px rgba(16, 185, 129, 0.2)'
+-              }}
+-            >
+-              {isProcessing ? (
+-                <><i className="fas fa-spinner fa-spin"></i> Processing...</>
+-              ) : (
+-                <><i className="fas fa-print"></i> PRINT BILL</>
+-              )}
+-            </button>
++            <div style={{ display: 'flex', gap: '12px', width: '100%' }}>
++              <button
++                onClick={processOrder}
++                disabled={!customer.name || (orderItems.length === 0 && selectedPendingBills.length === 0 && previousBalance === 0) || isProcessing}
++                className="btn btn-success"
++                style={{
++                  flex: 1.4,
++                  padding: '16px',
++                  borderRadius: '12px',
++                  fontSize: '14px',
++                  letterSpacing: '1px',
++                  fontWeight: '800',
++                  display: 'flex',
++                  justifyContent: 'center',
++                  alignItems: 'center',
++                  gap: '8px',
++                  boxShadow: '0 4px 12px rgba(16, 185, 129, 0.2)'
++                }}
++              >
++                {isProcessing ? (
++                  <><i className="fas fa-spinner fa-spin"></i> Processing...</>
++                ) : (
++                  <><i className="fas fa-print"></i> PRINT BILL</>
++                )}
++              </button>
++
++              <button
++                type="button"
++                onClick={() => {
++                  // Set default delivery date to today + 2 days
++                  const d = new Date();
++                  d.setDate(d.getDate() + 2);
++                  setReceiptDeliveryDate(d.toISOString().split('T')[0]);
++                  
++                  // Auto-detect service type from cart items if possible
++                  if (orderItems.length > 0) {
++                    const firstWashType = orderItems[0].washType;
++                    if (firstWashType === 'WASH+IRON') setReceiptServiceType('Wash & Iron');
++                    else if (firstWashType === 'DRY CLEAN') setReceiptServiceType('Dry Clean');
++                    else if (firstWashType === 'WASH') setReceiptServiceType('Wash Only');
++                    else if (firstWashType === 'IRON') setReceiptServiceType('Iron Only');
++                  }
++                  
++                  setShowOrderReceiptModal(true);
++                }}
++                disabled={!customer.name || orderItems.length === 0 || isProcessing}
++                className="btn"
++                style={{
++                  flex: 1,
++                  padding: '16px',
++                  borderRadius: '12px',
++                  fontSize: '14px',
++                  letterSpacing: '1px',
++                  fontWeight: '800',
++                  display: 'flex',
++                  justifyContent: 'center',
++                  alignItems: 'center',
++                  gap: '8px',
++                  background: (!customer.name || orderItems.length === 0 || isProcessing)
++                    ? 'var(--bg-base)'
++                    : 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
++                  border: 'none',
++                  color: (!customer.name || orderItems.length === 0 || isProcessing)
++                    ? 'var(--text-muted)'
++                    : 'white',
++                  boxShadow: (!customer.name || orderItems.length === 0 || isProcessing)
++                    ? 'none'
++                    : '0 4px 12px rgba(59, 130, 246, 0.2)',
++                  cursor: (!customer.name || orderItems.length === 0 || isProcessing) ? 'not-allowed' : 'pointer'
++                }}
++              >
++                <i className="fas fa-receipt"></i> ORDER RECEIPT
++              </button>
++            </div>
+           </div>
+         </div>
+       </div>
+ 
++      {/* Order Receipt Configuration Modal */}
++      {showOrderReceiptModal && (
++        <div style={{
++          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
++          background: 'rgba(0,0,0,0.75)', zIndex: 2000,
++          display: 'flex', alignItems: 'center', justifyContent: 'center',
++          backdropFilter: 'blur(8px)'
++        }}>
++          <div style={{
++            background: 'var(--bg-elevated)',
++            borderRadius: 'var(--radius-xl)',
++            padding: '28px',
++            width: '420px',
++            border: '1px solid var(--border-subtle)',
++            boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
++            position: 'relative'
++          }}>
++            <h3 style={{ margin: '0 0 6px 0', color: 'var(--text-primary)', fontSize: '18px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '8px' }}>
++              <i className="fas fa-file-invoice" style={{ color: '#3b82f6' }}></i>
++              Order Deposit Receipt
++            </h3>
++            <p style={{ margin: '0 0 20px 0', fontSize: '12px', color: 'var(--text-muted)' }}>
++              Confirm laundry deposit settings for <strong>{customer.name}</strong> ({orderItems.reduce((s, i) => s + i.quantity, 0)} items).
++            </p>
++
++            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px' }}>
++              {/* Delivery Date */}
++              <div>
++                <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
++                  Delivery / Pickup Date
++                </label>
++                <input
++                  type="date"
++                  value={receiptDeliveryDate}
++                  onChange={(e) => setReceiptDeliveryDate(e.target.value)}
++                  className="professional-input"
++                  style={{
++                    width: '100%',
++                    padding: '10px 12px',
++                    borderRadius: '8px',
++                    fontSize: '14px',
++                    background: 'var(--bg-base)',
++                    border: '1px solid var(--border-subtle)',
++                    color: 'var(--text-primary)'
++                  }}
++                />
++                {/* Quick Date Presets */}
++                <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
++                  {['Tomorrow', 'In 2 Days', 'In 3 Days'].map((label, idx) => {
++                    const days = idx + 1;
++                    const d = new Date();
++                    d.setDate(d.getDate() + days);
++                    const dateStr = d.toISOString().split('T')[0];
++                    const isSelected = receiptDeliveryDate === dateStr;
++                    return (
++                      <button
++                        key={label}
++                        type="button"
++                        onClick={() => setReceiptDeliveryDate(dateStr)}
++                        style={{
++                          padding: '4px 10px',
++                          borderRadius: '6px',
++                          border: 'none',
++                          cursor: 'pointer',
++                          fontSize: '11px',
++                          fontWeight: '600',
++                          background: isSelected ? '#3b82f6' : 'var(--bg-base)',
++                          color: isSelected ? 'white' : 'var(--text-secondary)'
++                        }}
++                      >
++                        {label}
++                      </button>
++                    );
++                  })}
++                </div>
++              </div>
++
++              {/* Service Type */}
++              <div>
++                <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
++                  Service Type
++                </label>
++                <select
++                  value={receiptServiceType}
++                  onChange={(e) => setReceiptServiceType(e.target.value)}
++                  className="professional-input"
++                  style={{
++                    width: '100%',
++                    padding: '10px 12px',
++                    borderRadius: '8px',
++                    fontSize: '14px',
++                    background: 'var(--bg-base)',
++                    border: '1px solid var(--border-subtle)',
++                    color: 'var(--text-primary)',
++                    cursor: 'pointer'
++                  }}
++                >
++                  <option value="Wash & Iron">Wash & Iron</option>
++                  <option value="Dry Clean">Dry Clean</option>
++                  <option value="Wash Only">Wash Only</option>
++                  <option value="Iron Only">Iron Only</option>
++                  <option value="Steam Iron">Steam Iron</option>
++                  <option value="Premium Care">Premium Care</option>
++                  <option value="Custom">Custom / Mixed...</option>
++                </select>
++                {receiptServiceType === 'Custom' && (
++                  <input
++                    type="text"
++                    placeholder="Enter custom service type (e.g. Wash & Hang)"
++                    value={receiptCustomServiceType}
++                    onChange={(e) => setReceiptCustomServiceType(e.target.value)}
++                    className="professional-input"
++                    style={{
++                      width: '100%',
++                      padding: '10px 12px',
++                      borderRadius: '8px',
++                      fontSize: '14px',
++                      background: 'var(--bg-base)',
++                      border: '1px solid var(--border-subtle)',
++                      color: 'var(--text-primary)',
++                      marginTop: '8px'
++                    }}
++                  />
++                )}
++              </div>
++
++              {/* Advance Payment Details */}
++              <div>
++                <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
++                  Advance Paid (Optional)
++                </label>
++                <div style={{ display: 'flex', gap: '10px' }}>
++                  <div style={{ position: 'relative', flex: 1.2 }}>
++                    <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', fontSize: '14px', color: 'var(--text-muted)' }}>???</span>
++                    <input
++                      type="number"
++                      placeholder="0.00"
++                      value={receiptAdvancePaid}
++                      onChange={(e) => {
++                        const val = e.target.value;
++                        const maxVal = calculateTotal();
++                        if (parseFloat(val) > maxVal) {
++                          setReceiptAdvancePaid(maxVal.toString());
++                        } else {
++                          setReceiptAdvancePaid(val);
++                        }
++                      }}
++                      className="professional-input"
++                      style={{
++                        width: '100%',
++                        padding: '10px 12px 10px 24px',
++                        borderRadius: '8px',
++                        fontSize: '14px',
++                        background: 'var(--bg-base)',
++                        border: '1px solid var(--border-subtle)',
++                        color: 'var(--text-primary)'
++                      }}
++                    />
++                  </div>
++                  <select
++                    value={receiptPaymentMethod}
++                    onChange={(e) => setReceiptPaymentMethod(e.target.value as any)}
++                    className="professional-input"
++                    disabled={parseFloat(receiptAdvancePaid) <= 0}
++                    style={{
++                      flex: 1,
++                      padding: '10px 12px',
++                      borderRadius: '8px',
++                      fontSize: '14px',
++                      background: 'var(--bg-base)',
++                      border: '1px solid var(--border-subtle)',
++                      color: 'var(--text-primary)',
++                      cursor: parseFloat(receiptAdvancePaid) <= 0 ? 'not-allowed' : 'pointer',
++                      opacity: parseFloat(receiptAdvancePaid) <= 0 ? 0.5 : 1
++                    }}
++                  >
++                    <option value="Cash">Cash</option>
++                    <option value="UPI">UPI</option>
++                    <option value="Card">Card</option>
++                  </select>
++                </div>
++                {parseFloat(receiptAdvancePaid) > 0 && (
++                  <div style={{ fontSize: '11px', color: '#10b981', marginTop: '6px', fontWeight: '600' }}>
++                    Balance Due: ???{calculateTotal() - (parseFloat(receiptAdvancePaid) || 0)}
++                  </div>
++                )}
++              </div>
++
++              {/* Print Tags Option */}
++              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', color: 'var(--text-primary)', marginTop: '4px' }}>
++                <input
++                  type="checkbox"
++                  checked={receiptPrintTags}
++                  onChange={(e) => setReceiptPrintTags(e.target.checked)}
++                  style={{ accentColor: '#3b82f6', width: '16px', height: '16px' }}
++                />
++                Print clothing tag stickers too
++              </label>
++            </div>
++
++            {/* Action Buttons */}
++            <div style={{ display: 'flex', gap: '10px' }}>
++              <button
++                type="button"
++                onClick={processOrderReceipt}
++                className="btn btn-success"
++                style={{ flex: 1.5, background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', color: 'white', padding: '12px', borderRadius: '8px', fontWeight: '700', cursor: 'pointer' }}
++              >
++                <i className="fas fa-print"></i> Generate & Print
++              </button>
++              <button
++                type="button"
++                onClick={() => setShowOrderReceiptModal(false)}
++                className="btn btn-ghost"
++                style={{ flex: 1, padding: '12px', borderRadius: '8px', fontWeight: '600' }}
++              >
++                Cancel
++              </button>
++            </div>
++          </div>
++        </div>
++      )}
++
+       {/* Pending Bill Selector Modal */}
+       {showPendingBillSelector && (
+         <PendingBillSelector
+@@ -2539,6 +3581,177 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
+         />
+       )}
+ 
++      {/* Tag Print Offset Settings */}
++      {showTagOffsetSettings && (
++        <div style={{
++          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
++          background: 'rgba(0,0,0,0.7)', zIndex: 2000,
++          display: 'flex', alignItems: 'center', justifyContent: 'center'
++        }}>
++          <div style={{
++            background: 'var(--bg-elevated)', borderRadius: 'var(--radius-xl)',
++            padding: '28px', width: '340px', border: '1px solid var(--border-subtle)',
++            boxShadow: '0 20px 60px rgba(0,0,0,0.5)'
++          }}>
++            <h3 style={{ margin: '0 0 6px 0', color: 'var(--text-primary)', fontSize: '16px', fontWeight: '700' }}>
++              <i className="fas fa-sliders-h" style={{ marginRight: '8px', color: 'var(--accent)' }}></i>
++              Tag Print Position
++            </h3>
++            <p style={{ margin: '0 0 20px 0', fontSize: '12px', color: 'var(--text-muted)' }}>
++              Fine-tune tag position. Base offset (43mm) is auto-calculated from your roll position. Use this slider only if still misaligned. Current fine-tune: <strong style={{ color: 'var(--accent)' }}>{tagPrintOffset} dots</strong> ({tagPrintOffset > 0 ? '+' : ''}{Math.round(tagPrintOffset * 25.4 / 203 * 10) / 10}mm)
++            </p>
++
++            {/* Visual slider */}
++            <div style={{ marginBottom: '20px' }}>
++              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '6px' }}>
++                <span>??? Left (0)</span>
++                <span>Right (400) ???</span>
++              </div>
++              <input
++                type="range"
++                min="-100"
++                max="100"
++                step="4"
++                value={tagPrintOffset}
++                onChange={(e) => setTagPrintOffset(parseInt(e.target.value))}
++                style={{ width: '100%', accentColor: 'var(--accent)' }}
++              />
++              <div style={{ textAlign: 'center', marginTop: '8px', fontSize: '13px', color: 'var(--text-secondary)' }}>
++                {tagPrintOffset} dots = {Math.round(tagPrintOffset * 25.4 / 203 * 10) / 10} mm
++              </div>
++            </div>
++
++            {/* Quick presets */}
++            <div style={{ display: 'flex', gap: '6px', marginBottom: '20px', flexWrap: 'wrap' }}>
++              {[0, 24, 48, 72, 96, 120, 150, 200, 250, 300].map(v => (
++                <button key={v} onClick={() => setTagPrintOffset(v)} style={{
++                  padding: '4px 10px', borderRadius: '6px', border: 'none', cursor: 'pointer',
++                  background: tagPrintOffset === v ? 'var(--accent)' : 'var(--bg-base)',
++                  color: tagPrintOffset === v ? 'white' : 'var(--text-secondary)',
++                  fontSize: '11px', fontWeight: '600'
++                }}>
++                  {v === 0 ? 'None' : `${Math.round(v * 25.4 / 203 * 10) / 10}mm`}
++                </button>
++              ))}
++            </div>
++
++            <div style={{ display: 'flex', gap: '10px' }}>
++              <button
++                onClick={() => {
++                  localStorage.setItem('tag_print_offset', tagPrintOffset.toString());
++                  setShowTagOffsetSettings(false);
++                  showAlert({ message: `Tag offset saved: ${tagPrintOffset} dots (${Math.round(tagPrintOffset * 25.4 / 203 * 10) / 10}mm)`, type: 'success' });
++                }}
++                className="btn btn-primary"
++                style={{ flex: 1 }}
++              >
++                <i className="fas fa-save" style={{ marginRight: '6px' }}></i>Save
++              </button>
++              <button onClick={() => setShowTagOffsetSettings(false)} className="btn btn-ghost">
++                Cancel
++              </button>
++            </div>
++          </div>
++        </div>
++      )}
++
++      {/* Sticker Print Modal */}
++      {showStickerPrintModal && (
++        <div style={{
++          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
++          background: 'rgba(0,0,0,0.7)', zIndex: 2000,
++          display: 'flex', alignItems: 'center', justifyContent: 'center'
++        }}>
++          <div style={{
++            background: 'var(--bg-elevated)', borderRadius: 'var(--radius-xl)',
++            padding: '24px', width: '320px', border: '1px solid var(--border-subtle)',
++            boxShadow: '0 20px 60px rgba(0,0,0,0.5)', textAlign: 'center'
++          }}>
++            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
++              <div className="alert-icon alert-icon-info" style={{
++                background: 'rgba(168, 85, 247, 0.1)',
++                color: '#a855f7',
++                width: '48px',
++                height: '48px',
++                borderRadius: '50%',
++                display: 'flex',
++                alignItems: 'center',
++                justifyContent: 'center',
++                fontSize: '20px'
++              }}>
++                <i className="fas fa-box"></i>
++              </div>
++            </div>
++            <h3 style={{ margin: '0 0 8px 0', color: 'var(--text-primary)', fontSize: '16px', fontWeight: '700' }}>
++              Sticker Print
++            </h3>
++            <p style={{ margin: '0 0 20px 0', fontSize: '13px', color: 'var(--text-secondary)' }}>
++              Enter the number of stickers to print:
++            </p>
++            <div style={{ marginBottom: '24px' }}>
++              <input
++                type="number"
++                min="1"
++                max="100"
++                value={stickerPrintCopies}
++                onChange={(e) => setStickerPrintCopies(e.target.value)}
++                onKeyDown={(e) => {
++                  if (e.key === 'Enter') {
++                    const val = parseInt(stickerPrintCopies, 10);
++                    if (!isNaN(val) && val > 0) {
++                      setShowStickerPrintModal(false);
++                      executeStickerPrint(val);
++                    }
++                  }
++                }}
++                style={{
++                  width: '100%',
++                  padding: '10px',
++                  borderRadius: 'var(--radius-md)',
++                  border: '1px solid var(--border-subtle)',
++                  background: 'var(--bg-base)',
++                  color: 'var(--text-primary)',
++                  fontSize: '16px',
++                  textAlign: 'center',
++                  fontWeight: '600',
++                  outline: 'none'
++                }}
++                autoFocus
++              />
++            </div>
++            <div style={{ display: 'flex', gap: '10px' }}>
++              <button
++                onClick={() => setShowStickerPrintModal(false)}
++                className="btn btn-ghost"
++                style={{ flex: 1 }}
++              >
++                Cancel
++              </button>
++              <button
++                onClick={() => {
++                  const val = parseInt(stickerPrintCopies, 10);
++                  if (!isNaN(val) && val > 0) {
++                    setShowStickerPrintModal(false);
++                    executeStickerPrint(val);
++                  } else {
++                    showAlert({ message: 'Please enter a valid number of copies', type: 'warning' });
++                  }
++                }}
++                className="btn btn-primary"
++                style={{
++                  flex: 1,
++                  background: 'linear-gradient(135deg, #a855f7 0%, #6366f1 100%)',
++                  border: 'none',
++                  color: 'white'
++                }}
++              >
++                Print
++              </button>
++            </div>
++          </div>
++        </div>
++      )}
++
+       {/* Item List Manager Modal */}
+       {showItemListManager && (
+         <ItemListManager
