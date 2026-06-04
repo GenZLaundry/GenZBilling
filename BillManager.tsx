@@ -47,7 +47,8 @@ const BillManager: React.FC<BillManagerProps> = ({ onClose, initialEditBill }) =
     discount: 0,
     deliveryCharge: 0,
     previousBalance: 0,
-    status: 'completed'
+    status: 'completed',
+    items: [] as Array<{ name: string; quantity: number; rate: number; amount: number }>
   });
 
   useEffect(() => {
@@ -109,22 +110,90 @@ const BillManager: React.FC<BillManagerProps> = ({ onClose, initialEditBill }) =
       discount: bill.discount || 0,
       deliveryCharge: bill.deliveryCharge || 0,
       previousBalance: bill.previousBalance || 0,
-      status: bill.status
+      status: bill.status,
+      items: bill.items ? bill.items.map(item => ({
+        name: item.name,
+        quantity: item.quantity,
+        rate: item.rate,
+        amount: item.amount
+      })) : []
     });
     setShowEditForm(true);
+  };
+
+  const updateItemField = (idx: number, field: string, value: any) => {
+    setEditFormData(prev => {
+      const updatedItems = prev.items.map((item, i) => {
+        if (i === idx) {
+          const updatedItem = { ...item, [field]: value };
+          updatedItem.amount = updatedItem.quantity * updatedItem.rate;
+          return updatedItem;
+        }
+        return item;
+      });
+      return {
+        ...prev,
+        items: updatedItems
+      };
+    });
+  };
+
+  const deleteItem = (idx: number) => {
+    setEditFormData(prev => ({
+      ...prev,
+      items: prev.items.filter((_, i) => i !== idx)
+    }));
+  };
+
+  const addItem = () => {
+    setEditFormData(prev => ({
+      ...prev,
+      items: [
+        ...prev.items,
+        { name: '', quantity: 1, rate: 0, amount: 0 }
+      ]
+    }));
   };
 
   const handleSaveEdit = async () => {
     if (!editingBill) return;
 
+    if (editFormData.items.length === 0) {
+      showAlert({ message: 'Bill must have at least one item.', type: 'warning' });
+      return;
+    }
+
+    if (editFormData.items.some(item => !item.name.trim())) {
+      showAlert({ message: 'Item name cannot be empty.', type: 'warning' });
+      return;
+    }
+
+    if (editFormData.items.some(item => item.quantity <= 0)) {
+      showAlert({ message: 'Item quantity must be greater than 0.', type: 'warning' });
+      return;
+    }
+
+    if (editFormData.items.some(item => item.rate < 0)) {
+      showAlert({ message: 'Item rate cannot be negative.', type: 'warning' });
+      return;
+    }
+
     try {
-      // Calculate new grand total
-      const newGrandTotal = editingBill.subtotal - editFormData.discount + editFormData.deliveryCharge;
+      // Calculate new subtotal from updated items
+      const computedSubtotal = editFormData.items.reduce((sum, item) => sum + (item.quantity * item.rate), 0);
+      const newGrandTotal = computedSubtotal - editFormData.discount + editFormData.deliveryCharge;
       
       const updatedBill = {
         ...editingBill,
         customerName: editFormData.customerName,
         customerPhone: editFormData.customerPhone,
+        items: editFormData.items.map(item => ({
+          name: item.name,
+          quantity: item.quantity,
+          rate: item.rate,
+          amount: item.quantity * item.rate
+        })),
+        subtotal: computedSubtotal,
         discount: editFormData.discount,
         deliveryCharge: editFormData.deliveryCharge,
         previousBalance: editFormData.previousBalance,
@@ -290,7 +359,8 @@ const BillManager: React.FC<BillManagerProps> = ({ onClose, initialEditBill }) =
       discount: 0,
       deliveryCharge: 0,
       previousBalance: 0,
-      status: 'completed'
+      status: 'completed',
+      items: []
     });
   };
 
@@ -364,7 +434,7 @@ const BillManager: React.FC<BillManagerProps> = ({ onClose, initialEditBill }) =
           }}>
             <div style={{
               background: 'var(--bg-surface)', borderRadius: 'var(--radius-lg)',
-              border: '1px solid var(--border-subtle)', width: '100%', maxWidth: '560px',
+              border: '1px solid var(--border-subtle)', width: '100%', maxWidth: '680px',
               boxShadow: '0 20px 60px rgba(0,0,0,0.5)', overflow: 'hidden'
             }}>
               {/* Modal Header */}
@@ -453,15 +523,104 @@ const BillManager: React.FC<BillManagerProps> = ({ onClose, initialEditBill }) =
                   </div>
                 </div>
 
+                {/* Items Section */}
+                <div style={{ marginTop: '16px', marginBottom: '16px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '6px' }}>
+                    <span style={{ fontSize: '13px', fontWeight: 'bold', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <i className="fas fa-tshirt" style={{ color: 'var(--accent)' }}></i> Bill Items
+                    </span>
+                    <button 
+                      type="button" 
+                      onClick={addItem}
+                      className="btn btn-ghost btn-sm"
+                      style={{ padding: '4px 10px', fontSize: '11px', height: 'auto', display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--accent)', border: '1px solid var(--accent-muted)' }}
+                    >
+                      <i className="fas fa-plus"></i> Add Item
+                    </button>
+                  </div>
+                  
+                  {/* Items Scroll Container */}
+                  <div style={{ 
+                    maxHeight: '180px', 
+                    overflowY: 'auto', 
+                    background: 'rgba(0, 0, 0, 0.2)', 
+                    borderRadius: 'var(--radius-md)', 
+                    border: '1px solid rgba(255,255,255,0.05)',
+                    padding: '8px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '8px'
+                  }}>
+                    {editFormData.items.length === 0 ? (
+                      <div style={{ textAlign: 'center', padding: '16px', color: 'var(--text-muted)', fontSize: '12px' }}>
+                        No items in this bill. Click "Add Item" to add.
+                      </div>
+                    ) : (
+                      editFormData.items.map((item, idx) => (
+                        <div key={idx} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                          <input
+                            type="text"
+                            placeholder="Item Name (e.g. Shirt)"
+                            value={item.name}
+                            onChange={(e) => updateItemField(idx, 'name', e.target.value)}
+                            style={{ flex: 2, padding: '8px', fontSize: '12px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '4px', color: 'white' }}
+                          />
+                          <input
+                            type="number"
+                            placeholder="Qty"
+                            value={item.quantity}
+                            onChange={(e) => updateItemField(idx, 'quantity', parseInt(e.target.value) || 0)}
+                            style={{ width: '60px', padding: '8px', fontSize: '12px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '4px', color: 'white', textAlign: 'center' }}
+                            min="1"
+                          />
+                          <input
+                            type="number"
+                            placeholder="Rate"
+                            value={item.rate}
+                            onChange={(e) => updateItemField(idx, 'rate', parseFloat(e.target.value) || 0)}
+                            style={{ width: '80px', padding: '8px', fontSize: '12px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '4px', color: 'white', textAlign: 'center' }}
+                            min="0" step="0.01"
+                          />
+                          <div style={{ width: '80px', fontSize: '12px', color: 'var(--success)', fontWeight: 'bold', textAlign: 'right', paddingRight: '4px' }}>
+                            ₹{(item.quantity * item.rate).toLocaleString()}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => deleteItem(idx)}
+                            style={{
+                              background: 'rgba(239, 68, 68, 0.1)',
+                              border: 'none',
+                              borderRadius: '4px',
+                              width: '28px',
+                              height: '28px',
+                              color: '#ef4444',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              cursor: 'pointer',
+                              fontSize: '12px',
+                              transition: 'all 0.2s'
+                            }}
+                            onMouseOver={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)'}
+                            onMouseOut={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)'}
+                          >
+                            <i className="fas fa-trash-alt"></i>
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
                 {/* New Total Preview */}
                 <div style={{
                   padding: '10px 14px', background: 'var(--accent-muted)',
                   borderRadius: 'var(--radius-md)', fontSize: '13px',
                   color: 'var(--text-primary)', marginBottom: '16px'
                 }}>
-                  <strong>New Total: ₹{(editingBill.subtotal - editFormData.discount + editFormData.deliveryCharge).toLocaleString()}</strong>
+                  <strong>New Total: ₹{(editFormData.items.reduce((sum, item) => sum + (item.quantity * item.rate), 0) - editFormData.discount + editFormData.deliveryCharge).toLocaleString()}</strong>
                   <span style={{ marginLeft: '12px', color: 'var(--text-secondary)', fontSize: '12px' }}>
-                    Subtotal ₹{editingBill.subtotal} − Discount ₹{editFormData.discount} + Delivery ₹{editFormData.deliveryCharge}
+                    Subtotal ₹{editFormData.items.reduce((sum, item) => sum + (item.quantity * item.rate), 0)} − Discount ₹{editFormData.discount} + Delivery ₹{editFormData.deliveryCharge}
                   </span>
                 </div>
 
