@@ -1038,9 +1038,12 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
 
       // Print clothing tags if option is selected
       if (receiptPrintTags) {
+        const tagsCustomer = { ...customer };
+        const tagsItems = [...orderItems];
+        const tagsBillNumber = billNumber;
         setTimeout(async () => {
           console.log('🖨️ Triggering clothing tags print...');
-          await printClothingTags();
+          await printClothingTags(tagsCustomer, tagsItems, tagsBillNumber);
         }, 1000);
       }
 
@@ -1069,35 +1072,49 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
     }
   };
 
-  const printClothingTags = async () => {
-    if (!customer.name || orderItems.length === 0) {
+  const printClothingTags = async (
+    customCustomer?: { name: string; phone: string },
+    customItems?: any[],
+    customBillNumber?: string
+  ) => {
+    // If called from onClick directly, customCustomer might be a React MouseEvent
+    const isCustomerObject = customCustomer && typeof customCustomer === 'object' && 'name' in customCustomer;
+    const activeCustomer = isCustomerObject ? customCustomer : customer;
+    const activeItems = Array.isArray(customItems) ? customItems : orderItems;
+    const activeBillNumber = typeof customBillNumber === 'string' ? customBillNumber : billNumber;
+
+    if (!activeCustomer.name || activeItems.length === 0) {
       showAlert({ message: 'Please add items and customer name first', type: 'warning' });
       return;
     }
 
     const tags: any[] = [];
     let tagCounter = 1;
-    const totalTags = orderItems.reduce((sum, item) => sum + item.quantity, 0);
-    const currentDate = new Date().toLocaleDateString('en-GB', {
+    const totalTags = activeItems.reduce((sum, item) => sum + item.quantity, 0);
+    const now = new Date();
+    const currentDate = now.toLocaleDateString('en-GB', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric'
+    }) + ' ' + now.toLocaleTimeString('en-GB', {
+      hour: '2-digit',
+      minute: '2-digit'
     });
 
-    orderItems.forEach(item => {
+    activeItems.forEach(item => {
       for (let i = 0; i < item.quantity; i++) {
         tags.push({
           businessName: shopConfig.shopName,
-          billNumber,
-          customerName: customer.name,
-          customerPhone: customer.phone ? `${countryCode}${customer.phone}` : '',
+          billNumber: activeBillNumber,
+          customerName: activeCustomer.name,
+          customerPhone: activeCustomer.phone ? `${countryCode}${activeCustomer.phone}` : '',
           itemName: item.name.toUpperCase(),
           washType: item.washType,
           tagIndex: tagCounter,
           totalTags: totalTags,
           date: currentDate,
-          barcode: `GZ${billNumber}${tagCounter.toString().padStart(3, '0')}`,
-          qrCode: `GZ${billNumber}${tagCounter.toString().padStart(3, '0')}`,
+          barcode: `GZ${activeBillNumber}${tagCounter.toString().padStart(3, '0')}`,
+          qrCode: `GZ${activeBillNumber}${tagCounter.toString().padStart(3, '0')}`,
           price: item.price
         });
         tagCounter++;

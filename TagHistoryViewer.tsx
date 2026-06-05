@@ -212,7 +212,7 @@ const TagHistoryViewer: React.FC = () => {
   };
 
   const exportCSV = () => {
-    const rows = tags.map(t => [t.billNumber, t.customerName, t.customerPhone, t.itemName, t.washType, t.tagIndex, t.totalTags, t.status, new Date(t.createdAt).toLocaleDateString()]);
+    const rows = tags.map(t => [t.billNumber, t.customerName, t.customerPhone, t.itemName, t.washType, t.tagIndex, t.totalTags, t.status, formatDate(t.createdAt)]);
     const csv = ['Bill#,Customer,Phone,Item,WashType,Tag#,TotalTags,Status,Date', ...rows.map(r => r.join(','))].join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
@@ -395,7 +395,7 @@ const TagHistoryViewer: React.FC = () => {
         <span class="brand-line1">Gen-Z Laundry</span>
         <span class="brand-line2">&amp; Dry Cleaners</span>
       </div>
-      <div class="tag-date">&bull; ${new Date(tag.createdAt).toLocaleDateString('en-GB')} &bull;</div>
+      <div class="tag-date">&bull; ${new Date(tag.createdAt).toLocaleDateString('en-GB')} ${new Date(tag.createdAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })} &bull;</div>
       <div class="name" style="font-size: ${fontSize}">${tag.customerName}</div>
       <div class="service-type">${serviceLabel}</div>
       <div class="info">
@@ -584,7 +584,7 @@ const TagHistoryViewer: React.FC = () => {
       <span class="brand-line1">Gen-Z Laundry</span>
       <span class="brand-line2">&amp; Dry Cleaners</span>
     </div>
-    <div class="tag-date">&bull; ${new Date(tag.createdAt).toLocaleDateString('en-GB')} &bull;</div>
+    <div class="tag-date">&bull; ${new Date(tag.createdAt).toLocaleDateString('en-GB')} ${new Date(tag.createdAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })} &bull;</div>
     <div class="name" style="font-size: ${fontSize}">${tag.customerName}</div>
     <div class="service-type">${serviceLabel}</div>
     <div class="info">
@@ -831,7 +831,7 @@ const TagHistoryViewer: React.FC = () => {
                       {bill.customerPhone && <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}><i className="fas fa-phone" style={{ fontSize: '8px', marginRight: '3px' }} />{bill.customerPhone}</span>}
                     </div>
                     <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {bill.itemNames.join(', ') || '—'} · {bill.washTypes.join(', ')} · {formatDateShort(bill.createdAt)}
+                      {bill.itemNames.join(', ') || '—'} · {bill.washTypes.join(', ')} · {formatDate(bill.createdAt)}
                     </div>
                   </div>
 
@@ -960,7 +960,7 @@ const TagHistoryViewer: React.FC = () => {
                     <span style={{ flex: 1, color: 'var(--text-primary)', fontWeight: 500 }}>{tag.itemName}</span>
                     <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>{tag.washType}</span>
                     {getStatusBadge(tag.status, 'sm')}
-                    <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{formatDateShort(tag.updatedAt)}</span>
+                    <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{formatDate(tag.updatedAt)}</span>
                     <div style={{ display: 'flex', gap: '2px' }}>
                       <button className="btn btn-ghost btn-sm" onClick={() => reprintSingleTag(tag)} style={{ padding: '3px', width: '24px', height: '24px' }}><i className="fas fa-print" style={{ fontSize: '10px' }} /></button>
                       <button className="btn btn-ghost btn-sm" onClick={() => handleEditTag(tag)} style={{ padding: '3px', width: '24px', height: '24px' }}><i className="fas fa-pen" style={{ fontSize: '10px' }} /></button>
