@@ -4,9 +4,10 @@ import authApi from './simpleAuthApi';
 
 interface SecureAuthProps {
   onLogin: (success: boolean) => void;
+  onOpenCustomerPortal: () => void;
 }
 
-const SecureAuth: React.FC<SecureAuthProps> = ({ onLogin }) => {
+const SecureAuth: React.FC<SecureAuthProps> = ({ onLogin, onOpenCustomerPortal }) => {
   const { showAlert } = useAlert();
 
   const [credentials, setCredentials] = useState({
@@ -108,6 +109,32 @@ const SecureAuth: React.FC<SecureAuthProps> = ({ onLogin }) => {
             )}
           </button>
         </form>
+
+        <div style={{ marginTop: '20px', textAlign: 'center' }}>
+          <button
+            type="button"
+            onClick={onOpenCustomerPortal}
+            style={{
+              background: 'linear-gradient(135deg, #0ea5e9, #06b6d4)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '10px',
+              padding: '12px 16px',
+              fontSize: '13px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              width: '100%',
+              boxShadow: '0 4px 12px rgba(14, 165, 233, 0.25)',
+              transition: 'all 0.2s',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px'
+            }}
+          >
+            <span>🧺</span> Customer Booking Portal
+          </button>
+        </div>
 
         <div className="login-footer">
           Built by{' '}

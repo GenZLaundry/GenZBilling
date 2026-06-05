@@ -40,6 +40,9 @@ export interface BillData {
   deliveryDate?: string;
   serviceType?: string;
   printLogo?: boolean;
+  receiptMode?: 'qty' | 'weight' | 'combined';
+  totalClothes?: number;
+  totalWeight?: number;
 }
 
 export const printCleanThermalBill = (billData: BillData, onError?: (message: string) => void) => {
@@ -69,6 +72,22 @@ export const printCleanThermalBill = (billData: BillData, onError?: (message: st
     hour: '2-digit',
     minute: '2-digit'
   });
+
+  const billTotalClothes = billData.totalClothes !== undefined && billData.totalClothes !== null
+    ? billData.totalClothes
+    : billData.items.reduce((sum, item) => {
+        const pcsMatch = item.name.match(/\((\d+)\s*pcs\)/i);
+        if (pcsMatch) return sum + parseInt(pcsMatch[1], 10);
+        const kgMatch = item.name.match(/\((\d+\.?\d*)\s*kg/i);
+        return sum + (kgMatch ? 0 : item.quantity);
+      }, 0);
+
+  const billTotalWeight = billData.totalWeight !== undefined && billData.totalWeight !== null
+    ? billData.totalWeight
+    : billData.items.reduce((sum, item) => {
+        const kgMatch = item.name.match(/\((\d+\.?\d*)\s*kg/i);
+        return sum + (kgMatch ? parseFloat(kgMatch[1]) : 0);
+      }, 0);
 
   // Generate DYNAMIC UPI QR Code
   const upiConfig = getUPIConfig();
@@ -495,6 +514,14 @@ export const printCleanThermalBill = (billData: BillData, onError?: (message: st
   </div>
   ` : ''}
   
+  <!-- CLOTHES/WEIGHT SUMMARY -->
+  ${(billTotalClothes > 0 || billTotalWeight > 0) ? `
+  <div style="border-top: 1.2px dashed #000; border-bottom: 1.2px dashed #000; padding: 1.5mm 0; margin: 1.5mm 0; font-size: 9.5pt; font-weight: 700;">
+    ${billTotalClothes > 0 ? `<div style="display: flex; justify-content: space-between; padding: 0.5mm 0;"><span>Total Clothes:</span><span class="bold">${billTotalClothes} Pcs</span></div>` : ''}
+    ${billTotalWeight > 0 ? `<div style="display: flex; justify-content: space-between; padding: 0.5mm 0;"><span>Total Weight:</span><span class="bold">${billTotalWeight.toFixed(2)} Kg</span></div>` : ''}
+  </div>
+  ` : ''}
+  
   <!-- TOTALS SECTION -->
   <div class="totals-box">
     ${billData.previousBills && billData.previousBills.length > 0 ? `
@@ -648,11 +675,101 @@ export const printCleanThermalOrderReceipt = (billData: BillData, onError?: (mes
     : currentDate;
 
   const serviceType = billData.serviceType || 'Wash & Iron';
-  const totalItems = billData.items.reduce((sum, item) => sum + item.quantity, 0);
+  
+  const receiptMode = billData.receiptMode || 'qty';
+  
+  const totalClothes = billData.totalClothes !== undefined && billData.totalClothes !== null
+    ? billData.totalClothes
+    : billData.items.reduce((sum, item) => {
+        const pcsMatch = item.name.match(/\((\d+)\s*pcs\)/i);
+        if (pcsMatch) return sum + parseInt(pcsMatch[1], 10);
+        const kgMatch = item.name.match(/\((\d+\.?\d*)\s*kg/i);
+        return sum + (kgMatch ? 0 : item.quantity);
+      }, 0);
+
+  const totalWeight = billData.totalWeight !== undefined && billData.totalWeight !== null
+    ? billData.totalWeight
+    : billData.items.reduce((sum, item) => {
+        const kgMatch = item.name.match(/\((\d+\.?\d*)\s*kg/i);
+        return sum + (kgMatch ? parseFloat(kgMatch[1]) : 0);
+      }, 0);
 
   // Generate QR code pointing to online status tracker
   const trackUrl = `https://genzlaundry.com/track?id=${billData.billNumber}`;
   const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(trackUrl)}&ecc=M&margin=0&color=000000&bgcolor=FFFFFF`;
+
+  let headerHTML = '';
+  if (receiptMode === 'qty') {
+    headerHTML = `
+    <span>Item</span>
+    <span>Qty (Pcs)</span>`;
+  } else if (receiptMode === 'weight') {
+    headerHTML = `
+    <span>Item</span>
+    <span>Weight (Kg)</span>`;
+  } else {
+    headerHTML = `
+    <span>Item</span>
+    <span>Pcs / Weight</span>`;
+  }
+
+  const rowsHTML = billData.items.map(item => {
+    const pcsMatch = item.name.match(/\((\d+)\s*pcs\)/i);
+    const kgMatch = item.name.match(/\((\d+\.?\d*)\s*kg/i);
+    
+    // Clean name: remove details in parenthesis
+    let cleanName = item.name;
+    cleanName = cleanName.replace(/\(\d+\s*pcs\)/gi, '');
+    cleanName = cleanName.replace(/\(\d+\.?\d*\s*kg\s*@\s*[^)]+\)/gi, '');
+    cleanName = cleanName.replace(/\(\s*[^)]+?\s*wash\s*\)/gi, '');
+    cleanName = cleanName.split('(')[0].trim();
+
+    let valueColumnStr = '';
+    if (receiptMode === 'qty') {
+      const pcsVal = pcsMatch ? parseInt(pcsMatch[1], 10) : item.quantity;
+      valueColumnStr = `${pcsVal.toString().padStart(2, '0')} pcs`;
+    } else if (receiptMode === 'weight') {
+      const kgVal = kgMatch ? parseFloat(kgMatch[1]) : 0;
+      valueColumnStr = kgVal > 0 ? `${kgVal.toFixed(2)} kg` : '-';
+    } else {
+      const pcsVal = pcsMatch ? parseInt(pcsMatch[1], 10) : (kgMatch ? 0 : item.quantity);
+      const kgVal = kgMatch ? parseFloat(kgMatch[1]) : 0;
+      
+      const pcsPart = pcsVal > 0 ? `${pcsVal} pcs` : '';
+      const kgPart = kgVal > 0 ? `${kgVal.toFixed(2)} kg` : '';
+      
+      valueColumnStr = [pcsPart, kgPart].filter(Boolean).join(' / ') || '-';
+    }
+
+    return `
+    <div style="display: flex; justify-content: space-between; padding: 1.8mm 0; font-size: 10pt; font-weight: 700; border-bottom: 1px dotted #000; align-items: center;">
+      <span style="text-transform: capitalize;">${cleanName}</span>
+      <span style="font-family: monospace; font-size: 10pt; font-weight: 800; white-space: nowrap;">${valueColumnStr}</span>
+    </div>`;
+  }).join('');
+
+  let summaryHTML = '';
+  if (receiptMode === 'qty') {
+    summaryHTML = `
+    <span>Total Clothes</span>
+    <span style="font-family: monospace; font-size: 12pt;">${totalClothes.toString().padStart(2, '0')} Pcs</span>`;
+  } else if (receiptMode === 'weight') {
+    summaryHTML = `
+    <span>Total Weight</span>
+    <span style="font-family: monospace; font-size: 12pt;">${totalWeight.toFixed(2)} Kg</span>`;
+  } else {
+    summaryHTML = `
+    <div style="width: 100%; display: flex; flex-direction: column; gap: 1mm;">
+      <div style="display: flex; justify-content: space-between;">
+        <span>Total Clothes:</span>
+        <span style="font-family: monospace; font-size: 11pt;">${totalClothes.toString().padStart(2, '0')} Pcs</span>
+      </div>
+      <div style="display: flex; justify-content: space-between;">
+        <span>Total Weight:</span>
+        <span style="font-family: monospace; font-size: 11pt;">${totalWeight.toFixed(2)} Kg</span>
+      </div>
+    </div>`;
+  }
 
   const orderReceiptHTML = `
 <!DOCTYPE html>
@@ -712,6 +829,14 @@ export const printCleanThermalOrderReceipt = (billData: BillData, onError?: (mes
       margin-bottom: 1.5mm !important;
       text-transform: uppercase !important;
     }
+    
+    .business-info {
+      font-size: 9.5pt !important;
+      line-height: 1.4 !important;
+      color: #000000 !important;
+      font-weight: 700 !important;
+      margin-top: 1mm !important;
+    }
   </style>
 </head>
 <body>
@@ -734,6 +859,10 @@ export const printCleanThermalOrderReceipt = (billData: BillData, onError?: (mes
     </svg>
     <div class="business-name">GEN-Z</div>
     <div class="business-subtitle">LAUNDRY & DRY CLEANERS</div>
+    <div class="business-info">
+      ${billData.address || ''}<br>
+      PH: ${billData.phone || ''}
+    </div>
   </div>
   
   <!-- DIVIDER -->
@@ -774,26 +903,16 @@ export const printCleanThermalOrderReceipt = (billData: BillData, onError?: (mes
   
   <!-- ITEMS TABLE -->
   <div style="display: flex; justify-content: space-between; padding: 1.5mm 0; font-size: 9.5pt; font-weight: 900; border-bottom: 1.5px solid #000; letter-spacing: 0.5px; text-transform: uppercase;">
-    <span>Item</span>
-    <span>Qty</span>
+    ${headerHTML}
   </div>
   
   <div style="margin-bottom: 2mm;">
-    ${billData.items.map(item => {
-      // Strip details inside parenthesis if any, or print normal item name
-      const nameOnly = item.name.split('(')[0].trim();
-      return `
-    <div style="display: flex; justify-content: space-between; padding: 1.8mm 0; font-size: 10pt; font-weight: 700; border-bottom: 1px dotted #000; align-items: center;">
-      <span style="text-transform: capitalize;">${nameOnly}</span>
-      <span style="font-family: monospace; font-size: 11pt; font-weight: 800;">${item.quantity.toString().padStart(2, '0')}</span>
-    </div>`;
-    }).join('')}
+    ${rowsHTML}
   </div>
   
   <!-- TOTAL ITEMS -->
   <div style="display: flex; justify-content: space-between; padding: 2.5mm 0; font-size: 11pt; font-weight: 900; border-top: 1.2px dashed #000; border-bottom: 1.2px dashed #000; margin-top: 1mm; margin-bottom: 2mm; align-items: center;">
-    <span>Total Items</span>
-    <span style="font-family: monospace; font-size: 12pt;">${totalItems.toString().padStart(2, '0')}</span>
+    ${summaryHTML}
   </div>
   
   <!-- ORDER STATUS/PICKUP DETAILS -->

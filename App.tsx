@@ -7,13 +7,23 @@ import { EnhancedAlertProvider } from './GlobalAlert';
 import authApi from './authApi';
 import './App.css';
 
+import CustomerIntakePortal from './CustomerIntakePortal';
+import AdminReceiptPortal from './AdminReceiptPortal';
+
 const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [currentView, setCurrentView] = useState<'billing' | 'admin'>('billing');
+  const [currentView, setCurrentView] = useState<'billing' | 'admin' | 'customer-portal' | 'receipt-portal'>('billing');
   const [isLoading, setIsLoading] = useState(true);
   const [showPinEntry, setShowPinEntry] = useState(false);
 
   useEffect(() => {
+    // Check if view query parameter is set to customer-portal
+    const urlParams = new URLSearchParams(window.location.search);
+    const viewParam = urlParams.get('view');
+    if (viewParam === 'customer-portal') {
+      setCurrentView('customer-portal');
+    }
+
     // Check authentication status using the new auth system
     const checkAuth = async () => {
       try {
@@ -102,14 +112,23 @@ const App: React.FC = () => {
         )}
 
         {/* Global Alert Integration Complete */}
-        {isAuthenticated ? (
+        {currentView === 'customer-portal' ? (
+          <CustomerIntakePortal onBackToLogin={() => setCurrentView('billing')} />
+        ) : currentView === 'receipt-portal' ? (
+          <AdminReceiptPortal onClose={() => setCurrentView('billing')} />
+        ) : isAuthenticated ? (
           currentView === 'billing' ? (
-            <BillingMachineInterface onLogout={handleLogout} onSwitchToAdmin={switchToAdmin} />
+            <BillingMachineInterface 
+              onLogout={handleLogout} 
+              onSwitchToAdmin={switchToAdmin} 
+              onOpenCustomerPortal={() => setCurrentView('customer-portal')}
+              onOpenReceiptPortal={() => setCurrentView('receipt-portal')}
+            />
           ) : (
             <AdminDashboard onBackToBilling={switchToBilling} onLogout={handleLogout} />
           )
         ) : (
-          <SecureAuth onLogin={handleLogin} />
+          <SecureAuth onLogin={handleLogin} onOpenCustomerPortal={() => setCurrentView('customer-portal')} />
         )}
       </div>
     </EnhancedAlertProvider>

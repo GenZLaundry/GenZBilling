@@ -46,9 +46,11 @@ interface Customer {
 interface BillingMachineInterfaceProps {
   onLogout?: () => void;
   onSwitchToAdmin?: () => void;
+  onOpenCustomerPortal?: () => void;
+  onOpenReceiptPortal?: () => void;
 }
 
-const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLogout, onSwitchToAdmin }) => {
+const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLogout, onSwitchToAdmin, onOpenCustomerPortal, onOpenReceiptPortal }) => {
   const { showAlert, showConfirm } = useAlert();
   const [customer, setCustomer] = useState<Customer>({ name: '', phone: '' });
   const [countryCode, setCountryCode] = useState('+91');
@@ -60,6 +62,7 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
   const [currentQuantity, setCurrentQuantity] = useState(1);
   const [currentUnit, setCurrentUnit] = useState<'qty' | 'kg'>('qty');
   const [currentKg, setCurrentKg] = useState('');
+  const [currentKgPcs, setCurrentKgPcs] = useState('');
   const [discount, setDiscount] = useState(0);
   const [deliveryCharge, setDeliveryCharge] = useState(0);
   const [previousBalance, setPreviousBalance] = useState(0);
@@ -94,6 +97,10 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
   const [showStickerPrintModal, setShowStickerPrintModal] = useState(false);
   const [stickerPrintCopies, setStickerPrintCopies] = useState('1');
   
+  // Client intake requests states
+  const [clientRequests, setClientRequests] = useState<any[]>([]);
+  const [showClientRequestsModal, setShowClientRequestsModal] = useState(false);
+  
   // Order Receipt States
   const [showOrderReceiptModal, setShowOrderReceiptModal] = useState(false);
   const [receiptDeliveryDate, setReceiptDeliveryDate] = useState(() => {
@@ -106,6 +113,9 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
   const [receiptAdvancePaid, setReceiptAdvancePaid] = useState('0');
   const [receiptPaymentMethod, setReceiptPaymentMethod] = useState<'Cash' | 'UPI' | 'Card'>('Cash');
   const [receiptPrintTags, setReceiptPrintTags] = useState(true);
+  const [receiptMode, setReceiptMode] = useState<'qty' | 'weight' | 'combined'>('qty');
+  const [receiptTotalClothes, setReceiptTotalClothes] = useState('');
+  const [receiptTotalWeight, setReceiptTotalWeight] = useState('');
   
   const [activeNotification, setActiveNotification] = useState<{
     id: string;
@@ -390,13 +400,76 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
     }
   }, [customer.phone, countryCode]);
 
+  const fetchClientRequests = async () => {
+    try {
+      const res = await apiService.getCustomerRequests('pending');
+      if (res && res.success) {
+        setClientRequests(res.data || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch client requests:', error);
+    }
+  };
+
+  const loadClientRequest = (request: any) => {
+    let rawPhone = request.customerPhone || '';
+    if (rawPhone.startsWith('+91')) {
+      rawPhone = rawPhone.slice(3);
+    }
+    setCustomer({
+      name: request.customerName,
+      phone: rawPhone
+    });
+
+    const loadedItems = request.items.map((item: any) => {
+      const match = quickItems.find(q => q.name.toLowerCase() === item.itemName.toLowerCase());
+      const price = match ? match.price : 0;
+      return {
+        id: `${Date.now()}-${Math.random()}`,
+        name: item.itemName,
+        quantity: item.quantity,
+        price: price,
+        washType: item.serviceType,
+        total: price * item.quantity
+      };
+    });
+
+    setOrderItems(loadedItems);
+
+    apiService.updateCustomerRequestStatus(request._id, 'approved')
+      .then(() => {
+        fetchClientRequests();
+      })
+      .catch(err => console.error('Error approving request:', err));
+
+    setShowClientRequestsModal(false);
+    showAlert({ message: `Loaded request ${request.requestNumber} for ${request.customerName} into checkout cart!`, type: 'success' });
+  };
+
+  const rejectClientRequest = async (id: string) => {
+    try {
+      const res = await apiService.updateCustomerRequestStatus(id, 'rejected');
+      if (res && res.success) {
+        showAlert({ message: 'Request rejected successfully', type: 'success' });
+        fetchClientRequests();
+      }
+    } catch (err) {
+      console.error('Error rejecting request:', err);
+    }
+  };
 
   useEffect(() => {
     setBillNumber(`GZ${Date.now().toString().slice(-6)}`);
     loadShopConfig();
+    fetchClientRequests();
+
+    const interval = setInterval(fetchClientRequests, 30000);
+
     if (itemInputRef.current) {
       itemInputRef.current.focus();
     }
+
+    return () => clearInterval(interval);
   }, []);
 
   // Polling check for manual entry pickup & delivery reminders
@@ -614,10 +687,12 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
         showAlert({ message: 'Please enter a valid weight in kg', type: 'warning' });
         return;
       }
+      const pcs = parseInt(currentKgPcs, 10);
+      const pcsStr = !isNaN(pcs) && pcs > 0 ? ` (${pcs} pcs)` : '';
       const total = parseFloat((price * kg).toFixed(2));
       const newItem: OrderItem = {
         id: `${Date.now()}-${Math.random()}`,
-        name: `${currentItem} (${kg} kg @ ₹${price}/kg)`,
+        name: `${currentItem}${pcsStr} (${kg} kg @ ₹${price}/kg)`,
         quantity: 1,
         price: total,
         washType: currentWashType,
@@ -644,6 +719,7 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
     setCurrentPrice('');
     setCurrentQuantity(1);
     setCurrentKg('');
+    setCurrentKgPcs('');
     if (itemInputRef.current) {
       itemInputRef.current.focus();
     }
@@ -958,6 +1034,9 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
         serviceType: finalServiceType,
         thankYouMessage: thankYou,
         printLogo: printLogo,
+        receiptMode,
+        totalClothes: receiptTotalClothes ? parseInt(receiptTotalClothes, 10) : undefined,
+        totalWeight: receiptTotalWeight ? parseFloat(receiptTotalWeight) : undefined,
         createdAt: new Date().toISOString()
       };
 
@@ -1957,6 +2036,40 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
         <div className="pos-header-actions">
           {onLogout && (
             <>
+              {onOpenReceiptPortal && (
+                <button
+                  onClick={onOpenReceiptPortal}
+                  className="btn btn-ghost btn-sm"
+                  style={{ color: '#10b981' }}
+                >
+                  <i className="fas fa-receipt"></i> Receipt Portal
+                </button>
+              )}
+              {onOpenCustomerPortal && (
+                <button
+                  onClick={onOpenCustomerPortal}
+                  className="btn btn-ghost btn-sm"
+                  style={{ color: '#38bdf8' }}
+                >
+                  <i className="fas fa-file-signature"></i> Customer Portal
+                </button>
+              )}
+              <button
+                onClick={() => setShowClientRequestsModal(true)}
+                className="btn btn-ghost btn-sm"
+                style={{ position: 'relative' }}
+              >
+                <i className="fas fa-inbox"></i> Requests
+                {clientRequests.length > 0 && (
+                  <span style={{
+                    position: 'absolute', top: '-6px', right: '-4px',
+                    background: '#ef4444', color: 'white', borderRadius: '50%',
+                    width: '18px', height: '18px', display: 'flex',
+                    alignItems: 'center', justifyContent: 'center', fontSize: '10px',
+                    fontWeight: 'bold', boxShadow: '0 2px 4px rgba(0,0,0,0.3)'
+                  }}>{clientRequests.length}</span>
+                )}
+              </button>
               {onSwitchToAdmin && (
                 <button onClick={onSwitchToAdmin} className="btn btn-ghost btn-sm">
                   <i className="fas fa-cog"></i> Admin
@@ -2467,27 +2580,50 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
                   />
                 ) : (
                   <div>
-                    <input
-                      type="number"
-                      value={currentKg}
-                      onChange={(e) => setCurrentKg(e.target.value)}
-                      onFocus={(e) => e.target.select()}
-                      placeholder="0.00"
-                      step="0.1"
-                      min="0"
-                      className="professional-input"
-                      style={{
-                        width: '100%',
-                        padding: '10px 12px',
-                        borderRadius: '0 0 8px 8px',
-                        fontSize: '16px',
-                        fontWeight: '600',
-                        textAlign: 'center',
-                        border: '1px solid #4b5563',
-                        borderTop: '1px solid #10b981',
-                        boxSizing: 'border-box'
-                      }}
-                    />
+                    <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '4px' }}>
+                      <input
+                        type="number"
+                        value={currentKg}
+                        onChange={(e) => setCurrentKg(e.target.value)}
+                        onFocus={(e) => e.target.select()}
+                        placeholder="Weight (kg)"
+                        step="0.1"
+                        min="0"
+                        className="professional-input"
+                        style={{
+                          width: '100%',
+                          padding: '10px 12px',
+                          borderRadius: '0 0 0 8px',
+                          fontSize: '15px',
+                          fontWeight: '600',
+                          textAlign: 'center',
+                          border: '1px solid #4b5563',
+                          borderTop: '1px solid #10b981',
+                          borderRight: 'none',
+                          boxSizing: 'border-box'
+                        }}
+                      />
+                      <input
+                        type="number"
+                        value={currentKgPcs}
+                        onChange={(e) => setCurrentKgPcs(e.target.value.replace(/[^0-9]/g, ''))}
+                        onFocus={(e) => e.target.select()}
+                        placeholder="Pcs"
+                        min="1"
+                        className="professional-input"
+                        style={{
+                          width: '100%',
+                          padding: '10px 12px',
+                          borderRadius: '0 0 8px 0',
+                          fontSize: '15px',
+                          fontWeight: '600',
+                          textAlign: 'center',
+                          border: '1px solid #4b5563',
+                          borderTop: '1px solid #10b981',
+                          boxSizing: 'border-box'
+                        }}
+                      />
+                    </div>
                     {/* Live total preview */}
                     {currentKg && currentPrice && (
                       <div style={{
@@ -3286,7 +3422,7 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
                 disabled={!customer.name || (orderItems.length === 0 && selectedPendingBills.length === 0 && previousBalance === 0) || isProcessing}
                 className="btn btn-success"
                 style={{
-                  flex: 1.4,
+                  width: '100%',
                   padding: '16px',
                   borderRadius: '12px',
                   fontSize: '14px',
@@ -3304,54 +3440,6 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
                 ) : (
                   <><i className="fas fa-print"></i> PRINT BILL</>
                 )}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  // Set default delivery date to today + 2 days
-                  const d = new Date();
-                  d.setDate(d.getDate() + 2);
-                  setReceiptDeliveryDate(d.toISOString().split('T')[0]);
-                  
-                  // Auto-detect service type from cart items if possible
-                  if (orderItems.length > 0) {
-                    const firstWashType = orderItems[0].washType;
-                    if (firstWashType === 'WASH+IRON') setReceiptServiceType('Wash & Iron');
-                    else if (firstWashType === 'DRY CLEAN') setReceiptServiceType('Dry Clean');
-                    else if (firstWashType === 'WASH') setReceiptServiceType('Wash Only');
-                    else if (firstWashType === 'IRON') setReceiptServiceType('Iron Only');
-                  }
-                  
-                  setShowOrderReceiptModal(true);
-                }}
-                disabled={!customer.name || orderItems.length === 0 || isProcessing}
-                className="btn"
-                style={{
-                  flex: 1,
-                  padding: '16px',
-                  borderRadius: '12px',
-                  fontSize: '14px',
-                  letterSpacing: '1px',
-                  fontWeight: '800',
-                  display: 'flex',
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  gap: '8px',
-                  background: (!customer.name || orderItems.length === 0 || isProcessing)
-                    ? 'var(--bg-base)'
-                    : 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
-                  border: 'none',
-                  color: (!customer.name || orderItems.length === 0 || isProcessing)
-                    ? 'var(--text-muted)'
-                    : 'white',
-                  boxShadow: (!customer.name || orderItems.length === 0 || isProcessing)
-                    ? 'none'
-                    : '0 4px 12px rgba(59, 130, 246, 0.2)',
-                  cursor: (!customer.name || orderItems.length === 0 || isProcessing) ? 'not-allowed' : 'pointer'
-                }}
-              >
-                <i className="fas fa-receipt"></i> ORDER RECEIPT
               </button>
             </div>
           </div>
@@ -3544,6 +3632,87 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
                     Balance Due: ₹{calculateTotal() - (parseFloat(receiptAdvancePaid) || 0)}
                   </div>
                 )}
+              </div>
+
+              {/* Receipt Formatting Mode */}
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Receipt Billing Mode
+                </label>
+                <select
+                  value={receiptMode}
+                  onChange={(e) => setReceiptMode(e.target.value as any)}
+                  className="professional-input"
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    background: 'var(--bg-base)',
+                    border: '1px solid var(--border-subtle)',
+                    color: 'var(--text-primary)',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <option value="qty">By Quantity (Pcs only)</option>
+                  <option value="weight">By Weight (Kg only)</option>
+                  <option value="combined">Combined (Pcs & Weight)</option>
+                </select>
+              </div>
+
+              {/* Custom Overrides for Pcs / Weight */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px', textTransform: 'uppercase' }}>
+                    Override Total Pcs
+                  </label>
+                  <input
+                    type="number"
+                    placeholder={`Auto (${orderItems.reduce((sum, item) => {
+                      const pcsMatch = item.name.match(/\((\d+)\s*pcs\)/i);
+                      if (pcsMatch) return sum + parseInt(pcsMatch[1], 10);
+                      const kgMatch = item.name.match(/\((\d+\.?\d*)\s*kg/i);
+                      return sum + (kgMatch ? 0 : item.quantity);
+                    }, 0)} pcs)`}
+                    value={receiptTotalClothes}
+                    onChange={(e) => setReceiptTotalClothes(e.target.value)}
+                    className="professional-input"
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      borderRadius: '8px',
+                      fontSize: '13px',
+                      background: 'var(--bg-base)',
+                      border: '1px solid var(--border-subtle)',
+                      color: 'var(--text-primary)'
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px', textTransform: 'uppercase' }}>
+                    Override Total Kg
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder={`Auto (${orderItems.reduce((sum, item) => {
+                      const kgMatch = item.name.match(/\((\d+\.?\d*)\s*kg/i);
+                      return sum + (kgMatch ? parseFloat(kgMatch[1]) : 0);
+                    }, 0).toFixed(2)} kg)`}
+                    value={receiptTotalWeight}
+                    onChange={(e) => setReceiptTotalWeight(e.target.value)}
+                    className="professional-input"
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      borderRadius: '8px',
+                      fontSize: '13px',
+                      background: 'var(--bg-base)',
+                      border: '1px solid var(--border-subtle)',
+                      color: 'var(--text-primary)'
+                    }}
+                  />
+                </div>
               </div>
 
               {/* Print Tags Option */}
@@ -4112,6 +4281,140 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
             background: 'rgba(255, 255, 255, 0.2)',
             margin: '4px auto 0 auto'
           }} />
+        </div>
+      )}
+
+      {/* Client Intake Requests Modal */}
+      {showClientRequestsModal && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(15, 23, 42, 0.75)', display: 'flex', justifyContent: 'center', alignItems: 'center',
+          zIndex: 9999, backdropFilter: 'blur(16px)', padding: '20px'
+        }}>
+          <div style={{
+            background: 'rgba(30, 41, 59, 0.85)', borderRadius: '24px', padding: '28px',
+            width: '850px', maxWidth: '100%', maxHeight: '90vh', overflow: 'hidden',
+            border: '1px solid rgba(255, 255, 255, 0.1)', display: 'flex', flexDirection: 'column',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
+          }}>
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '16px' }}>
+              <h3 style={{ margin: 0, color: '#f8fafc', fontSize: '20px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: '10px', background: 'linear-gradient(135deg, #0ea5e9, #06b6d4)', fontSize: '18px' }}>🧺</span>
+                Pending Client Intake Requests
+              </h3>
+              <button
+                onClick={() => setShowClientRequestsModal(false)}
+                style={{
+                  background: 'rgba(255,255,255,0.05)', color: '#94a3b8', border: '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: '12px', width: '38px', height: '38px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  cursor: 'pointer', transition: 'all 0.2s', fontSize: '14px'
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.15)'; e.currentTarget.style.color = '#ef4444'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = '#94a3b8'; }}
+              >
+                <i className="fas fa-times"></i>
+              </button>
+            </div>
+
+            {/* Content Body */}
+            <div style={{ flex: 1, overflowY: 'auto', paddingRight: '4px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {clientRequests.length === 0 ? (
+                <div style={{ textAlign: 'center', color: '#94a3b8', padding: '60px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+                  <div style={{ fontSize: '48px', opacity: 0.3 }}>📥</div>
+                  <div style={{ fontSize: '16px', fontWeight: '600' }}>No Pending Requests</div>
+                  <div style={{ fontSize: '13px', opacity: 0.7 }}>When customers make online bookings, they will show up here in real-time.</div>
+                </div>
+              ) : (
+                clientRequests.map((request) => (
+                  <div
+                    key={request._id}
+                    style={{
+                      background: 'rgba(15, 23, 42, 0.4)', borderRadius: '16px', padding: '20px',
+                      border: '1px solid rgba(255, 255, 255, 0.05)', display: 'flex', flexDirection: 'column', gap: '16px',
+                      transition: 'border-color 0.2s'
+                    }}
+                  >
+                    {/* Top row Info */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                          <span style={{ fontFamily: 'monospace', fontSize: '12px', fontWeight: '700', padding: '4px 8px', borderRadius: '6px', background: 'rgba(14, 165, 233, 0.15)', color: '#38bdf8' }}>
+                            {request.requestNumber}
+                          </span>
+                          <span style={{ fontSize: '15px', fontWeight: '700', color: '#f8fafc' }}>
+                            {request.customerName}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '13px', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <span><i className="fas fa-phone" style={{ marginRight: '6px' }}></i> {request.customerPhone}</span>
+                          <span><i className="fas fa-calendar-alt" style={{ marginRight: '6px' }}></i> {request.pickupDate} ({request.pickupTime})</span>
+                        </div>
+                        {request.address && (
+                          <div style={{ fontSize: '12px', color: '#cbd5e1', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <i className="fas fa-map-marker-alt" style={{ color: '#ef4444' }}></i>
+                            <span>{request.address}</span>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Actions */}
+                      <div style={{ display: 'flex', gap: '10px' }}>
+                        <button
+                          onClick={() => loadClientRequest(request)}
+                          style={{
+                            background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none',
+                            borderRadius: '10px', padding: '8px 16px', cursor: 'pointer', fontSize: '13px', fontWeight: '600',
+                            display: 'flex', alignItems: 'center', gap: '6px', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.2)'
+                          }}
+                        >
+                          <i className="fas fa-cart-plus"></i> Load & Approve
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (window.confirm(`Are you sure you want to reject and delete request ${request.requestNumber}?`)) {
+                              rejectClientRequest(request._id);
+                            }
+                          }}
+                          style={{
+                            background: 'rgba(239, 68, 68, 0.1)', color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.2)',
+                            borderRadius: '10px', padding: '8px 12px', cursor: 'pointer', fontSize: '13px', fontWeight: '600',
+                            transition: 'all 0.2s'
+                          }}
+                          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)'; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)'; }}
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Requested items list */}
+                    <div style={{ background: 'rgba(0,0,0,0.15)', borderRadius: '12px', padding: '12px', border: '1px solid rgba(255,255,255,0.03)' }}>
+                      <div style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.5px' }}>Requested Items ({request.items.length})</div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                        {request.items.map((item: any, idx: number) => (
+                          <div key={idx} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '8px', padding: '6px 12px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontWeight: '600', color: '#0ea5e9' }}>{item.itemName}</span>
+                            <span style={{ fontSize: '11px', background: 'rgba(255,255,255,0.06)', padding: '2px 6px', borderRadius: '4px', color: '#cbd5e1' }}>{item.serviceType}</span>
+                            <span style={{ fontWeight: '700', color: '#f8fafc' }}>{item.quantity} {item.unit}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Remark */}
+                    {request.remark && (
+                      <div style={{ fontSize: '12px', color: '#94a3b8', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.02)', padding: '8px 12px', borderRadius: '8px' }}>
+                        <i className="fas fa-comment-alt" style={{ opacity: 0.6 }}></i>
+                        <span>Note: "{request.remark}"</span>
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
         </div>
       )}
 

@@ -294,11 +294,13 @@ class ApiService {
   }
 
   async getComparisonAnalytics(period: 'day' | 'week' | 'month' = 'month') {
-    return this.getBusinessReports({ period });
+    const apiPeriod = period === 'day' ? 'today' as const : period;
+    return this.getBusinessReports({ period: apiPeriod });
   }
 
   async getProfitAnalysis(period: 'day' | 'week' | 'month' | 'year' = 'month') {
-    return this.getBusinessReports({ period });
+    const apiPeriod = period === 'day' ? 'today' as const : period;
+    return this.getBusinessReports({ period: apiPeriod });
   }
 
   // ===== EXPENSES API =====
@@ -698,6 +700,32 @@ class ApiService {
 
   async deleteManualEntry(id: string) {
     return this.request(`/manual-entries/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // --- CUSTOMER INTAKE REQUESTS API ---
+  async getCustomerRequests(status?: string) {
+    const url = status ? `/customer-requests?status=${status}` : '/customer-requests';
+    return this.request(url);
+  }
+
+  async createCustomerRequest(data: any) {
+    return this.request('/customer-requests', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateCustomerRequestStatus(id: string, status: string) {
+    return this.request(`/customer-requests/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    });
+  }
+
+  async deleteCustomerRequest(id: string) {
+    return this.request(`/customer-requests/${id}`, {
       method: 'DELETE',
     });
   }

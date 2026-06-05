@@ -124,6 +124,9 @@ export interface BillData {
   printLogo?: boolean;
   createdAt?: string;
   deliveredAt?: string;
+  receiptMode?: 'qty' | 'weight' | 'combined';
+  totalClothes?: number;
+  totalWeight?: number;
 }
 
 export interface LaundryTag {
