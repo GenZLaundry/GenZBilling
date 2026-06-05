@@ -60,6 +60,7 @@ const ManualEntry: React.FC<ManualEntryProps> = ({ onClose }) => {
   const [itemName, setItemName] = useState('');
   const [unit, setUnit] = useState<ManualEntryItem['unit']>('pcs');
   const [items, setItems] = useState<ManualEntryItem[]>([]);
+  const [isAdded, setIsAdded] = useState(false);
 
   const [paymentStatus, setPaymentStatus] = useState<'paid' | 'unpaid' | 'partial'>('unpaid');
   const [partialAmount, setPartialAmount] = useState('');
@@ -306,6 +307,7 @@ const ManualEntry: React.FC<ManualEntryProps> = ({ onClose }) => {
     setItemName('');
     setUnit('pcs');
     setItems([]);
+    setIsAdded(false);
     setPaymentStatus('unpaid');
     setPartialAmount('');
     setStatus('pending');
@@ -335,12 +337,17 @@ const ManualEntry: React.FC<ManualEntryProps> = ({ onClose }) => {
       setItems([...items, { serviceType, quantity: qty, unit, itemName: itemName.trim() || undefined }]);
     }
     
+    setIsAdded(true);
     setQuantity(1);
     setItemName('');
   };
 
   const removeItem = (index: number) => {
-    setItems(items.filter((_, idx) => idx !== index));
+    const newItems = items.filter((_, idx) => idx !== index);
+    setItems(newItems);
+    if (newItems.length === 0) {
+      setIsAdded(false);
+    }
   };
 
   const handleSave = async () => {
@@ -358,15 +365,15 @@ const ManualEntry: React.FC<ManualEntryProps> = ({ onClose }) => {
     }
 
     // For single-item entries (which covers 99% of entries and the initial edit mode),
-    // we use the current input field values as the source of truth for the item.
+    // we use the current input field values as the source of truth for the item if no item was explicitly added.
     let finalItems = [...items];
-    if (finalItems.length <= 1) {
+    if (!isAdded) {
       const qty = parseFloat(String(quantity));
       if (isNaN(qty) || qty <= 0) {
         showAlert({ message: 'Please enter a valid quantity or weight greater than 0', type: 'warning' });
         return;
       }
-      finalItems = [{ serviceType, quantity: qty, unit }];
+      finalItems = [{ serviceType, quantity: qty, unit, itemName: itemName.trim() || undefined }];
     }
 
     if (paymentStatus === 'partial') {
@@ -456,16 +463,19 @@ const ManualEntry: React.FC<ManualEntryProps> = ({ onClose }) => {
     }
     
     setItems(editItems);
+    setIsAdded(editItems.length > 1);
     
     // Populate the form inputs with the first item's details
     if (editItems.length > 0) {
       setServiceType(editItems[0].serviceType);
       setQuantity(editItems[0].quantity);
       setUnit(editItems[0].unit || 'pcs');
+      setItemName(editItems[0].itemName || '');
     } else {
       setServiceType('WASH');
       setQuantity(1);
       setUnit('pcs');
+      setItemName('');
     }
     
     setPaymentStatus(entry.paymentStatus || 'unpaid');
@@ -1035,7 +1045,7 @@ const ManualEntry: React.FC<ManualEntryProps> = ({ onClose }) => {
                 {/* Added items list */}
                 {items.length > 0 && (
                   <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    {items.length === 1 ? (
+                    {!isAdded ? (
                       <div style={{
                         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                         background: 'rgba(255,255,255,0.03)', borderRadius: '6px',
@@ -1043,6 +1053,9 @@ const ManualEntry: React.FC<ManualEntryProps> = ({ onClose }) => {
                       }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           <span style={{ color: '#0ea5e9', fontWeight: 'bold' }}>#1</span>
+                          {itemName.trim() && (
+                            <span style={{ color: '#e5e7eb', fontWeight: '600' }}>{itemName.trim()}</span>
+                          )}
                           <span style={{ color: '#fff', fontWeight: '500' }}>
                             {serviceType}
                           </span>
