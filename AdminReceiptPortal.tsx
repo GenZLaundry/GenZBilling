@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAlert } from './GlobalAlert';
 import apiService from './api';
+import { syncOfflineBills } from './syncService';
 import { printCleanThermalOrderReceipt } from './CleanThermalPrint';
 import { PendingBill, ShopConfig } from './types';
 
@@ -81,10 +82,23 @@ const AdminReceiptPortal: React.FC<AdminReceiptPortalProps> = ({ onClose }) => {
     gstNumber: ''
   });
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   const itemInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    setIsOnline(navigator.onLine);
+    if (navigator.onLine) {
+      // Trigger offline sync
+      syncOfflineBills();
+    }
+
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
     // Load config
     try {
       const saved = localStorage.getItem('laundry_shop_config');
@@ -94,6 +108,11 @@ const AdminReceiptPortal: React.FC<AdminReceiptPortalProps> = ({ onClose }) => {
     } catch (e) {
       console.error(e);
     }
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
   }, []);
 
   const parsePhoneNumber = (fullPhone: string) => {
@@ -239,9 +258,186 @@ const AdminReceiptPortal: React.FC<AdminReceiptPortalProps> = ({ onClose }) => {
     }
   };
 
+  const printClothingTags = async (bill: PendingBill) => {
+    try {
+      const tags: any[] = [];
+      let tagCounter = 1;
+      const totalTags = bill.items.reduce((sum, item) => sum + (item.quantity || 0), 0);
+      const now = new Date();
+      const currentDate = now.toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      }) + ' ' + now.toLocaleTimeString('en-GB', {
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+
+      bill.items.forEach(item => {
+        const qty = item.quantity || 1;
+        for (let i = 0; i < qty; i++) {
+          let name = item.name || 'CLOTHES';
+          let serviceLabel = 'WASH';
+          
+          const match = name.match(/^(.*?)\s*\((.*?)\)$/);
+          if (match) {
+            name = match[1].trim();
+            serviceLabel = match[2].trim().toUpperCase();
+          } else {
+            serviceLabel = bill.serviceType || 'WASH';
+          }
+
+          tags.push({
+            businessName: shopConfig.shopName,
+            billNumber: bill.billNumber,
+            customerName: bill.customerName,
+            customerPhone: bill.customerPhone,
+            itemName: name.toUpperCase(),
+            washType: serviceLabel,
+            tagIndex: tagCounter,
+            totalTags: totalTags,
+            date: currentDate,
+            barcode: `GZ${bill.billNumber}${tagCounter.toString().padStart(3, '0')}`,
+            qrCode: `GZ${bill.billNumber}${tagCounter.toString().padStart(3, '0')}`,
+            price: item.rate || 0
+          });
+          tagCounter++;
+        }
+      });
+
+      if (tags.length === 0) return;
+
+      // Save tag history to database
+      try {
+        const response = await apiService.post('/tag-history', { tags });
+        if (response && !response.success) {
+          throw new Error(response.message || 'API responded with success: false');
+        }
+      } catch (error) {
+        console.error('❌ Failed to save tag history, caching offline:', error);
+        try {
+          const unsyncedTags = JSON.parse(localStorage.getItem('laundry_unsynced_tags') || '[]');
+          unsyncedTags.push({ tags, timestamp: new Date().toISOString() });
+          localStorage.setItem('laundry_unsynced_tags', JSON.stringify(unsyncedTags));
+          console.log('📦 Saved tag history to offline cache');
+        } catch (localErr) {
+          console.error('❌ Failed to cache tag history offline:', localErr);
+        }
+      }
+
+      // Try TSPL direct print via thermal server (TSC TL240)
+      const offset = parseInt(localStorage.getItem('tag_print_offset') || '0', 10);
+      try {
+        const tsplResponse = await fetch('http://localhost:3001/api/print/tspl-tags', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tags, printerName: 'TSC TL240', shiftDots: offset })
+        });
+        const tsplResult = await tsplResponse.json();
+        if (tsplResult.success) {
+          showAlert({ message: `✅ ${tags.length} tags sent to TSC TL240`, type: 'success' });
+          return;
+        }
+      } catch (tsplError) {
+        console.warn('Thermal server error, using fallback:', tsplError);
+      }
+
+      // Fallback browser printing
+      const printWindow = window.open('', '_blank', 'width=800,height=600');
+      if (!printWindow) {
+        showAlert({ message: 'Please allow popups for tag printing', type: 'warning' });
+        return;
+      }
+
+      const tagHTML = `
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Clothing Tags - TSC TL240</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800;900&display=swap');
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    @page { size: 37mm 40mm; margin: 0 !important; }
+    @media print {
+      html, body { width: 37mm !important; height: 40mm !important; margin: 0 !important; padding: 0 !important; }
+      .tag { page-break-after: always; page-break-inside: avoid; }
+      .tag:last-child { page-break-after: avoid; }
+    }
+    body { font-family: 'Outfit', 'Arial Black', 'Arial', sans-serif; margin: 0; padding: 0; background: white; width: 37mm; height: 40mm; }
+    .tag { width: 37mm; height: 38mm; margin: 1mm auto; padding: 1mm 1.5mm; background: white; display: flex; flex-direction: column; justify-content: space-between; box-sizing: border-box; }
+    .top-header { text-align: center; padding-bottom: 0.8mm; border-bottom: 1.2px dashed #000; }
+    .brand-line1 { font-size: 11pt; font-weight: 900; display: block; letter-spacing: 0.3px; line-height: 1.1; text-transform: uppercase; white-space: nowrap; }
+    .brand-line2 { font-size: 6.5pt; font-weight: 800; display: block; line-height: 1.1; letter-spacing: 0.8px; text-transform: uppercase; margin-top: 0.2mm; white-space: nowrap; }
+    .tag-date { font-size: 7.5pt; font-weight: 700; text-align: center; line-height: 1; margin: 0.3mm 0; color: #000; letter-spacing: 0.8px; white-space: nowrap; }
+    .customer-name { text-align: center; font-size: 13pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; padding: 0.8mm 0; border-top: 1.5px solid #000; border-bottom: 1.5px solid #000; margin: 0.2mm 0; }
+    .service-type { text-align: center; font-size: 8pt; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; margin: 0.2mm 0; white-space: nowrap; }
+    .bill-info { display: flex; justify-content: space-between; align-items: center; margin: 0.2mm 0; }
+    .bill-no { font-family: 'Courier New', Courier, monospace; font-size: 10pt; font-weight: bold; }
+    .tag-number { font-size: 9pt; font-weight: 800; border: 1px solid #000; color: #000; padding: 0.3mm 1.5mm; border-radius: 3px; white-space: nowrap; }
+    .website { text-align: center; font-size: 7pt; font-weight: 500; padding-top: 0.5mm; border-top: 1px dashed #000; letter-spacing: 1.2px; text-transform: lowercase; white-space: nowrap; }
+  </style>
+</head>
+<body>
+  ${tags.map((tag) => {
+    const nameLen = (tag.customerName || '').length;
+    let fontSize = '13pt';
+    if (nameLen > 15) fontSize = '8pt';
+    else if (nameLen > 11) fontSize = '9.5pt';
+    else if (nameLen > 7) fontSize = '11pt';
+
+    const rawType = (tag.washType || '').toUpperCase().trim();
+    let serviceLabel = rawType;
+    if (rawType === 'WASH') serviceLabel = 'WASH ONLY';
+    else if (rawType === 'IRON') serviceLabel = 'IRON ONLY';
+    else if (rawType === 'WASH+IRON') serviceLabel = 'WASH + IRON';
+    else if (rawType === 'DRY CLEAN') serviceLabel = 'DRY CLEAN';
+
+    return `
+    <div class="tag">
+      <div class="top-header">
+        <span class="brand-line1">Gen-Z Laundry</span>
+        <span class="brand-line2">&amp; Dry Cleaners</span>
+      </div>
+      <div class="tag-date">&bull; ${tag.date} &bull;</div>
+      <div class="customer-name" style="font-size: ${fontSize}">${tag.customerName}</div>
+      <div class="service-type">${serviceLabel}</div>
+      <div class="bill-info">
+        <span class="bill-no">${tag.billNumber}</span>
+        <span class="tag-number">${tag.tagIndex} / ${tag.totalTags}</span>
+      </div>
+      <div class="website">www.genzlaundry.com</div>
+    </div>
+    `;
+  }).join('')}
+  <script>
+    window.onload = function() {
+      setTimeout(function() {
+        window.print();
+        setTimeout(function() { window.close(); }, 1500);
+      }, 600);
+    }
+  </script>
+</body>
+</html>
+      `;
+
+      printWindow.document.write(tagHTML);
+      printWindow.document.close();
+    } catch (e: any) {
+      console.error(e);
+      showAlert({ message: `Failed to print tags: ${e.message || 'Unknown error'}`, type: 'error' });
+    }
+  };
+
   const handleCreateReceipt = async () => {
     if (!customerName || orderItems.length === 0) {
       showAlert({ message: 'Please enter customer details and add at least one item', type: 'warning' });
+      return;
+    }
+
+    if (!navigator.onLine) {
+      showAlert({ message: '⚠️ Internet connection required! You cannot generate receipts while offline.', type: 'error' });
+      setIsProcessing(false);
       return;
     }
 
@@ -280,7 +476,7 @@ const AdminReceiptPortal: React.FC<AdminReceiptPortalProps> = ({ onClose }) => {
       })),
       subtotal: total,
       grandTotal: total,
-      status: 'pending',
+      status: 'completed',
       paymentStatus: advancePaidNum === 0 ? 'unpaid' : (advancePaidNum >= total ? 'paid' : 'partial'),
       amountPaid: advancePaidNum,
       amountDue: total - advancePaidNum,
@@ -296,62 +492,109 @@ const AdminReceiptPortal: React.FC<AdminReceiptPortalProps> = ({ onClose }) => {
     };
 
     try {
-      // Local Save
-      const existingPending = JSON.parse(localStorage.getItem('laundry_pending_bills') || '[]');
-      existingPending.unshift(billData);
-      localStorage.setItem('laundry_pending_bills', JSON.stringify(existingPending));
+      // Save to database first
+      const { id, ...cleanBillData } = billData;
+      const response = await apiService.createBill(cleanBillData);
+      if (response.success) {
+        const serverBillId = (response.data as any)?._id || (response.data as any)?.id;
+        const finalBillData = {
+          ...billData,
+          id: serverBillId,
+          _id: serverBillId,
+          _syncedToDb: true
+        };
 
-      const existingHistory = JSON.parse(localStorage.getItem('laundry_bill_history') || '[]');
-      existingHistory.unshift({ ...billData, _syncedToDb: false });
-      localStorage.setItem('laundry_bill_history', JSON.stringify(existingHistory));
+        // Local Save
+        const existingHistory = JSON.parse(localStorage.getItem('laundry_bill_history') || '[]');
+        existingHistory.unshift(finalBillData);
+        localStorage.setItem('laundry_bill_history', JSON.stringify(existingHistory));
 
-      // Async DB Save
-      try {
-        const response = await apiService.createBill(billData);
-        if (response.success) {
-          const serverBillId = (response.data as any)?._id || (response.data as any)?.id;
-          
-          const updatedHistory = existingHistory.map((b: any) => 
-            b.billNumber === billData.billNumber ? { ...b, _syncedToDb: true, _id: serverBillId } : b
-          );
-          localStorage.setItem('laundry_bill_history', JSON.stringify(updatedHistory));
+        // Automatically create a manual entry for this generated receipt
+        try {
+          const manualEntryItems = billData.items.map(item => {
+            const match = item.name.match(/^(.*?)\s*\((.*?)\)$/);
+            const itemName = match ? match[1].trim() : item.name;
+            const washTypeRaw = match ? match[2].trim().toUpperCase() : 'WASH';
+            
+            let serviceType: 'WASH' | 'IRON' | 'WASH+IRON' | 'DRY CLEAN' = 'WASH';
+            if (washTypeRaw.includes('WASH') && washTypeRaw.includes('IRON')) {
+              serviceType = 'WASH+IRON';
+            } else if (washTypeRaw.includes('IRON')) {
+              serviceType = 'IRON';
+            } else if (washTypeRaw.includes('DRY')) {
+              serviceType = 'DRY CLEAN';
+            }
+            
+            let unit: 'pcs' | 'kg' = 'pcs';
+            if (item.name.toLowerCase().includes('kg')) {
+              unit = 'kg';
+            }
+            return {
+              serviceType,
+              quantity: item.quantity,
+              unit,
+              itemName
+            };
+          });
 
-          const updatedPending = existingPending.map((b: any) => 
-            b.billNumber === billData.billNumber ? { ...b, _id: serverBillId } : b
-          );
-          localStorage.setItem('laundry_pending_bills', JSON.stringify(updatedPending));
-
-          // Send auto SMS if online
-          if (billData.customerPhone && billData.customerPhone.length >= 10) {
-            apiService.sendBillGeneratedSMS(
-              billData.customerPhone,
-              billData.customerName,
-              billData.items.map(i => ({ name: i.name, quantity: i.quantity }))
-            ).catch(err => console.warn(err));
-          }
+          const manualEntryData = {
+            customerName: billData.customerName,
+            phone: billData.customerPhone,
+            pickupDate: new Date().toISOString().split('T')[0],
+            pickupTime: new Date().toLocaleTimeString('en-US', { hour12: false }).slice(0, 5),
+            deliveryDate: billData.deliveryDate || new Date().toISOString().split('T')[0],
+            deliveryTime: '',
+            items: manualEntryItems,
+            paymentStatus: billData.paymentStatus,
+            partialAmount: billData.paymentStatus === 'partial' ? billData.amountPaid : undefined,
+            status: 'completed',
+            remark: `Auto-generated from Order Receipt #${billData.billNumber}`
+          };
+          console.log('💾 Auto-creating manual entry in AdminReceiptPortal:', manualEntryData);
+          apiService.createManualEntry(manualEntryData).catch(err => console.error('⚠️ Failed to auto-create manual entry:', err));
+        } catch (meErr) {
+          console.error('⚠️ Failed to map manual entry:', meErr);
         }
-      } catch (err) {}
 
-      // Trigger Thermal Printing
-      await printCleanThermalOrderReceipt(billData, (message) => showAlert({ message, type: 'error' }));
+        // Send auto SMS if online
+        if (billData.customerPhone && billData.customerPhone.length >= 10) {
+          apiService.sendBillGeneratedSMS(
+            billData.customerPhone,
+            billData.customerName,
+            billData.items.map(i => ({ name: i.name, quantity: i.quantity }))
+          ).catch(err => console.warn(err));
+        }
+
+        // Trigger Thermal Printing
+        await printCleanThermalOrderReceipt(finalBillData, (message) => showAlert({ message, type: 'error' }));
+
+        // Print clothing tags if option is selected
+        if (receiptPrintTags) {
+          setTimeout(async () => {
+            console.log('🖨️ Triggering admin clothing tags print...');
+            await printClothingTags(finalBillData);
+          }, 1000);
+        }
       
-      showAlert({ message: `Receipt ${billNum} generated successfully!`, type: 'success' });
-      
-      // Reset Form
-      setCustomerName('');
-      setCustomerPhone('');
-      setAddress('');
-      setRemark('');
-      setOrderItems([]);
-      setReceiptAdvancePaid('0');
-      setReceiptTotalClothes('');
-      setReceiptTotalWeight('');
+      } else {
+        showAlert({ message: `Failed to save receipt to server: ${response.message}`, type: 'error' });
+      }
     } catch (error) {
       console.error(error);
-      showAlert({ message: 'Failed to generate receipt', type: 'error' });
+      showAlert({ message: '⚠️ Connection error! Could not connect to the server to generate this receipt.', type: 'error' });
     } finally {
       setIsProcessing(false);
     }
+
+    // Reset Form
+    setCustomerName('');
+    setCustomerPhone('');
+    setAddress('');
+    setRemark('');
+    setOrderItems([]);
+    setReceiptAdvancePaid('0');
+    setReceiptTotalClothes('');
+    setReceiptTotalWeight('');
   };
 
   return (
@@ -362,6 +605,27 @@ const AdminReceiptPortal: React.FC<AdminReceiptPortalProps> = ({ onClose }) => {
       padding: '24px',
       fontFamily: 'system-ui, -apple-system, sans-serif'
     }}>
+      {!isOnline && (
+        <div style={{
+          background: 'linear-gradient(135deg, #ef4444, #b91c1c)',
+          color: '#ffffff',
+          padding: '10px 16px',
+          textAlign: 'center',
+          fontSize: '14px',
+          fontWeight: '700',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          gap: '8px',
+          boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+          borderRadius: '10px',
+          marginBottom: '20px'
+        }}>
+          <i className="fas fa-wifi-slash"></i>
+          Offline Mode: Internet connection required to generate receipts.
+        </div>
+      )}
+
       {/* Header Bar */}
       <div style={{
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -895,17 +1159,17 @@ const AdminReceiptPortal: React.FC<AdminReceiptPortalProps> = ({ onClose }) => {
             {/* Generate Button */}
             <button
               onClick={handleCreateReceipt}
-              disabled={isProcessing || orderItems.length === 0}
+              disabled={isProcessing || orderItems.length === 0 || !isOnline}
               style={{
                 width: '100%', padding: '14px', borderRadius: '12px', border: 'none',
-                background: orderItems.length === 0 ? 'rgba(255,255,255,0.05)' : 'linear-gradient(135deg, #10b981, #059669)',
-                color: orderItems.length === 0 ? '#64748b' : '#fff',
-                fontSize: '15px', fontWeight: '700', cursor: orderItems.length === 0 ? 'not-allowed' : 'pointer',
-                boxShadow: orderItems.length === 0 ? 'none' : '0 6px 20px rgba(16,185,129,0.25)',
+                background: (orderItems.length === 0 || !isOnline) ? 'rgba(255,255,255,0.05)' : 'linear-gradient(135deg, #10b981, #059669)',
+                color: (orderItems.length === 0 || !isOnline) ? '#64748b' : '#fff',
+                fontSize: '15px', fontWeight: '700', cursor: (orderItems.length === 0 || !isOnline) ? 'not-allowed' : 'pointer',
+                boxShadow: (orderItems.length === 0 || !isOnline) ? 'none' : '0 6px 20px rgba(16,185,129,0.25)',
                 transition: 'all 0.2s', marginTop: '12px'
               }}
             >
-              {isProcessing ? 'Generating...' : '✓ Generate & Print Receipt'}
+              {isProcessing ? 'Generating...' : (!isOnline ? '🔌 Offline - Save Disabled' : '✓ Generate & Print Receipt')}
             </button>
 
           </div>

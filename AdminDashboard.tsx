@@ -11,6 +11,7 @@ import ComprehensiveRevenueDashboard from './ComprehensiveRevenueDashboard';
 import CustomerCRMManager from './CustomerCRMManager';
 import BillShareButton from './BillShareButton';
 import apiService from './api';
+import { syncOfflineBills } from './syncService';
 import { useAlert } from './GlobalAlert';
 import { sendReadyPickupWA, sendDeliveredWA, sendPaymentReceivedWA } from './whatsappNotify';
 import StaffHustleTracker from './StaffHustleTracker';
@@ -981,6 +982,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
 
   const loadPendingBills = async () => {
     try {
+      // First run offline sync
+      await syncOfflineBills();
+
       console.log('🔄 Loading pending bills from database...');
       const response = await apiService.getPendingBills();
       console.log('📋 Pending bills response:', response);
@@ -1009,6 +1013,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
 
   const loadBillHistory = async () => {
     try {
+      // First run offline sync
+      await syncOfflineBills();
+
       console.log('📚 Loading ALL bills for history...');
       const response = await apiService.getBills({
         limit: 1000,
@@ -1040,40 +1047,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
 
         // Find local bills that are NOT in DB (unsynced offline bills)
         const dbBillNumbers = new Set(dbBills.map((b: any) => b.billNumber));
-        // Only treat as unsynced if explicitly offline (_syncedToDb === false or id/_id starts with local_)
-        const unsyncedLocal = filteredLocalBills.filter((b: any) => 
-          (b._syncedToDb === false || (b._id && b._id.toString().startsWith('local_'))) && 
-          !dbBillNumbers.has(b.billNumber)
-        );
-
-        if (unsyncedLocal.length > 0) {
-          console.log(`🔄 Found ${unsyncedLocal.length} unsynced local bills — attempting to sync to DB...`);
-          let syncedCount = 0;
-          const updatedLocalBills = [...filteredLocalBills];
-          for (const bill of unsyncedLocal) {
-            try {
-              const res = await apiService.createBill(bill);
-              if (res.success) {
-                console.log(`✅ Synced bill ${bill.billNumber} to DB`);
-                syncedCount++;
-                const idx = updatedLocalBills.findIndex((b: any) => b.billNumber === bill.billNumber);
-                if (idx !== -1) {
-                  updatedLocalBills[idx] = {
-                    ...updatedLocalBills[idx],
-                    _syncedToDb: true,
-                    _id: res.data?._id || updatedLocalBills[idx]._id
-                  };
-                }
-              }
-            } catch (e) {
-              console.warn(`⚠️ Could not sync bill ${bill.billNumber}:`, e);
-            }
-          }
-          if (syncedCount > 0) {
-            localStorage.setItem('laundry_bill_history', JSON.stringify(updatedLocalBills));
-          }
-        }
-
+        
         // Merge DB bills with local data — preserve previousBills, paymentHistory from localStorage
         const enrichedDbBills = dbBills.map((dbBill: any) => {
           const localBill = localBillMap.get(dbBill.billNumber);
@@ -1090,7 +1064,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
           return dbBill;
         });
 
-        const merged = [...enrichedDbBills, ...unsyncedLocal.filter((b: any) => !dbBillNumbers.has(b.billNumber))];
+        const merged = [...enrichedDbBills, ...filteredLocalBills.filter((b: any) => !dbBillNumbers.has(b.billNumber))];
         merged.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
         setBillHistory(merged);
@@ -1145,12 +1119,27 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
         showAlert({ message: 'Error updating bill status: ' + response.message, type: 'error' });
       }
     } catch (error) {
-      const bill = pendingBills.find(b => (b.id || b._id) === billId);
+      const bill = pendingBills.find(b => (b.id || b._id) === billId) || billHistory.find(b => (b.id || b._id) === billId);
       if (bill) {
-        const updatedBill = { ...bill, status: 'completed' as const };
+        const updatedBill = { 
+          ...bill, 
+          status: 'completed' as const, 
+          _syncedToDb: false, 
+          _dirty: true 
+        };
         const remainingPending = pendingBills.filter(b => (b.id || b._id) !== billId);
         savePendingBills(remainingPending);
-        saveBillHistory([...billHistory, updatedBill]);
+        
+        const historyRaw = localStorage.getItem('laundry_bill_history');
+        const history = historyRaw ? JSON.parse(historyRaw) : [];
+        const existingIdx = history.findIndex((b: any) => b.billNumber === bill.billNumber);
+        if (existingIdx !== -1) {
+          history[existingIdx] = { ...history[existingIdx], ...updatedBill };
+        } else {
+          history.push(updatedBill);
+        }
+        saveBillHistory(history);
+        
         logActivity('Marked Complete', bill.billNumber, bill.customerName, 'Status → Completed (offline)', 'status');
       } else {
         showAlert({ message: 'Error: Bill not found', type: 'error' });
@@ -1191,15 +1180,24 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
         const updatedBill = {
           ...bill,
           status: 'delivered' as const,
-          deliveredAt: new Date().toISOString()
+          deliveredAt: new Date().toISOString(),
+          _syncedToDb: false,
+          _dirty: true
         };
 
         const remainingPending = pendingBills.filter(b => (b.id || b._id) !== billId);
-        const updatedHistory = billHistory.filter(b => (b.id || b._id) !== billId);
-        updatedHistory.push(updatedBill);
-
+        
+        const historyRaw = localStorage.getItem('laundry_bill_history');
+        const history = historyRaw ? JSON.parse(historyRaw) : [];
+        const existingIdx = history.findIndex((b: any) => b.billNumber === bill.billNumber);
+        if (existingIdx !== -1) {
+          history[existingIdx] = { ...history[existingIdx], ...updatedBill };
+        } else {
+          history.push(updatedBill);
+        }
+        
         savePendingBills(remainingPending);
-        saveBillHistory(updatedHistory);
+        saveBillHistory(history);
       } else {
         console.error('❌ Bill not found:', billId);
         showAlert({ message: 'Error: Bill not found', type: 'error' });
@@ -1269,6 +1267,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
       async () => {
         // Calculate updated values immediately
         const updatedHistory = [...(selectedBillForPayment.paymentHistory || [])];
+        const removedPayment = updatedHistory[paymentIndex];
         updatedHistory.splice(paymentIndex, 1);
         const totalPaid = updatedHistory.reduce((sum: number, p: any) => sum + Number(p.amount), 0);
         const amountDue = Math.max(0, selectedBillForPayment.grandTotal - totalPaid);
@@ -1277,7 +1276,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
           paymentHistory: updatedHistory,
           amountPaid: totalPaid,
           amountDue,
-          paymentStatus: amountDue === 0 ? 'paid' : totalPaid > 0 ? 'partial' : 'unpaid' as any
+          paymentStatus: amountDue === 0 ? 'paid' : totalPaid > 0 ? 'partial' : 'unpaid' as any,
+          _syncedToDb: false,
+          _dirty: true
         };
 
         // Update React state and localStorage immediately
@@ -1303,7 +1304,27 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
           const response = await apiService.removePayment(selectedBillForPayment.billNumber, paymentIndex);
           if (response.success) {
             showAlert({ message: 'Payment removed. Revenue updated.', type: 'success' });
-            logActivity('Payment Removed', selectedBillForPayment.billNumber, selectedBillForPayment.customerName, `Payment of ₹${(selectedBillForPayment.paymentHistory || [])[paymentIndex]?.amount || ''} removed. New paid: ₹${totalPaid}`, 'undo');
+            
+            // Mark as synced
+            const updateSyncedStatus = (bills: any[], key: string) => {
+              const updated = bills.map((b: any) => {
+                if (b.billNumber === selectedBillForPayment.billNumber) {
+                  return { ...b, _syncedToDb: true, _dirty: false };
+                }
+                return b;
+              });
+              localStorage.setItem(key, JSON.stringify(updated));
+              return updated;
+            };
+            const pRaw = localStorage.getItem('laundry_pending_bills');
+            const pBills = pRaw ? JSON.parse(pRaw) : [];
+            setPendingBills(updateSyncedStatus(pBills, 'laundry_pending_bills'));
+            
+            const hRaw = localStorage.getItem('laundry_bill_history');
+            const hBills = hRaw ? JSON.parse(hRaw) : [];
+            setBillHistory(updateSyncedStatus(hBills, 'laundry_bill_history'));
+
+            logActivity('Payment Removed', selectedBillForPayment.billNumber, selectedBillForPayment.customerName, `Payment of ₹${removedPayment?.amount || ''} removed. New paid: ₹${totalPaid}`, 'undo');
             loadPendingBills();
             loadBillHistory();
           } else {
@@ -1341,7 +1362,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
             amountPaid: totalPaid,
             amountDue,
             paymentStatus: newPaymentStatus,
-            paymentHistory: [...(b.paymentHistory || []), newPayment]
+            paymentHistory: [...(b.paymentHistory || []), newPayment],
+            _syncedToDb: false,
+            _dirty: true
           };
         }
         return b;
@@ -1372,6 +1395,26 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
       console.log('📨 Payment API response:', response);
       if (response.success) {
         showAlert({ message: `₹${paymentAmount} payment recorded. Due: ₹${amountDue}`, type: 'success' });
+        
+        // Mark local history and pending as synced in localStorage
+        const updateSyncedStatus = (bills: any[], key: string) => {
+          const updated = bills.map((b: any) => {
+            if (b.billNumber === selectedBillForPayment.billNumber) {
+              return { ...b, _syncedToDb: true, _dirty: false };
+            }
+            return b;
+          });
+          localStorage.setItem(key, JSON.stringify(updated));
+          return updated;
+        };
+        const pRaw = localStorage.getItem('laundry_pending_bills');
+        const pBills = pRaw ? JSON.parse(pRaw) : [];
+        setPendingBills(updateSyncedStatus(pBills, 'laundry_pending_bills'));
+        
+        const hRaw = localStorage.getItem('laundry_bill_history');
+        const hBills = hRaw ? JSON.parse(hRaw) : [];
+        setBillHistory(updateSyncedStatus(hBills, 'laundry_bill_history'));
+
         logActivity('Payment Added', selectedBillForPayment.billNumber, selectedBillForPayment.customerName, `₹${paymentAmount} paid${paymentNote ? ' — ' + paymentNote : ''}. Due: ₹${amountDue}`, 'payment');
         // Send WhatsApp payment notification
         if (selectedBillForPayment.customerPhone) {

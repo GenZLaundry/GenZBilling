@@ -32,7 +32,7 @@ const SecureAuth: React.FC<SecureAuthProps> = ({ onLogin, onOpenCustomerPortal }
 
         setTimeout(() => {
           onLogin(true);
-        }, 1500);
+        }, 200);
       } else {
         showAlert({ message: response.message || 'Invalid credentials. Please try again.', type: 'error' });
         setCredentials({ username: '', password: '' });

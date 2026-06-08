@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAlert } from './GlobalAlert';
 import apiService from './api';
+import { syncOfflineBills } from './syncService';
 import CountryCodePicker from './CountryCodePicker';
 import { printCleanThermalOrderReceipt } from './CleanThermalPrint';
 
@@ -35,12 +36,37 @@ interface ManualEntryProps {
 
 const STORAGE_KEY = 'laundry_manual_entries';
 
+const ITEM_PRICE_MAP: Record<string, number> = {
+  'shirt': 20,
+  't-shirt': 20,
+  'jeans': 20,
+  'pant / trouser': 20,
+  'pant': 20,
+  'trouser': 20,
+  'kurta': 20,
+  'pyjama': 20,
+  'dress pieces': 30,
+  'only iron': 20,
+  'white shirt': 50,
+  'sweater': 50,
+  'jacket (light)': 50,
+  'jacket (heavy)': 80,
+  'coat pant': 400,
+  'blanket (double bed)': 300,
+  'blanket (single)': 200
+};
+
 const ManualEntry: React.FC<ManualEntryProps> = ({ onClose }) => {
   const { showAlert, showConfirm } = useAlert();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const today = new Date().toISOString().split('T')[0];
 
   const [entries, setEntries] = useState<ManualEntryData[]>([]);
+  const [shopConfig, setShopConfig] = useState({
+    shopName: 'Gen-Z Laundry',
+    address: '123 Main Street',
+    contact: '1234567890'
+  });
   const [loading, setLoading] = useState(false);
   const [hasLegacyLocalData, setHasLegacyLocalData] = useState(false);
   const [legacyCount, setLegacyCount] = useState(0);
@@ -194,6 +220,12 @@ const ManualEntry: React.FC<ManualEntryProps> = ({ onClose }) => {
   const fetchReceipts = async () => {
     setLoadingReceipts(true);
     try {
+      try {
+        await syncOfflineBills();
+      } catch (syncErr) {
+        console.warn('⚠️ Sync failed in ManualEntry:', syncErr);
+      }
+
       console.log('🔄 Fetching pending order receipts...');
       const response = await apiService.getPendingBills();
       if (response && response.success && Array.isArray(response.data)) {
@@ -244,9 +276,232 @@ const ManualEntry: React.FC<ManualEntryProps> = ({ onClose }) => {
     });
   };
 
+  const handlePrintTags = async (data: any, isReceipt: boolean) => {
+    try {
+      const tags: any[] = [];
+      let tagCounter = 1;
+      
+      const customerName = data.customerName || 'Customer';
+      const customerPhone = isReceipt ? (data.customerPhone || data.phone || '') : (data.phone || '');
+      
+      let billNo = '';
+      if (isReceipt) {
+        billNo = data.billNumber || '';
+      } else {
+        if (data.remark) {
+          const match = data.remark.match(/#([A-Za-z0-9]+)/);
+          if (match) {
+            billNo = match[1];
+          }
+        }
+        if (!billNo) {
+          billNo = data.id ? `ME${data.id.slice(-6).toUpperCase()}` : `ME${Date.now().toString().slice(-6)}`;
+        }
+      }
+
+      const now = new Date();
+      const currentDate = now.toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      }) + ' ' + now.toLocaleTimeString('en-GB', {
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+
+      const rawItems = data.items || [];
+      const totalTags = rawItems.reduce((sum: number, item: any) => sum + (item.quantity || 0), 0);
+
+      rawItems.forEach((item: any) => {
+        const qty = item.quantity || 1;
+        for (let i = 0; i < qty; i++) {
+          let name = 'CLOTHES';
+          let serviceLabel = 'WASH';
+          let price = 0;
+
+          if (isReceipt) {
+            name = item.name || 'CLOTHES';
+            const match = name.match(/^(.*?)\s*\((.*?)\)$/);
+            if (match) {
+              name = match[1].trim();
+              serviceLabel = match[2].trim().toUpperCase();
+            } else {
+              serviceLabel = data.serviceType || 'WASH';
+            }
+            price = item.rate || 0;
+          } else {
+            name = item.itemName || 'CLOTHES';
+            serviceLabel = item.serviceType || 'WASH';
+            price = 0;
+          }
+
+          tags.push({
+            businessName: shopConfig.shopName,
+            billNumber: billNo,
+            customerName: customerName,
+            customerPhone: customerPhone,
+            itemName: name.toUpperCase(),
+            washType: serviceLabel,
+            tagIndex: tagCounter,
+            totalTags: totalTags,
+            date: currentDate,
+            barcode: `GZ${billNo}${tagCounter.toString().padStart(3, '0')}`,
+            qrCode: `GZ${billNo}${tagCounter.toString().padStart(3, '0')}`,
+            price: price
+          });
+          tagCounter++;
+        }
+      });
+
+      if (tags.length === 0) {
+        showAlert({ message: 'No items to print tags for', type: 'warning' });
+        return;
+      }
+
+      // Save tag history to database
+      try {
+        const response = await apiService.post('/tag-history', { tags });
+        if (response && !response.success) {
+          throw new Error(response.message || 'API responded with success: false');
+        }
+      } catch (error) {
+        console.error('❌ Failed to save tag history, caching offline:', error);
+        try {
+          const unsyncedTags = JSON.parse(localStorage.getItem('laundry_unsynced_tags') || '[]');
+          unsyncedTags.push({ tags, timestamp: new Date().toISOString() });
+          localStorage.setItem('laundry_unsynced_tags', JSON.stringify(unsyncedTags));
+          console.log('📦 Saved tag history to offline cache');
+        } catch (localErr) {
+          console.error('❌ Failed to cache tag history offline:', localErr);
+        }
+      }
+
+      // Try TSPL direct print via thermal server (TSC TL240)
+      const offset = parseInt(localStorage.getItem('tag_print_offset') || '0', 10);
+      try {
+        const tsplResponse = await fetch('http://localhost:3001/api/print/tspl-tags', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tags, printerName: 'TSC TL240', shiftDots: offset })
+        });
+        const tsplResult = await tsplResponse.json();
+        if (tsplResult.success) {
+          showAlert({ message: `✅ ${tags.length} tags sent to TSC TL240`, type: 'success' });
+          return;
+        }
+      } catch (tsplError) {
+        console.warn('Thermal server error, using fallback:', tsplError);
+      }
+
+      // Fallback browser printing
+      const printWindow = window.open('', '_blank', 'width=800,height=600');
+      if (!printWindow) {
+        showAlert({ message: 'Please allow popups for tag printing', type: 'warning' });
+        return;
+      }
+
+      const tagHTML = `
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Clothing Tags - TSC TL240</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800;900&display=swap');
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    @page { size: 37mm 40mm; margin: 0 !important; }
+    @media print {
+      html, body { width: 37mm !important; height: 40mm !important; margin: 0 !important; padding: 0 !important; }
+      .tag { page-break-after: always; page-break-inside: avoid; }
+      .tag:last-child { page-break-after: avoid; }
+    }
+    body { font-family: 'Outfit', 'Arial Black', 'Arial', sans-serif; margin: 0; padding: 0; background: white; width: 37mm; height: 40mm; }
+    .tag { width: 37mm; height: 38mm; margin: 1mm auto; padding: 1mm 1.5mm; background: white; display: flex; flex-direction: column; justify-content: space-between; box-sizing: border-box; }
+    .top-header { text-align: center; padding-bottom: 0.8mm; border-bottom: 1.2px dashed #000; }
+    .brand-line1 { font-size: 11pt; font-weight: 900; display: block; letter-spacing: 0.3px; line-height: 1.1; text-transform: uppercase; white-space: nowrap; }
+    .brand-line2 { font-size: 6.5pt; font-weight: 800; display: block; line-height: 1.1; letter-spacing: 0.8px; text-transform: uppercase; margin-top: 0.2mm; white-space: nowrap; }
+    .tag-date { font-size: 7.5pt; font-weight: 700; text-align: center; line-height: 1; margin: 0.3mm 0; color: #000; letter-spacing: 0.8px; white-space: nowrap; }
+    .customer-name { text-align: center; font-size: 13pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; padding: 0.8mm 0; border-top: 1.5px solid #000; border-bottom: 1.5px solid #000; margin: 0.2mm 0; }
+    .service-type { text-align: center; font-size: 8pt; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; margin: 0.2mm 0; white-space: nowrap; }
+    .bill-info { display: flex; justify-content: space-between; align-items: center; margin: 0.2mm 0; }
+    .bill-no { font-family: 'Courier New', Courier, monospace; font-size: 10pt; font-weight: bold; }
+    .tag-number { font-size: 9pt; font-weight: 800; border: 1px solid #000; color: #000; padding: 0.3mm 1.5mm; border-radius: 3px; white-space: nowrap; }
+    .website { text-align: center; font-size: 7pt; font-weight: 500; padding-top: 0.5mm; border-top: 1px dashed #000; letter-spacing: 1.2px; text-transform: lowercase; white-space: nowrap; }
+  </style>
+</head>
+<body>
+  ${tags.map((tag) => {
+    const nameLen = (tag.customerName || '').length;
+    let fontSize = '13pt';
+    if (nameLen > 15) fontSize = '8pt';
+    else if (nameLen > 11) fontSize = '9.5pt';
+    else if (nameLen > 7) fontSize = '11pt';
+
+    const rawType = (tag.washType || '').toUpperCase().trim();
+    let serviceLabel = rawType;
+    if (rawType === 'WASH') serviceLabel = 'WASH ONLY';
+    else if (rawType === 'IRON') serviceLabel = 'IRON ONLY';
+    else if (rawType === 'WASH+IRON') serviceLabel = 'WASH + IRON';
+    else if (rawType === 'DRY CLEAN') serviceLabel = 'DRY CLEAN';
+
+    return `
+    <div class="tag">
+      <div class="top-header">
+        <span class="brand-line1">Gen-Z Laundry</span>
+        <span class="brand-line2">&amp; Dry Cleaners</span>
+      </div>
+      <div class="tag-date">&bull; ${tag.date} &bull;</div>
+      <div class="customer-name" style="font-size: ${fontSize}">${tag.customerName}</div>
+      <div class="service-type">${serviceLabel}</div>
+      <div class="bill-info">
+        <span class="bill-no">${tag.billNumber}</span>
+        <span class="tag-number">${tag.tagIndex} / ${tag.totalTags}</span>
+      </div>
+      <div class="website">www.genzlaundry.com</div>
+    </div>
+    `;
+  }).join('')}
+  <script>
+    window.onload = function() {
+      setTimeout(function() {
+        window.print();
+        setTimeout(function() { window.close(); }, 1500);
+      }, 600);
+    }
+  </script>
+</body>
+</html>
+      `;
+
+      printWindow.document.write(tagHTML);
+      printWindow.document.close();
+    } catch (e: any) {
+      console.error(e);
+      showAlert({ message: `Failed to print tags: ${e.message || 'Unknown error'}`, type: 'error' });
+    }
+  };
+
   useEffect(() => {
     fetchEntries();
     fetchReceipts();
+
+    const fetchShopConfig = async () => {
+      try {
+        const response = await apiService.getShopConfig();
+        if (response.success && response.data) {
+          setShopConfig(response.data);
+          return;
+        }
+      } catch (e) {
+        console.warn('Could not load shop config for tags:', e);
+      }
+      const saved = localStorage.getItem('laundry_shop_config');
+      if (saved) {
+        try {
+          setShopConfig(JSON.parse(saved));
+        } catch (e) {}
+      }
+    };
+    fetchShopConfig();
     
     // Check for legacy offline data
     try {
@@ -292,6 +547,112 @@ const ManualEntry: React.FC<ManualEntryProps> = ({ onClose }) => {
         showAlert({ message: 'Offline copy cleared', type: 'info' });
       }
     );
+  };
+
+  const handleGenerateReceipt = (entry: ManualEntryData) => {
+    showConfirm(`Generate an Order Receipt for customer "${entry.customerName}"?`, async () => {
+      setLoading(true);
+      try {
+        const billNum = `GZ${Date.now().toString().slice(-6)}`;
+        
+        // Map items and lookup prices
+        let subtotal = 0;
+        const billItems = entry.items.map(item => {
+          const itemName = item.itemName || 'Clothes';
+          const cleanName = itemName.toLowerCase().trim();
+          
+          let rate = 20; // Default fallback
+          if (ITEM_PRICE_MAP[cleanName]) {
+            rate = ITEM_PRICE_MAP[cleanName];
+          } else if (item.unit === 'kg') {
+            rate = 50;
+          }
+          
+          const amount = rate * item.quantity;
+          subtotal += amount;
+          
+          return {
+            name: `${itemName} (${item.serviceType})`,
+            quantity: item.quantity,
+            rate,
+            amount
+          };
+        });
+
+        const billData: any = {
+          businessName: shopConfig.shopName,
+          address: shopConfig.address,
+          phone: shopConfig.contact,
+          billNumber: billNum,
+          customerName: entry.customerName,
+          customerPhone: entry.phone,
+          items: billItems,
+          subtotal: subtotal,
+          grandTotal: subtotal,
+          status: 'completed',
+          paymentStatus: entry.paymentStatus || 'unpaid',
+          amountPaid: entry.partialAmount || 0,
+          amountDue: subtotal - (entry.partialAmount || 0),
+          paymentHistory: (entry.partialAmount || 0) > 0 ? [{ amount: entry.partialAmount, date: new Date().toISOString(), note: 'Partial payment from manual entry' }] : [],
+          deliveryDate: entry.deliveryDate || new Date().toISOString().split('T')[0],
+          serviceType: entry.serviceType || 'WASH',
+          thankYouMessage: 'Please keep this receipt for collection.',
+          printLogo: true,
+          receiptMode: 'THERMAL_3INCH',
+          createdAt: new Date().toISOString()
+        };
+
+        // 1. Create bill in backend
+        const response = await apiService.createBill(billData);
+        if (response.success) {
+          const serverBillId = (response.data as any)?._id || (response.data as any)?.id;
+          const finalBillData = {
+            ...billData,
+            id: serverBillId,
+            _id: serverBillId,
+            _syncedToDb: true
+          };
+
+          // 2. Save to general history local storage
+          const existingHistory = JSON.parse(localStorage.getItem('laundry_bill_history') || '[]');
+          existingHistory.unshift(finalBillData);
+          localStorage.setItem('laundry_bill_history', JSON.stringify(existingHistory));
+
+          // 3. Update the manual entry remark & status on the server
+          const newRemark = entry.remark 
+            ? `${entry.remark} (Converted to Bill #${billNum})` 
+            : `Converted to Bill #${billNum}`;
+          await apiService.updateManualEntry(entry.id, {
+            ...entry,
+            status: 'completed',
+            remark: newRemark
+          });
+
+          // 4. Trigger auto SMS if customer has phone
+          if (finalBillData.customerPhone && finalBillData.customerPhone.length >= 10) {
+            apiService.sendBillGeneratedSMS(
+              finalBillData.customerPhone,
+              finalBillData.customerName,
+              finalBillData.items.map((i: any) => ({ name: i.name, quantity: i.quantity }))
+            ).catch(err => console.warn(err));
+          }
+
+          // 5. Trigger thermal printing
+          await printCleanThermalOrderReceipt(finalBillData, (message) => showAlert({ message, type: 'error' }));
+
+          showAlert({ message: `✅ Order receipt #${billNum} generated & printed successfully!`, type: 'success' });
+          fetchEntries(); // Refresh manual entries
+          fetchReceipts(); // Refresh receipts list
+        } else {
+          showAlert({ message: `Failed to save receipt: ${response.message}`, type: 'error' });
+        }
+      } catch (error: any) {
+        console.error('Error generating receipt:', error);
+        showAlert({ message: `Error generating receipt: ${error.message || 'Unknown error'}`, type: 'error' });
+      } finally {
+        setLoading(false);
+      }
+    });
   };
 
   const resetForm = () => {
@@ -425,6 +786,29 @@ const ManualEntry: React.FC<ManualEntryProps> = ({ onClose }) => {
         }
       }
     } catch (error: any) {
+      if (!editingId) {
+        try {
+          const local = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+          const offlineEntry = {
+            ...entryData,
+            id: `local_${Date.now()}`,
+            createdAt: new Date().toISOString()
+          };
+          local.push(offlineEntry);
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(local));
+          setHasLegacyLocalData(true);
+          setLegacyCount(local.length);
+          showAlert({ 
+            message: '⚠️ Connection error! Saved manual entry offline. Please click the sync button at the top when connection is restored.', 
+            type: 'warning' 
+          });
+          resetForm();
+          setActiveTab('list');
+          return;
+        } catch (e) {
+          console.error('Failed to save manual entry offline:', e);
+        }
+      }
       showAlert({ message: error.message || 'Failed to save/update entry', type: 'error' });
     } finally {
       setLoading(false);
@@ -1510,6 +1894,32 @@ const ManualEntry: React.FC<ManualEntryProps> = ({ onClose }) => {
                           </button>
                         )}
                         <button
+                          onClick={() => handleGenerateReceipt(entry)}
+                          style={{
+                            background: 'rgba(14,165,233,0.12)', color: '#0ea5e9',
+                            border: '1px solid rgba(14,165,233,0.2)', borderRadius: '6px',
+                            padding: '4px 10px', fontSize: '11px', fontWeight: '600',
+                            cursor: 'pointer', transition: 'all 0.15s ease'
+                          }}
+                          onMouseOver={(e) => (e.currentTarget as HTMLElement).style.background = 'rgba(14,165,233,0.2)'}
+                          onMouseOut={(e) => (e.currentTarget as HTMLElement).style.background = 'rgba(14,165,233,0.12)'}
+                        >
+                          🧾 Generate Receipt
+                        </button>
+                        <button
+                          onClick={() => handlePrintTags(entry, false)}
+                          style={{
+                            background: 'rgba(245,158,11,0.12)', color: '#fbbf24',
+                            border: '1px solid rgba(245,158,11,0.2)', borderRadius: '6px',
+                            padding: '4px 10px', fontSize: '11px', fontWeight: '600',
+                            cursor: 'pointer', transition: 'all 0.15s ease'
+                          }}
+                          onMouseOver={(e) => (e.currentTarget as HTMLElement).style.background = 'rgba(245,158,11,0.2)'}
+                          onMouseOut={(e) => (e.currentTarget as HTMLElement).style.background = 'rgba(245,158,11,0.12)'}
+                        >
+                          🏷️ Print Tags
+                        </button>
+                        <button
                           onClick={() => handleEdit(entry)}
                           style={{
                             background: 'rgba(59,130,246,0.12)', color: '#60a5fa',
@@ -1715,6 +2125,21 @@ const ManualEntry: React.FC<ManualEntryProps> = ({ onClose }) => {
 
                             {/* Action buttons */}
                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px', alignItems: 'center' }}>
+                              <button
+                                type="button"
+                                onClick={() => handlePrintTags(receipt, true)}
+                                style={{
+                                  background: 'rgba(245,158,11,0.12)', color: '#fbbf24',
+                                  border: '1px solid rgba(245,158,11,0.2)', borderRadius: '6px',
+                                  padding: '5px 12px', fontSize: '11px', fontWeight: '700',
+                                  cursor: 'pointer', transition: 'all 0.15s ease',
+                                  display: 'flex', alignItems: 'center', gap: '4px'
+                                }}
+                                onMouseOver={(e) => (e.currentTarget as HTMLElement).style.background = 'rgba(245,158,11,0.2)'}
+                                onMouseOut={(e) => (e.currentTarget as HTMLElement).style.background = 'rgba(245,158,11,0.12)'}
+                              >
+                                🏷️ Print Tags
+                              </button>
                               <button
                                 type="button"
                                 onClick={() => {

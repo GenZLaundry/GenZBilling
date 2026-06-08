@@ -9,6 +9,7 @@ import UPIStatusIndicator from './UPIStatusIndicator';
 import ItemListManager from './ItemListManager';
 import ManualEntry from './ManualEntry';
 import apiService from './api';
+import { syncOfflineBills } from './syncService';
 import { useAlert } from './GlobalAlert';
 import BillShareButton from './BillShareButton';
 import { ShareableBillData } from './BillShareUtils';
@@ -90,12 +91,14 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
   const [customerHistory, setCustomerHistory] = useState<any[]>([]);
   const [customerPendingDue, setCustomerPendingDue] = useState<{amount: number, count: number, bills: PendingBill[]}>({amount: 0, count: 0, bills: []});
   const [showQuickDiscount, setShowQuickDiscount] = useState(false);
+  const [customDiscountType, setCustomDiscountType] = useState<'fixed' | 'percentage'>('fixed');
   const [lastBillTotal, setLastBillTotal] = useState(0);
   const [customerSuggestions, setCustomerSuggestions] = useState<Array<{name: string, phone: string, lastBill?: string}>>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [lastGeneratedBill, setLastGeneratedBill] = useState<ShareableBillData | null>(null);
   const [showStickerPrintModal, setShowStickerPrintModal] = useState(false);
   const [stickerPrintCopies, setStickerPrintCopies] = useState('1');
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
   
   // Client intake requests states
   const [clientRequests, setClientRequests] = useState<any[]>([]);
@@ -218,6 +221,29 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
       setDiscount(discountItem.value);
     }
     setShowQuickDiscount(false);
+  };
+
+  const handleApplyCustomDiscount = (rawVal: string) => {
+    const trimmed = rawVal.trim();
+    if (!trimmed) return;
+    
+    let isPercent = customDiscountType === 'percentage';
+    let cleanVal = trimmed;
+    if (trimmed.endsWith('%')) {
+      isPercent = true;
+      cleanVal = trimmed.slice(0, -1).trim();
+    }
+    
+    const value = parseFloat(cleanVal);
+    if (!isNaN(value) && value > 0) {
+      if (isPercent) {
+        const subtotal = calculateSubtotal();
+        setDiscount(Math.round((subtotal * value) / 100));
+      } else {
+        setDiscount(value);
+      }
+      setShowQuickDiscount(false);
+    }
   };
 
   const loadCustomerHistory = async (phone: string) => {
@@ -651,6 +677,42 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
     }
   }, [activeNotification]);
 
+  // Trigger offline sync on load, on network status change, and periodically
+  useEffect(() => {
+    // Initial sync
+    setIsOnline(navigator.onLine);
+    if (navigator.onLine) {
+      syncOfflineBills();
+    }
+
+    const handleOnline = () => {
+      console.log('🌐 Internet connection restored. Triggering sync...');
+      setIsOnline(true);
+      syncOfflineBills();
+    };
+
+    const handleOffline = () => {
+      console.log('🔌 Internet connection lost.');
+      setIsOnline(false);
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    // Periodically sync every 30 seconds
+    const interval = setInterval(() => {
+      if (navigator.onLine) {
+        syncOfflineBills();
+      }
+    }, 30000);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+      clearInterval(interval);
+    };
+  }, []);
+
   const loadShopConfig = async () => {
     try {
       const response = await apiService.getShopConfig();
@@ -865,41 +927,42 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
 
       console.log('🧾 Processing bill:', billData);
 
-      // Save to localStorage FIRST (always, before DB attempt)
-      let localStorageSaveSuccess = false;
-      try {
-        const existingHistory = JSON.parse(localStorage.getItem('laundry_bill_history') || '[]');
-        const billForHistory = {
-          ...billData,
-          id: `local_${Date.now()}`,
-          _id: `local_${Date.now()}`,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          _syncedToDb: false
-        };
-        existingHistory.unshift(billForHistory);
-        if (existingHistory.length > 500) existingHistory.splice(500);
-        localStorage.setItem('laundry_bill_history', JSON.stringify(existingHistory));
-        localStorageSaveSuccess = true;
-        console.log('✅ Bill saved to localStorage first');
-      } catch (localError) {
-        console.error('❌ localStorage save error:', localError);
+      // Online requirement check
+      if (!navigator.onLine) {
+        showAlert({ message: '⚠️ Internet connection required! You cannot generate or print bills while offline.', type: 'error' });
+        setIsProcessing(false);
+        return;
       }
 
-      // Then try to save to database
+      // Save to database first
       let databaseSaveSuccess = false;
+      let serverBillId = '';
       try {
         console.log('💾 Saving bill to database...');
         const response = await apiService.createBill(billData);
         if (response.success) {
           console.log('✅ Bill saved to database:', response.data);
           databaseSaveSuccess = true;
-          // Mark local copy as synced
+          serverBillId = (response.data as any)?._id || (response.data as any)?.id;
+          
+          // Save to local storage history only after database save success
           try {
-            const existing = JSON.parse(localStorage.getItem('laundry_bill_history') || '[]');
-            const updated = existing.map((b: any) => b.billNumber === billData.billNumber ? { ...b, _syncedToDb: true, _id: (response.data as any)?._id || b._id } : b);
-            localStorage.setItem('laundry_bill_history', JSON.stringify(updated));
-          } catch (e) { /* ignore */ }
+            const existingHistory = JSON.parse(localStorage.getItem('laundry_bill_history') || '[]');
+            const billForHistory = {
+              ...billData,
+              id: serverBillId,
+              _id: serverBillId,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              _syncedToDb: true
+            };
+            existingHistory.unshift(billForHistory);
+            if (existingHistory.length > 500) existingHistory.splice(500);
+            localStorage.setItem('laundry_bill_history', JSON.stringify(existingHistory));
+            console.log('✅ Bill saved to localStorage history');
+          } catch (localError) {
+            console.error('❌ localStorage save error:', localError);
+          }
 
           // AUTOMATICALLY SEND BACKGROUND SMS
           if (billData.customerPhone && billData.customerPhone.length >= 10) {
@@ -917,26 +980,47 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
 
         } else {
           console.warn('⚠️ Database save failed:', response.message);
+          showAlert({ message: `❌ Failed to save bill to server: ${response.message}`, type: 'error' });
+          setIsProcessing(false);
+          return;
         }
       } catch (apiError) {
-        console.warn('⚠️ Database unavailable, bill saved locally and will sync later:', apiError);
+        console.warn('⚠️ Database unavailable:', apiError);
+        showAlert({ message: '⚠️ Connection error! Could not connect to the server to generate this bill.', type: 'error' });
+        setIsProcessing(false);
+        return;
       }
-
-      console.log('💾 Save Status — DB:', databaseSaveSuccess ? '✅' : '❌ (saved locally)', '| Local:', localStorageSaveSuccess ? '✅' : '❌');
 
       // Remove selected pending bills from storage (they're now completed)
       if (selectedPendingBills.length > 0) {
         console.log('🔄 Updating pending bills status...');
-        // Try to update via API first
+        const historyRaw = localStorage.getItem('laundry_bill_history');
+        const history = historyRaw ? JSON.parse(historyRaw) : [];
+        
         for (const bill of selectedPendingBills) {
+          const billId = bill.id || bill._id;
           try {
-            const billId = bill.id || bill._id;
-            await apiService.updateBillStatus(billId, 'completed');
-            console.log(`✅ Updated bill ${bill.billNumber} status to completed`);
+            const response = await apiService.updateBillStatus(billId, 'completed');
+            if (response.success) {
+              console.log(`✅ Updated bill ${bill.billNumber} status to completed`);
+              continue;
+            }
           } catch (error) {
-            console.warn('⚠️ Could not update bill status via API, using local storage:', error);
+            console.warn('⚠️ Could not update bill status via API, setting dirty for sync:', error);
+          }
+          
+          // Mark as completed locally and flag as unsynced
+          const hIdx = history.findIndex((b: any) => b.billNumber === bill.billNumber);
+          if (hIdx !== -1) {
+            history[hIdx] = {
+              ...history[hIdx],
+              status: 'completed',
+              _syncedToDb: false,
+              _dirty: true
+            };
           }
         }
+        localStorage.setItem('laundry_bill_history', JSON.stringify(history));
         removePendingBillsFromStorage(selectedPendingBills.map(bill => bill.id || bill._id));
       }
 
@@ -1025,7 +1109,7 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
         deliveryCharge,
         previousBalance,
         grandTotal: total,
-        status: 'pending',
+        status: 'completed',
         paymentStatus: advancePaidNum === 0 ? 'unpaid' : (advancePaidNum >= total ? 'paid' : 'partial'),
         amountPaid: advancePaidNum,
         amountDue: total - advancePaidNum,
@@ -1042,54 +1126,92 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
 
       console.log('🧾 Processing order receipt:', billData);
 
-      // Save to localStorage first (always, for offline capability)
-      let localStorageSaveSuccess = false;
-      try {
-        // Save to general bill history
-        const existingHistory = JSON.parse(localStorage.getItem('laundry_bill_history') || '[]');
-        existingHistory.unshift({ ...billData, _syncedToDb: false });
-        if (existingHistory.length > 500) existingHistory.splice(500);
-        localStorage.setItem('laundry_bill_history', JSON.stringify(existingHistory));
-
-        // Save to pending bills local list
-        const existingPending = JSON.parse(localStorage.getItem('laundry_pending_bills') || '[]');
-        existingPending.unshift(billData);
-        localStorage.setItem('laundry_pending_bills', JSON.stringify(existingPending));
-
-        localStorageSaveSuccess = true;
-        console.log('✅ Order receipt saved to localStorage first');
-      } catch (localError) {
-        console.error('❌ localStorage save error:', localError);
+      // Online requirement check
+      if (!navigator.onLine) {
+        showAlert({ message: '⚠️ Internet connection required! You cannot generate or print receipts while offline.', type: 'error' });
+        setIsProcessing(false);
+        return;
       }
 
-      // Save to database
+      // Save to database first
       let databaseSaveSuccess = false;
+      let serverBillId = '';
       try {
         console.log('💾 Saving pending order to database...');
-        const response = await apiService.createBill(billData);
+        // Strip out the client-side ID since it is temporary
+        const { id, ...cleanBillData } = billData;
+        const response = await apiService.createBill(cleanBillData);
         if (response.success) {
           console.log('✅ Pending order saved to database:', response.data);
           databaseSaveSuccess = true;
-          // Mark local copies as synced
-          try {
-            const serverBillId = (response.data as any)?._id || (response.data as any)?.id;
-            const existingHistory = JSON.parse(localStorage.getItem('laundry_bill_history') || '[]');
-            const updatedHistory = existingHistory.map((b: any) => 
-              b.billNumber === billData.billNumber 
-                ? { ...b, _syncedToDb: true, _id: serverBillId } 
-                : b
-            );
-            localStorage.setItem('laundry_bill_history', JSON.stringify(updatedHistory));
+          serverBillId = (response.data as any)?._id || (response.data as any)?.id;
 
-            // Sync database ID for local pending bill too
-            const existingPending = JSON.parse(localStorage.getItem('laundry_pending_bills') || '[]');
-            const updatedPending = existingPending.map((b: any) => 
-              b.billNumber === billData.billNumber 
-                ? { ...b, _id: serverBillId } 
-                : b
-            );
-            localStorage.setItem('laundry_pending_bills', JSON.stringify(updatedPending));
-          } catch (e) { /* ignore */ }
+          // Save to local storage only after database save success
+          try {
+            const finalBillData = {
+              ...billData,
+              id: serverBillId,
+              _id: serverBillId,
+              _syncedToDb: true
+            };
+            
+            // Save to general bill history
+            const existingHistory = JSON.parse(localStorage.getItem('laundry_bill_history') || '[]');
+            existingHistory.unshift(finalBillData);
+            if (existingHistory.length > 500) existingHistory.splice(500);
+            localStorage.setItem('laundry_bill_history', JSON.stringify(existingHistory));
+
+            console.log('✅ Order receipt saved to localStorage');
+
+            // Automatically create a manual entry for this generated receipt
+            try {
+              const manualEntryItems = billData.items.map(item => {
+                const match = item.name.match(/^(.*?)\s*\((.*?)\)$/);
+                const itemName = match ? match[1].trim() : item.name;
+                const washTypeRaw = match ? match[2].trim().toUpperCase() : 'WASH';
+                
+                let serviceType: 'WASH' | 'IRON' | 'WASH+IRON' | 'DRY CLEAN' = 'WASH';
+                if (washTypeRaw.includes('WASH') && washTypeRaw.includes('IRON')) {
+                  serviceType = 'WASH+IRON';
+                } else if (washTypeRaw.includes('IRON')) {
+                  serviceType = 'IRON';
+                } else if (washTypeRaw.includes('DRY')) {
+                  serviceType = 'DRY CLEAN';
+                }
+                
+                let unit: 'pcs' | 'kg' = 'pcs';
+                if (item.name.toLowerCase().includes('kg')) {
+                  unit = 'kg';
+                }
+                return {
+                  serviceType,
+                  quantity: item.quantity,
+                  unit,
+                  itemName
+                };
+              });
+
+              const manualEntryData = {
+                customerName: billData.customerName,
+                phone: billData.customerPhone,
+                pickupDate: new Date().toISOString().split('T')[0],
+                pickupTime: new Date().toLocaleTimeString('en-US', { hour12: false }).slice(0, 5),
+                deliveryDate: billData.deliveryDate || new Date().toISOString().split('T')[0],
+                deliveryTime: '',
+                items: manualEntryItems,
+                paymentStatus: billData.paymentStatus,
+                partialAmount: billData.paymentStatus === 'partial' ? billData.amountPaid : undefined,
+                status: 'completed',
+                remark: `Auto-generated from Order Receipt #${billData.billNumber}`
+              };
+              console.log('💾 Auto-creating manual entry:', manualEntryData);
+              apiService.createManualEntry(manualEntryData).catch(err => console.error('⚠️ Failed to auto-create manual entry:', err));
+            } catch (meErr) {
+              console.error('⚠️ Failed to map manual entry:', meErr);
+            }
+          } catch (localError) {
+            console.error('❌ localStorage save error:', localError);
+          }
 
           // AUTOMATICALLY SEND BACKGROUND SMS
           if (billData.customerPhone && billData.customerPhone.length >= 10) {
@@ -1106,9 +1228,15 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
           }
         } else {
           console.warn('⚠️ Database save failed:', response.message);
+          showAlert({ message: `❌ Failed to save receipt to server: ${response.message}`, type: 'error' });
+          setIsProcessing(false);
+          return;
         }
       } catch (apiError) {
-        console.warn('⚠️ Database unavailable, pending order saved locally and will sync later:', apiError);
+        console.warn('⚠️ Database unavailable:', apiError);
+        showAlert({ message: '⚠️ Connection error! Could not connect to the server to generate this receipt.', type: 'error' });
+        setIsProcessing(false);
+        return;
       }
 
       // Print the Order Receipt using premium thermal layout
@@ -1127,7 +1255,7 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
       }
 
       showAlert({ 
-        message: `✅ Order receipt generated successfully! Saved to pending orders.\nOrder Number: ${billData.billNumber}`, 
+        message: `✅ Order receipt generated successfully! Saved to receipt history.\nOrder Number: ${billData.billNumber}`, 
         type: 'success' 
       });
 
@@ -1205,10 +1333,19 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
       const response = await apiService.post('/tag-history', { tags });
       if (response.success) {
         console.log('✅ Tag history saved:', response.data);
+      } else {
+        throw new Error(response.message || 'API responded with success: false');
       }
     } catch (error) {
-      console.error('❌ Failed to save tag history:', error);
-      // Don't block printing if history save fails
+      console.error('❌ Failed to save tag history, caching offline:', error);
+      try {
+        const unsyncedTags = JSON.parse(localStorage.getItem('laundry_unsynced_tags') || '[]');
+        unsyncedTags.push({ tags, timestamp: new Date().toISOString() });
+        localStorage.setItem('laundry_unsynced_tags', JSON.stringify(unsyncedTags));
+        console.log('📦 Saved tag history to offline cache');
+      } catch (localErr) {
+        console.error('❌ Failed to cache tag history offline:', localErr);
+      }
     }
 
     // Try TSPL direct print via thermal server (TSC TL240)
@@ -2022,6 +2159,27 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
               Next Bill
             </button>
           </div>
+        </div>
+      )}
+
+      {!isOnline && (
+        <div style={{
+          background: 'linear-gradient(135deg, #ef4444, #b91c1c)',
+          color: '#ffffff',
+          padding: '10px 16px',
+          textAlign: 'center',
+          fontSize: '14px',
+          fontWeight: '700',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          gap: '8px',
+          boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+          letterSpacing: '0.5px',
+          zIndex: 999
+        }}>
+          <i className="fas fa-wifi-slash"></i>
+          Offline Mode: Internet connection required to generate or print bills and receipts.
         </div>
       )}
 
@@ -3419,7 +3577,7 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
             <div style={{ display: 'flex', gap: '12px', width: '100%' }}>
               <button
                 onClick={processOrder}
-                disabled={!customer.name || (orderItems.length === 0 && selectedPendingBills.length === 0 && previousBalance === 0) || isProcessing}
+                disabled={!customer.name || (orderItems.length === 0 && selectedPendingBills.length === 0 && previousBalance === 0) || isProcessing || !isOnline}
                 className="btn btn-success"
                 style={{
                   width: '100%',
@@ -3732,10 +3890,11 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
               <button
                 type="button"
                 onClick={processOrderReceipt}
+                disabled={!isOnline}
                 className="btn btn-success"
-                style={{ flex: 1.5, background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', color: 'white', padding: '12px', borderRadius: '8px', fontWeight: '700', cursor: 'pointer' }}
+                style={{ flex: 1.5, background: !isOnline ? 'var(--border-subtle)' : 'linear-gradient(135deg, #10b981, #059669)', border: 'none', color: !isOnline ? 'var(--text-secondary)' : 'white', padding: '12px', borderRadius: '8px', fontWeight: '700', cursor: !isOnline ? 'not-allowed' : 'pointer' }}
               >
-                <i className="fas fa-print"></i> Generate & Print
+                <i className="fas fa-print"></i> {!isOnline ? 'Offline' : 'Generate & Print'}
               </button>
               <button
                 type="button"
@@ -4075,24 +4234,81 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
               ))}
             </div>
 
-            <div style={{ display: 'flex', gap: '12px' }}>
-              <input
-                type="number"
-                placeholder="Custom amount"
-                className="professional-input"
-                style={{
-                  flex: 1, padding: '12px', borderRadius: '8px', fontSize: '14px'
-                }}
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter') {
-                    const value = parseFloat((e.target as HTMLInputElement).value);
-                    if (value > 0) {
-                      setDiscount(value);
-                      setShowQuickDiscount(false);
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <div style={{ display: 'flex', flex: 1, gap: '6px', alignItems: 'center' }}>
+                {/* Segmented type selector */}
+                <div style={{ display: 'flex', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', overflow: 'hidden', background: 'rgba(9,9,11,0.2)' }}>
+                  <button
+                    type="button"
+                    onClick={() => setCustomDiscountType('fixed')}
+                    style={{
+                      padding: '10px 14px',
+                      background: customDiscountType === 'fixed' ? '#3b82f6' : 'transparent',
+                      color: 'white',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontWeight: '700',
+                      fontSize: '13px',
+                      outline: 'none'
+                    }}
+                  >
+                    ₹
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCustomDiscountType('percentage')}
+                    style={{
+                      padding: '10px 14px',
+                      background: customDiscountType === 'percentage' ? '#3b82f6' : 'transparent',
+                      color: 'white',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontWeight: '700',
+                      fontSize: '13px',
+                      outline: 'none'
+                    }}
+                  >
+                    %
+                  </button>
+                </div>
+                
+                {/* Input field */}
+                <input
+                  type="text"
+                  id="custom-discount-input"
+                  placeholder={customDiscountType === 'fixed' ? "Custom ₹" : "Custom %"}
+                  className="professional-input"
+                  style={{
+                    flex: 1, padding: '10px 12px', borderRadius: '8px', fontSize: '14px',
+                    background: 'rgba(9,9,11,0.4)', color: 'white', border: '1px solid rgba(255,255,255,0.08)',
+                    outline: 'none'
+                  }}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      handleApplyCustomDiscount((e.target as HTMLInputElement).value);
                     }
+                  }}
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <button
+                onClick={() => {
+                  const input = document.getElementById('custom-discount-input') as HTMLInputElement;
+                  if (input) {
+                    handleApplyCustomDiscount(input.value);
                   }
                 }}
-              />
+                style={{
+                  background: '#3b82f6', color: 'white', border: 'none', borderRadius: '8px',
+                  padding: '10px 16px', cursor: 'pointer', fontSize: '14px', fontWeight: '600',
+                  transition: 'background-color 0.15s ease'
+                }}
+                onMouseOver={(e) => (e.currentTarget as HTMLElement).style.background = '#2563eb'}
+                onMouseOut={(e) => (e.currentTarget as HTMLElement).style.background = '#3b82f6'}
+              >
+                Apply
+              </button>
               <button
                 onClick={() => {
                   setDiscount(0);
@@ -4100,8 +4316,11 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
                 }}
                 style={{
                   background: '#ef4444', color: 'white', border: 'none', borderRadius: '8px',
-                  padding: '12px 16px', cursor: 'pointer', fontSize: '14px', fontWeight: '500'
+                  padding: '10px 16px', cursor: 'pointer', fontSize: '14px', fontWeight: '500',
+                  transition: 'background-color 0.15s ease'
                 }}
+                onMouseOver={(e) => (e.currentTarget as HTMLElement).style.background = '#dc2626'}
+                onMouseOut={(e) => (e.currentTarget as HTMLElement).style.background = '#ef4444'}
               >
                 Clear
               </button>

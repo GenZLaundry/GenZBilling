@@ -43,6 +43,7 @@ const AddPreviousBill: React.FC<AddPreviousBillProps> = ({ onClose, onBillAdded 
   const [searchQuery, setSearchQuery] = useState('');
   const [customerSuggestions, setCustomerSuggestions] = useState<Array<{ name: string; phone: string; lastBill?: string }>>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   const searchCustomers = async (query: string) => {
     if (!query || query.trim().length < 1) {
@@ -167,6 +168,17 @@ const AddPreviousBill: React.FC<AddPreviousBillProps> = ({ onClose, onBillAdded 
     if (itemInputRef.current) {
       itemInputRef.current.focus();
     }
+
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
   }, []);
 
   const loadShopConfig = async () => {
@@ -275,10 +287,36 @@ const AddPreviousBill: React.FC<AddPreviousBillProps> = ({ onClose, onBillAdded 
       createdAt: new Date(billDate).toISOString()
     };
 
+    if (!navigator.onLine) {
+      showCustomAlert('⚠️ Internet connection required! You cannot save bills while offline.', 'error');
+      return;
+    }
+
     try {
       // Save to database
       const response = await apiService.createBill(billData);
       if (response.success) {
+        // Save to local storage history only after database save success
+        try {
+          const serverBillId = (response.data as any)?._id || (response.data as any)?.id;
+          const finalBillData = {
+            ...billData,
+            id: serverBillId,
+            _id: serverBillId,
+            _syncedToDb: true
+          };
+
+          const existingBills = JSON.parse(localStorage.getItem('laundry_pending_bills') || '[]');
+          existingBills.push(finalBillData);
+          localStorage.setItem('laundry_pending_bills', JSON.stringify(existingBills));
+
+          const existingHistory = JSON.parse(localStorage.getItem('laundry_bill_history') || '[]');
+          existingHistory.unshift(finalBillData);
+          localStorage.setItem('laundry_bill_history', JSON.stringify(existingHistory));
+        } catch (localErr) {
+          console.error('Failed to update local storage:', localErr);
+        }
+
         showCustomAlert(`Previous bill added successfully!\nBill Number: ${billNumber}\nCustomer: ${customer.name}\nTotal: ₹${calculateTotal()}`, 'success');
         setTimeout(() => {
           onBillAdded();
@@ -289,24 +327,7 @@ const AddPreviousBill: React.FC<AddPreviousBillProps> = ({ onClose, onBillAdded 
       }
     } catch (error) {
       console.error('Error saving previous bill:', error);
-      
-      // Fallback to localStorage
-      const pendingBill: PendingBill = {
-        ...billData,
-        id: `${Date.now()}-${Math.random()}`,
-        status: 'pending',
-        createdAt: new Date(billDate).toISOString()
-      };
-
-      const existingBills = JSON.parse(localStorage.getItem('laundry_pending_bills') || '[]');
-      existingBills.push(pendingBill);
-      localStorage.setItem('laundry_pending_bills', JSON.stringify(existingBills));
-
-      showCustomAlert(`Previous bill saved locally!\nBill Number: ${billNumber}\nCustomer: ${customer.name}\nTotal: ₹${calculateTotal()}\n\n(Database connection failed, saved to local storage)`, 'success');
-      setTimeout(() => {
-        onBillAdded();
-        onClose();
-      }, 2000);
+      showCustomAlert('⚠️ Connection error! Could not connect to the server to save this bill.', 'error');
     }
   };
 
@@ -335,6 +356,25 @@ const AddPreviousBill: React.FC<AddPreviousBillProps> = ({ onClose, onBillAdded 
         overflow: 'hidden',
         boxShadow: '0 25px 50px rgba(0,0,0,0.3)'
       }}>
+        {!isOnline && (
+          <div style={{
+            background: 'linear-gradient(135deg, #ef4444, #b91c1c)',
+            color: '#ffffff',
+            padding: '10px 16px',
+            textAlign: 'center',
+            fontSize: '14px',
+            fontWeight: '700',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            gap: '8px',
+            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+          }}>
+            <i className="fas fa-wifi-slash"></i>
+            Offline Mode: Internet connection required to save previous bills.
+          </div>
+        )}
+
         {/* Header */}
         <div style={{
           background: 'rgba(255, 255, 255, 0.1)',
@@ -783,22 +823,22 @@ const AddPreviousBill: React.FC<AddPreviousBillProps> = ({ onClose, onBillAdded 
               {/* Save Button */}
               <button
                 onClick={savePreviousBill}
-                disabled={!customer.name || orderItems.length === 0}
+                disabled={!customer.name || orderItems.length === 0 || !isOnline}
                 style={{
                   width: '100%',
                   padding: '15px',
                   borderRadius: '10px',
                   border: 'none',
-                  background: (!customer.name || orderItems.length === 0) 
+                  background: (!customer.name || orderItems.length === 0 || !isOnline) 
                     ? 'rgba(189, 195, 199, 0.5)' 
                     : 'linear-gradient(135deg, #27ae60, #2ecc71)',
                   color: 'white',
-                  cursor: (!customer.name || orderItems.length === 0) ? 'not-allowed' : 'pointer',
+                  cursor: (!customer.name || orderItems.length === 0 || !isOnline) ? 'not-allowed' : 'pointer',
                   fontSize: '16px',
                   fontWeight: 'bold'
                 }}
               >
-                💾 Save Previous Bill
+                {isOnline ? '💾 Save Previous Bill' : '🔌 Offline - Save Disabled'}
               </button>
             </div>
           </div>

@@ -9,19 +9,22 @@ import './App.css';
 
 import CustomerIntakePortal from './CustomerIntakePortal';
 import AdminReceiptPortal from './AdminReceiptPortal';
+import StaffTagPortal from './StaffTagPortal';
 
 const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [currentView, setCurrentView] = useState<'billing' | 'admin' | 'customer-portal' | 'receipt-portal'>('billing');
+  const [currentView, setCurrentView] = useState<'billing' | 'admin' | 'customer-portal' | 'receipt-portal' | 'tag-portal'>('billing');
   const [isLoading, setIsLoading] = useState(true);
   const [showPinEntry, setShowPinEntry] = useState(false);
 
   useEffect(() => {
-    // Check if view query parameter is set to customer-portal
+    // Check if view query parameter is set to customer-portal or tag-portal
     const urlParams = new URLSearchParams(window.location.search);
     const viewParam = urlParams.get('view');
     if (viewParam === 'customer-portal') {
       setCurrentView('customer-portal');
+    } else if (viewParam === 'tag-portal') {
+      setCurrentView('tag-portal');
     }
 
     // Check authentication status using the new auth system
@@ -29,20 +32,27 @@ const App: React.FC = () => {
       try {
         // First check if we have a token
         if (authApi.isAuthenticated()) {
-          // Verify the token with the server
-          const response = await authApi.verifyToken();
-          if (response.success) {
-            setIsAuthenticated(true);
-          } else {
+          // Set authenticated state immediately for fast loading
+          setIsAuthenticated(true);
+          setIsLoading(false);
+
+          // Verify the token with the server in the background
+          authApi.verifyToken().then(response => {
+            if (!response.success) {
+              console.warn('Background token verification failed, logging out.');
+              setIsAuthenticated(false);
+            }
+          }).catch(error => {
+            console.error('Background token verification failed:', error);
             setIsAuthenticated(false);
-          }
+          });
         } else {
           setIsAuthenticated(false);
+          setIsLoading(false);
         }
       } catch (error) {
         console.error('Auth check failed:', error);
         setIsAuthenticated(false);
-      } finally {
         setIsLoading(false);
       }
     };
@@ -114,6 +124,8 @@ const App: React.FC = () => {
         {/* Global Alert Integration Complete */}
         {currentView === 'customer-portal' ? (
           <CustomerIntakePortal onBackToLogin={() => setCurrentView('billing')} />
+        ) : currentView === 'tag-portal' ? (
+          <StaffTagPortal onBackToLogin={() => setCurrentView('billing')} />
         ) : currentView === 'receipt-portal' ? (
           <AdminReceiptPortal onClose={() => setCurrentView('billing')} />
         ) : isAuthenticated ? (
