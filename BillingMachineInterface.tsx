@@ -3038,7 +3038,12 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
                   fontWeight: '500'
                 }}
               >
-                Manage ({orderItems.length})
+                Manage ({orderItems.length} {orderItems.length === 1 ? 'Item' : 'Items'} / {orderItems.reduce((sum, item) => {
+                  const pcsMatch = item.name.match(/\((\d+)\s*pcs\)/i);
+                  if (pcsMatch) return sum + parseInt(pcsMatch[1], 10);
+                  const kgMatch = item.name.match(/\((\d+\.?\d*)\s*kg/i);
+                  return sum + (kgMatch ? 0 : item.quantity);
+                }, 0)} Pcs)
               </button>
 
               <button
