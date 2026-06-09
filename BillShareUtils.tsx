@@ -159,18 +159,47 @@ async function drawReceipt(
     return yy + size + 6;
   };
 
-  // Draw 4-column item row
+  // Draw 4-column item row with word-wrapping support
   const itemRow = (name: string, qty: string, price: string, total: string, yy: number, size: number, isHeader = false): number => {
+    ctx.font = font(size, isHeader ? 'extra-bold' : 'bold');
+    
+    const maxNameWidth = 160; // Max width for item name column to prevent overlapping QTY column
+    let displayLines = [name];
+    
+    if (!isHeader) {
+      const words = name.split(' ');
+      const lines: string[] = [];
+      let currentLine = '';
+
+      for (let i = 0; i < words.length; i++) {
+        const word = words[i];
+        const testLine = currentLine ? currentLine + ' ' + word : word;
+        const testWidth = ctx.measureText(testLine).width;
+        if (testWidth > maxNameWidth && i > 0) {
+          lines.push(currentLine);
+          currentLine = word;
+        } else {
+          currentLine = testLine;
+        }
+      }
+      if (currentLine) {
+        lines.push(currentLine);
+      }
+      displayLines = lines.length > 0 ? lines : [name];
+    }
+
     if (!measure) {
       ctx.fillStyle = BLACK;
       ctx.textBaseline = 'top';
-      const nameLen = 18;
-      const displayName = name.length > nameLen ? name.substring(0, nameLen - 1) + '…' : name;
       
-      ctx.font = font(size, isHeader ? 'extra-bold' : 'bold');
-      ctx.textAlign = 'left';
-      ctx.fillText(displayName, pad + 6, yy);
+      // Draw each wrapped line of the item name
+      displayLines.forEach((line, index) => {
+        ctx.font = font(size, isHeader ? 'extra-bold' : 'bold');
+        ctx.textAlign = 'left';
+        ctx.fillText(line, pad + 6, yy + index * (size + 4));
+      });
       
+      // Draw Qty, Price, and Total aligned with the first line of the item row
       ctx.font = font(size, isHeader ? 'extra-bold' : 'bold');
       ctx.textAlign = 'center';
       ctx.fillText(qty, w * 0.55, yy);
@@ -183,7 +212,9 @@ async function drawReceipt(
       ctx.textAlign = 'right';
       ctx.fillText(total, w - pad - 6, yy);
     }
-    return yy + size + 8;
+    
+    const lineCount = displayLines.length;
+    return yy + lineCount * size + (lineCount - 1) * 4 + 8;
   };
 
   // ── PREMIUM HEADER ──────────────────────────────────────────────────────────
