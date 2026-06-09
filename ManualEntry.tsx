@@ -589,7 +589,7 @@ const ManualEntry: React.FC<ManualEntryProps> = ({ onClose }) => {
           items: billItems,
           subtotal: subtotal,
           grandTotal: subtotal,
-          status: 'completed',
+          status: 'pending',
           paymentStatus: entry.paymentStatus || 'unpaid',
           amountPaid: entry.partialAmount || 0,
           amountDue: subtotal - (entry.partialAmount || 0),
@@ -613,10 +613,10 @@ const ManualEntry: React.FC<ManualEntryProps> = ({ onClose }) => {
             _syncedToDb: true
           };
 
-          // 2. Save to general history local storage
-          const existingHistory = JSON.parse(localStorage.getItem('laundry_bill_history') || '[]');
-          existingHistory.unshift(finalBillData);
-          localStorage.setItem('laundry_bill_history', JSON.stringify(existingHistory));
+          // 2. Save to pending bills local storage
+          const existingPending = JSON.parse(localStorage.getItem('laundry_pending_bills') || '[]');
+          existingPending.unshift(finalBillData);
+          localStorage.setItem('laundry_pending_bills', JSON.stringify(existingPending));
 
           // 3. Update the manual entry remark & status on the server
           const newRemark = entry.remark 

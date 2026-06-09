@@ -476,7 +476,7 @@ const AdminReceiptPortal: React.FC<AdminReceiptPortalProps> = ({ onClose }) => {
       })),
       subtotal: total,
       grandTotal: total,
-      status: 'completed',
+      status: 'pending',
       paymentStatus: advancePaidNum === 0 ? 'unpaid' : (advancePaidNum >= total ? 'paid' : 'partial'),
       amountPaid: advancePaidNum,
       amountDue: total - advancePaidNum,
@@ -505,9 +505,9 @@ const AdminReceiptPortal: React.FC<AdminReceiptPortalProps> = ({ onClose }) => {
         };
 
         // Local Save
-        const existingHistory = JSON.parse(localStorage.getItem('laundry_bill_history') || '[]');
-        existingHistory.unshift(finalBillData);
-        localStorage.setItem('laundry_bill_history', JSON.stringify(existingHistory));
+        const existingPending = JSON.parse(localStorage.getItem('laundry_pending_bills') || '[]');
+        existingPending.unshift(finalBillData);
+        localStorage.setItem('laundry_pending_bills', JSON.stringify(existingPending));
 
         // Automatically create a manual entry for this generated receipt
         try {

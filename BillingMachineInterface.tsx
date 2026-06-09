@@ -999,25 +999,34 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
         
         for (const bill of selectedPendingBills) {
           const billId = bill.id || bill._id;
+          let isSynced = false;
           try {
             const response = await apiService.updateBillStatus(billId, 'completed');
             if (response.success) {
               console.log(`✅ Updated bill ${bill.billNumber} status to completed`);
-              continue;
+              isSynced = true;
             }
           } catch (error) {
             console.warn('⚠️ Could not update bill status via API, setting dirty for sync:', error);
           }
           
-          // Mark as completed locally and flag as unsynced
+          // Mark as completed locally and update/add to history
           const hIdx = history.findIndex((b: any) => b.billNumber === bill.billNumber);
           if (hIdx !== -1) {
             history[hIdx] = {
               ...history[hIdx],
               status: 'completed',
-              _syncedToDb: false,
-              _dirty: true
+              _syncedToDb: isSynced,
+              _dirty: !isSynced
             };
+          } else {
+            // It was not in history (because it was generated as pending). Add it now as completed!
+            history.unshift({
+              ...bill,
+              status: 'completed',
+              _syncedToDb: isSynced,
+              _dirty: !isSynced
+            });
           }
         }
         localStorage.setItem('laundry_bill_history', JSON.stringify(history));
@@ -1109,7 +1118,7 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
         deliveryCharge,
         previousBalance,
         grandTotal: total,
-        status: 'completed',
+        status: 'pending',
         paymentStatus: advancePaidNum === 0 ? 'unpaid' : (advancePaidNum >= total ? 'paid' : 'partial'),
         amountPaid: advancePaidNum,
         amountDue: total - advancePaidNum,
@@ -1155,11 +1164,11 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
               _syncedToDb: true
             };
             
-            // Save to general bill history
-            const existingHistory = JSON.parse(localStorage.getItem('laundry_bill_history') || '[]');
-            existingHistory.unshift(finalBillData);
-            if (existingHistory.length > 500) existingHistory.splice(500);
-            localStorage.setItem('laundry_bill_history', JSON.stringify(existingHistory));
+            // Save to pending bills local storage
+            const existingPending = JSON.parse(localStorage.getItem('laundry_pending_bills') || '[]');
+            existingPending.unshift(finalBillData);
+            if (existingPending.length > 500) existingPending.splice(500);
+            localStorage.setItem('laundry_pending_bills', JSON.stringify(existingPending));
 
             console.log('✅ Order receipt saved to localStorage');
 
