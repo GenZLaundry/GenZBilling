@@ -91,6 +91,7 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
   const [customerHistory, setCustomerHistory] = useState<any[]>([]);
   const [customerPendingDue, setCustomerPendingDue] = useState<{amount: number, count: number, bills: PendingBill[]}>({amount: 0, count: 0, bills: []});
   const [showQuickDiscount, setShowQuickDiscount] = useState(false);
+  const [enableGST, setEnableGST] = useState(false);
   const [customDiscountType, setCustomDiscountType] = useState<'fixed' | 'percentage'>('fixed');
   const [lastBillTotal, setLastBillTotal] = useState(0);
   const [customerSuggestions, setCustomerSuggestions] = useState<Array<{name: string, phone: string, lastBill?: string}>>([]);
@@ -899,6 +900,11 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
         } catch (e) {}
       }
 
+      const taxableSubtotal = currentOrderSubtotal + pendingBillsSubtotal + previousBalance - discount;
+      const calculatedGst = enableGST && shopConfig.gstNumber && taxableSubtotal > 0
+        ? Math.round((taxableSubtotal - (taxableSubtotal / 1.18)) * 100) / 100
+        : undefined;
+
       const billData: BillData = {
         businessName: shopConfig.shopName,
         address: shopConfig.address,
@@ -918,6 +924,8 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
         discount,
         deliveryCharge,
         previousBalance,
+        gstNumber: enableGST ? shopConfig.gstNumber : undefined,
+        gst: enableGST ? calculatedGst : undefined,
         grandTotal: calculateTotal(),
         status: 'completed',
         thankYouMessage: thankYou,
@@ -1051,6 +1059,8 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
         discount: billData.discount,
         deliveryCharge: billData.deliveryCharge,
         previousBalance: billData.previousBalance,
+        gstNumber: billData.gstNumber,
+        gst: billData.gst,
         grandTotal: billData.grandTotal,
         businessName: billData.businessName,
         businessPhone: billData.phone,
@@ -1098,6 +1108,11 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
         } catch (e) {}
       }
 
+      const receiptTaxableSubtotal = currentOrderSubtotal + pendingBillsSubtotal + previousBalance - discount;
+      const receiptCalculatedGst = enableGST && shopConfig.gstNumber && receiptTaxableSubtotal > 0
+        ? Math.round((receiptTaxableSubtotal - (receiptTaxableSubtotal / 1.18)) * 100) / 100
+        : undefined;
+
       const billData: PendingBill = {
         id: `local_${Date.now()}`,
         businessName: shopConfig.shopName,
@@ -1117,6 +1132,8 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
         discount,
         deliveryCharge,
         previousBalance,
+        gstNumber: enableGST ? shopConfig.gstNumber : undefined,
+        gst: enableGST ? receiptCalculatedGst : undefined,
         grandTotal: total,
         status: 'pending',
         paymentStatus: advancePaidNum === 0 ? 'unpaid' : (advancePaidNum >= total ? 'paid' : 'partial'),
@@ -3116,6 +3133,25 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
                 }}
               >
                 UPI
+              </button>
+
+              {/* GST Toggle */}
+              <button
+                onClick={() => setEnableGST(prev => !prev)}
+                className="professional-btn"
+                style={{
+                  padding: '6px 8px',
+                  borderRadius: '4px',
+                  background: enableGST ? '#e74c3c' : 'rgba(255,255,255,0.1)',
+                  color: enableGST ? 'white' : 'rgba(255,255,255,0.6)',
+                  fontSize: '11px',
+                  fontWeight: '600',
+                  border: enableGST ? 'none' : '1px solid rgba(255,255,255,0.2)',
+                  transition: 'all 0.2s'
+                }}
+                title={enableGST ? 'GST enabled — click to disable' : 'Click to enable GST (18%)'}
+              >
+                GST {enableGST ? 'ON' : 'OFF'}
               </button>
 
               <button

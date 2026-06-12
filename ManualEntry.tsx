@@ -579,6 +579,11 @@ const ManualEntry: React.FC<ManualEntryProps> = ({ onClose }) => {
           };
         });
 
+        const taxableSubtotal = subtotal;
+        const calculatedGst = shopConfig.gstNumber && taxableSubtotal > 0
+          ? Math.round((taxableSubtotal - (taxableSubtotal / 1.18)) * 100) / 100
+          : undefined;
+
         const billData: any = {
           businessName: shopConfig.shopName,
           address: shopConfig.address,
@@ -588,6 +593,8 @@ const ManualEntry: React.FC<ManualEntryProps> = ({ onClose }) => {
           customerPhone: entry.phone,
           items: billItems,
           subtotal: subtotal,
+          gstNumber: shopConfig.gstNumber,
+          gst: calculatedGst,
           grandTotal: subtotal,
           status: 'pending',
           paymentStatus: entry.paymentStatus || 'unpaid',

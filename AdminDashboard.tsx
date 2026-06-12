@@ -1245,6 +1245,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onBackToBilling, onLogo
       discount: fullBill.discount,
       deliveryCharge: fullBill.deliveryCharge,
       previousBalance: fullBill.previousBalance || 0,
+      gstNumber: fullBill.gstNumber || shopConfig.gstNumber || '',
+      gst: fullBill.gst || ((fullBill.gstNumber || shopConfig.gstNumber) ? Math.round(((fullBill.subtotal - (fullBill.discount || 0)) - ((fullBill.subtotal - (fullBill.discount || 0)) / 1.18)) * 100) / 100 : 0),
       grandTotal: fullBill.grandTotal,
       amountPaid: fullBill.amountPaid || 0,
       amountDue: fullBill.amountDue !== undefined ? fullBill.amountDue : (fullBill.grandTotal - (fullBill.amountPaid || 0)),
