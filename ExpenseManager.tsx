@@ -21,6 +21,13 @@ interface ExpenseManagerProps {
   onClose: () => void;
 }
 
+const getLocalDateString = (d: Date = new Date()) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const dateVal = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${dateVal}`;
+};
+
 const ExpenseManager: React.FC<ExpenseManagerProps> = ({ onClose }) => {
   const { showAlert, showConfirm } = useAlert();
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -34,11 +41,11 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({ onClose }) => {
   
   // Date filtering states
   const [viewMode, setViewMode] = useState<'day' | 'month' | 'year' | 'range'>('month');
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState(getLocalDateString());
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-  const [customStartDate, setCustomStartDate] = useState(new Date().toISOString().split('T')[0]);
-  const [customEndDate, setCustomEndDate] = useState(new Date().toISOString().split('T')[0]);
+  const [customStartDate, setCustomStartDate] = useState(getLocalDateString());
+  const [customEndDate, setCustomEndDate] = useState(getLocalDateString());
   
   // Search and filter states
   const [searchQuery, setSearchQuery] = useState('');
@@ -50,7 +57,7 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({ onClose }) => {
     description: '',
     amount: '',
     category: 'STORE_EXPENCES',
-    date: new Date().toISOString().split('T')[0],
+    date: getLocalDateString(),
     isRecurring: false,
     recurringFrequency: 'monthly',
     paymentMethod: 'CASH',
@@ -77,6 +84,7 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({ onClose }) => {
       SALARY: 25000,
       SELF_EXPENSES: 5000,
       DIET: 5000,
+      GHAR_HEERSA: 5000,
       OTHER: 5000
     };
   });
@@ -113,6 +121,7 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({ onClose }) => {
     { value: 'SALARY', label: 'Salary', icon: 'fa-money-bill-wave', color: '#27ae60' },
     { value: 'SELF_EXPENSES', label: 'Self Expenses', icon: 'fa-user-cog', color: '#9b59b6' },
     { value: 'DIET', label: 'Diet', icon: 'fa-apple-alt', color: '#e91e63' },
+    { value: 'GHAR_HEERSA', label: 'Home', icon: 'fa-home', color: '#e67e22' },
     { value: 'OTHER', label: 'Other', icon: 'fa-clipboard-list', color: '#95a5a6' }
   ];
 
@@ -129,7 +138,7 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({ onClose }) => {
   const loadExpenses = async () => {
     try {
       setLoading(true);
-      const params: any = { page: currentPage, limit: 10 };
+      const params: any = { page: currentPage, limit: 15 };
       if (selectedCategories.length > 0) {
         params.category = selectedCategories.join(',');
       }
@@ -141,15 +150,14 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({ onClose }) => {
       } else if (viewMode === 'month') {
         const year = selectedYear;
         const month = selectedMonth;
-        const startDate = new Date(year, month - 1, 1);
-        const endDate = new Date(year, month, 0);
-        params.startDate = startDate.toISOString().split('T')[0];
-        params.endDate = endDate.toISOString().split('T')[0];
+        const startMonthStr = String(month).padStart(2, '0');
+        params.startDate = `${year}-${startMonthStr}-01`;
+        const lastDay = new Date(year, month, 0).getDate();
+        const lastDayStr = String(lastDay).padStart(2, '0');
+        params.endDate = `${year}-${startMonthStr}-${lastDayStr}`;
       } else if (viewMode === 'year') {
-        const startDate = new Date(selectedYear, 0, 1);
-        const endDate = new Date(selectedYear, 11, 31);
-        params.startDate = startDate.toISOString().split('T')[0];
-        params.endDate = endDate.toISOString().split('T')[0];
+        params.startDate = `${selectedYear}-01-01`;
+        params.endDate = `${selectedYear}-12-31`;
       } else if (viewMode === 'range') {
         params.startDate = customStartDate;
         params.endDate = customEndDate;
@@ -183,15 +191,14 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({ onClose }) => {
       } else if (viewMode === 'month') {
         const year = selectedYear;
         const month = selectedMonth;
-        const startDate = new Date(year, month - 1, 1);
-        const endDate = new Date(year, month, 0);
-        params.startDate = startDate.toISOString().split('T')[0];
-        params.endDate = endDate.toISOString().split('T')[0];
+        const startMonthStr = String(month).padStart(2, '0');
+        params.startDate = `${year}-${startMonthStr}-01`;
+        const lastDay = new Date(year, month, 0).getDate();
+        const lastDayStr = String(lastDay).padStart(2, '0');
+        params.endDate = `${year}-${startMonthStr}-${lastDayStr}`;
       } else if (viewMode === 'year') {
-        const startDate = new Date(selectedYear, 0, 1);
-        const endDate = new Date(selectedYear, 11, 31);
-        params.startDate = startDate.toISOString().split('T')[0];
-        params.endDate = endDate.toISOString().split('T')[0];
+        params.startDate = `${selectedYear}-01-01`;
+        params.endDate = `${selectedYear}-12-31`;
       } else if (viewMode === 'range') {
         params.startDate = customStartDate;
         params.endDate = customEndDate;
@@ -221,12 +228,15 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({ onClose }) => {
         period = 'month';
         const year = selectedYear;
         const month = selectedMonth;
-        startDate = new Date(year, month - 1, 1).toISOString().split('T')[0];
-        endDate = new Date(year, month, 0).toISOString().split('T')[0];
+        const startMonthStr = String(month).padStart(2, '0');
+        startDate = `${year}-${startMonthStr}-01`;
+        const lastDay = new Date(year, month, 0).getDate();
+        const lastDayStr = String(lastDay).padStart(2, '0');
+        endDate = `${year}-${startMonthStr}-${lastDayStr}`;
       } else if (viewMode === 'year') {
         period = 'year';
-        startDate = new Date(selectedYear, 0, 1).toISOString().split('T')[0];
-        endDate = new Date(selectedYear, 11, 31).toISOString().split('T')[0];
+        startDate = `${selectedYear}-01-01`;
+        endDate = `${selectedYear}-12-31`;
       } else if (viewMode === 'range') {
         period = 'month';
         startDate = customStartDate;
@@ -317,7 +327,7 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({ onClose }) => {
       description: '',
       amount: '',
       category: 'STORE_EXPENCES',
-      date: new Date().toISOString().split('T')[0],
+      date: getLocalDateString(),
       isRecurring: false,
       recurringFrequency: 'monthly',
       paymentMethod: 'CASH',
@@ -1471,7 +1481,7 @@ const ExpenseManager: React.FC<ExpenseManagerProps> = ({ onClose }) => {
                           ...formData,
                           title: tpl.title,
                           category: tpl.category,
-                          date: new Date().toISOString().split('T')[0]
+                          date: getLocalDateString()
                         });
                       }}
                       style={{
