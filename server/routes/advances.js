@@ -154,4 +154,111 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+// Update advance history entry
+router.put('/:id/history/:historyId', async (req, res) => {
+  try {
+    const { id, historyId } = req.params;
+    const { amount, type, date, note } = req.body;
+
+    if (!amount || amount <= 0 || !['GIVEN', 'RETURNED'].includes(type)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Valid amount and type (GIVEN or RETURNED) are required'
+      });
+    }
+
+    const advance = await Advance.findById(id);
+    if (!advance) {
+      return res.status(404).json({
+        success: false,
+        message: 'Advance record not found'
+      });
+    }
+
+    const historyItem = advance.history.id(historyId);
+    if (!historyItem) {
+      return res.status(404).json({
+        success: false,
+        message: 'History item not found'
+      });
+    }
+
+    // Update history item fields
+    historyItem.amount = parseFloat(amount);
+    historyItem.type = type;
+    if (date) historyItem.date = new Date(date);
+    historyItem.note = note || '';
+
+    // Recalculate totals
+    let totalGiven = 0;
+    let totalReturned = 0;
+    advance.history.forEach(item => {
+      if (item.type === 'GIVEN') totalGiven += item.amount;
+      else if (item.type === 'RETURNED') totalReturned += item.amount;
+    });
+
+    advance.amountGiven = totalGiven;
+    advance.amountReturned = totalReturned;
+
+    await advance.save();
+
+    res.json({
+      success: true,
+      message: 'Advance transaction updated successfully',
+      data: advance
+    });
+  } catch (error) {
+    console.error('❌ Error updating advance transaction:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update advance transaction',
+      error: error.message
+    });
+  }
+});
+
+// Delete advance history entry
+router.delete('/:id/history/:historyId', async (req, res) => {
+  try {
+    const { id, historyId } = req.params;
+
+    const advance = await Advance.findById(id);
+    if (!advance) {
+      return res.status(404).json({
+        success: false,
+        message: 'Advance record not found'
+      });
+    }
+
+    // Pull/remove the history item
+    advance.history.pull(historyId);
+
+    // Recalculate totals
+    let totalGiven = 0;
+    let totalReturned = 0;
+    advance.history.forEach(item => {
+      if (item.type === 'GIVEN') totalGiven += item.amount;
+      else if (item.type === 'RETURNED') totalReturned += item.amount;
+    });
+
+    advance.amountGiven = totalGiven;
+    advance.amountReturned = totalReturned;
+
+    await advance.save();
+
+    res.json({
+      success: true,
+      message: 'Advance transaction deleted successfully',
+      data: advance
+    });
+  } catch (error) {
+    console.error('❌ Error deleting advance transaction:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete advance transaction',
+      error: error.message
+    });
+  }
+});
+
 module.exports = router;

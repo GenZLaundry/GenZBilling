@@ -34,7 +34,7 @@ router.get('/', async (req, res) => {
 // Create new income
 router.post('/', async (req, res) => {
   try {
-    const { source, amount, description, date } = req.body;
+    const { source, amount, description, date, type } = req.body;
 
     if (!source || !amount || amount <= 0) {
       return res.status(400).json({
@@ -47,6 +47,7 @@ router.post('/', async (req, res) => {
       source: source.trim(),
       amount: parseFloat(amount),
       description: description?.trim() || '',
+      type: type === 'RETURNED' ? 'RETURNED' : 'INVESTED',
       date: date ? new Date(date) : new Date()
     });
 
@@ -71,7 +72,7 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { source, amount, description, date } = req.body;
+    const { source, amount, description, date, type } = req.body;
 
     if (!source || !amount || amount <= 0) {
       return res.status(400).json({
@@ -86,6 +87,7 @@ router.put('/:id', async (req, res) => {
         source: source.trim(),
         amount: parseFloat(amount),
         description: description?.trim() || '',
+        type: type === 'RETURNED' ? 'RETURNED' : 'INVESTED',
         date: date ? new Date(date) : undefined
       },
       { new: true, runValidators: true }

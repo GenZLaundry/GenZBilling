@@ -218,6 +218,10 @@ router.get('/business-reports', async (req, res) => {
     const now = new Date();
     
     switch (period) {
+      case 'all':
+        start = new Date(0);
+        end = new Date(now.getFullYear() + 50, 11, 31, 23, 59, 59, 999);
+        break;
       case 'today':
         start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);

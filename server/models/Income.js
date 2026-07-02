@@ -8,11 +8,17 @@ const incomeSchema = new mongoose.Schema({
   },
   amount: {
     type: Number,
-    required: true
+    required: true,
+    min: 0
   },
   description: {
     type: String,
     default: ''
+  },
+  type: {
+    type: String,
+    enum: ['INVESTED', 'RETURNED'],
+    default: 'INVESTED'
   },
   date: {
     type: Date,

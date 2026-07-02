@@ -458,4 +458,96 @@ router.post('/cleanup-duplicates', async (req, res) => {
   }
 });
 
+// Bulk delete tags by ID array
+router.post('/bulk-delete', async (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (!ids || !Array.isArray(ids)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or missing ids array'
+      });
+    }
+
+    const result = await TagHistory.deleteMany({ _id: { $in: ids } });
+    
+    res.json({
+      success: true,
+      message: `${result.deletedCount} tags deleted successfully`
+    });
+  } catch (error) {
+    console.error('Error in bulk delete:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to bulk delete tags',
+      error: error.message
+    });
+  }
+});
+
+// Manually prune tags older than X days (default 15)
+router.post('/prune', async (req, res) => {
+  try {
+    const { days = 15 } = req.body;
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - parseInt(days));
+
+    const result = await TagHistory.deleteMany({ createdAt: { $lt: cutoffDate } });
+
+    res.json({
+      success: true,
+      message: `Successfully deleted ${result.deletedCount} tags older than ${days} days.`
+    });
+  } catch (error) {
+    console.error('Error pruning tags:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to prune tags',
+      error: error.message
+    });
+  }
+});
+
+// Delete all tags in database
+router.post('/delete-all', async (req, res) => {
+  try {
+    const result = await TagHistory.deleteMany({});
+    res.json({
+      success: true,
+      message: `Successfully cleared all ${result.deletedCount} tags.`
+    });
+  } catch (error) {
+    console.error('Error clearing tag history:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to clear tag history',
+      error: error.message
+    });
+  }
+});
+
+// Background Auto-Pruning Task: Run every 24 hours to delete tags older than 15 days
+setInterval(async () => {
+  try {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - 15);
+    const result = await TagHistory.deleteMany({ createdAt: { $lt: cutoffDate } });
+    console.log(`🤖 Auto-pruned ${result.deletedCount} tags older than 15 days.`);
+  } catch (err) {
+    console.error('Failed to auto-prune tags:', err);
+  }
+}, 24 * 60 * 60 * 1000);
+
+// Run auto-pruner once on startup
+(async () => {
+  try {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - 15);
+    const result = await TagHistory.deleteMany({ createdAt: { $lt: cutoffDate } });
+    console.log(`🤖 Startup auto-pruning complete. Removed ${result.deletedCount} tags older than 15 days.`);
+  } catch (err) {
+    console.error('Failed startup auto-pruning:', err);
+  }
+})();
+
 module.exports = router;
