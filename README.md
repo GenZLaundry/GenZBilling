@@ -122,7 +122,7 @@ PORT=8000
 NODE_ENV=development
 CORS_ORIGIN=http://localhost:5173
 JWT_SECRET=your-super-secure-jwt-key
-DEFAULT_UPI_ID=6367493127@ybl
+DEFAULT_UPI_ID=XXXXXX2176@ybl
 ```
 
 Create a `.env.production` file in the root directory for building the client application:
