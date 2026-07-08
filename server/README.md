@@ -22,7 +22,7 @@ npm install
 ### 2. Environment Setup
 The `.env` file is already configured with your MongoDB Atlas connection:
 ```
-MONGODB_URI=mongodb+srv://genzadmin:uNd78VXJ2I@genzlaundry.yl3vi98.mongodb.net/genzlaundry
+MONGODB_URI=mongodb+srv://XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX.mongodb.net/genzlaundry
 PORT=8000
 NODE_ENV=development
 CORS_ORIGIN=http://localhost:3000
