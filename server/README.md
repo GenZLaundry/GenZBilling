@@ -162,7 +162,7 @@ The frontend automatically connects to this API and provides:
 ### Environment Variables for Production
 ```bash
 NODE_ENV=production
-MONGODB_URI=mongodb+srv://genzadmin:uNd78VXJ2I@genzlaundry.yl3vi98.mongodb.net/genzlaundry
+MONGODB_URI=mongodb+srv://XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX/genzlaundry
 PORT=8000
 CORS_ORIGIN=https://your-frontend-domain.com
 ```
