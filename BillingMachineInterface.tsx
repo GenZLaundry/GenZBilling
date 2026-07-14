@@ -30,6 +30,18 @@ const parsePhoneNumber = (phoneStr: string) => {
   return { countryCode: '+91', number: clean };
 };
 
+const generateUniqueBillNumber = () => {
+  const now = new Date();
+  const year = String(now.getFullYear()).slice(-2);
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const seconds = String(now.getSeconds()).padStart(2, '0');
+  const random = String(Math.floor(10 + Math.random() * 90));
+  return `GZ${year}${month}${day}${hours}${minutes}${seconds}${random}`;
+};
+
 interface OrderItem {
   id: string;
   name: string;
@@ -486,7 +498,7 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
   };
 
   useEffect(() => {
-    setBillNumber(`GZ${Date.now().toString().slice(-6)}`);
+    setBillNumber(generateUniqueBillNumber());
     loadShopConfig();
     fetchClientRequests();
 
@@ -945,58 +957,80 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
       // Save to database first
       let databaseSaveSuccess = false;
       let serverBillId = '';
-      try {
-        console.log('💾 Saving bill to database...');
-        const response = await apiService.createBill(billData);
-        if (response.success) {
-          console.log('✅ Bill saved to database:', response.data);
-          databaseSaveSuccess = true;
-          serverBillId = (response.data as any)?._id || (response.data as any)?.id;
-          
-          // Save to local storage history only after database save success
-          try {
-            const existingHistory = JSON.parse(localStorage.getItem('laundry_bill_history') || '[]');
-            const billForHistory = {
-              ...billData,
-              id: serverBillId,
-              _id: serverBillId,
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-              _syncedToDb: true
-            };
-            existingHistory.unshift(billForHistory);
-            if (existingHistory.length > 500) existingHistory.splice(500);
-            localStorage.setItem('laundry_bill_history', JSON.stringify(existingHistory));
-            console.log('✅ Bill saved to localStorage history');
-          } catch (localError) {
-            console.error('❌ localStorage save error:', localError);
-          }
+      let currentBillData = { ...billData };
+      let retryCount = 0;
+      const maxRetries = 2;
 
-          // AUTOMATICALLY SEND BACKGROUND SMS
-          if (billData.customerPhone && billData.customerPhone.length >= 10) {
-            try {
-              console.log('📱 Automatically triggering background SMS via Fast2SMS...');
-              apiService.sendBillGeneratedSMS(
-                billData.customerPhone,
-                billData.customerName || 'Customer',
-                billData.items.map(i => ({ name: i.name, quantity: i.quantity }))
-              ).catch(err => console.warn('⚠️ Auto-SMS failed:', err));
-            } catch (smsError) {
-              console.warn('⚠️ Could not send auto-SMS:', smsError);
+      while (retryCount <= maxRetries && !databaseSaveSuccess) {
+        try {
+          console.log(`💾 Saving bill to database (Attempt ${retryCount + 1})...`);
+          const response = await apiService.createBill(currentBillData);
+          if (response.success) {
+            console.log('✅ Bill saved to database:', response.data);
+            databaseSaveSuccess = true;
+            serverBillId = (response.data as any)?._id || (response.data as any)?.id;
+            
+            // Update billData with the final successful billNumber if it was regenerated during retry
+            if (currentBillData.billNumber !== billData.billNumber) {
+              billData.billNumber = currentBillData.billNumber;
+              setBillNumber(currentBillData.billNumber);
             }
-          }
 
-        } else {
-          console.warn('⚠️ Database save failed:', response.message);
-          showAlert({ message: `❌ Failed to save bill to server: ${response.message}`, type: 'error' });
-          setIsProcessing(false);
-          return;
+            // Save to local storage history only after database save success
+            try {
+              const existingHistory = JSON.parse(localStorage.getItem('laundry_bill_history') || '[]');
+              const billForHistory = {
+                ...billData,
+                id: serverBillId,
+                _id: serverBillId,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                _syncedToDb: true
+              };
+              existingHistory.unshift(billForHistory);
+              if (existingHistory.length > 500) existingHistory.splice(500);
+              localStorage.setItem('laundry_bill_history', JSON.stringify(existingHistory));
+              console.log('✅ Bill saved to localStorage history');
+            } catch (localError) {
+              console.error('❌ localStorage save error:', localError);
+            }
+
+            // AUTOMATICALLY SEND BACKGROUND SMS
+            if (billData.customerPhone && billData.customerPhone.length >= 10) {
+              try {
+                console.log('📱 Automatically triggering background SMS via Fast2SMS...');
+                apiService.sendBillGeneratedSMS(
+                  billData.customerPhone,
+                  billData.customerName || 'Customer',
+                  billData.items.map(i => ({ name: i.name, quantity: i.quantity }))
+                ).catch(err => console.warn('⚠️ Auto-SMS failed:', err));
+              } catch (smsError) {
+                console.warn('⚠️ Could not send auto-SMS:', smsError);
+              }
+            }
+            break;
+          } else {
+            console.warn('⚠️ Database save failed:', response.message);
+            showAlert({ message: `❌ Failed to save bill to server: ${response.message}`, type: 'error' });
+            setIsProcessing(false);
+            return;
+          }
+        } catch (apiError: any) {
+          const isCollision = apiError.message?.includes('409') || apiError.message?.includes('collision');
+          if (isCollision && retryCount < maxRetries) {
+            retryCount++;
+            const newBillNum = generateUniqueBillNumber();
+            console.warn(`⚠️ [Collision Detect] Bill number collided, retrying ${retryCount}/${maxRetries} with new bill number: ${newBillNum}`);
+            currentBillData = { ...currentBillData, billNumber: newBillNum };
+            await new Promise(resolve => setTimeout(resolve, 300));
+          } else {
+            console.warn('⚠️ Database unavailable:', apiError);
+            const errDetails = apiError instanceof Error ? apiError.message : 'Unknown connection issue';
+            showAlert({ message: `⚠️ Connection or collision error: ${errDetails}`, type: 'error' });
+            setIsProcessing(false);
+            return;
+          }
         }
-      } catch (apiError) {
-        console.warn('⚠️ Database unavailable:', apiError);
-        showAlert({ message: '⚠️ Connection error! Could not connect to the server to generate this bill.', type: 'error' });
-        setIsProcessing(false);
-        return;
       }
 
       // Remove selected pending bills from storage (they're now completed)
@@ -1162,107 +1196,129 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
       // Save to database first
       let databaseSaveSuccess = false;
       let serverBillId = '';
-      try {
-        console.log('💾 Saving pending order to database...');
-        // Strip out the client-side ID since it is temporary
-        const { id, ...cleanBillData } = billData;
-        const response = await apiService.createBill(cleanBillData);
-        if (response.success) {
-          console.log('✅ Pending order saved to database:', response.data);
-          databaseSaveSuccess = true;
-          serverBillId = (response.data as any)?._id || (response.data as any)?.id;
+      let currentBillData = { ...billData };
+      let retryCount = 0;
+      const maxRetries = 2;
 
-          // Save to local storage only after database save success
-          try {
-            const finalBillData = {
-              ...billData,
-              id: serverBillId,
-              _id: serverBillId,
-              _syncedToDb: true
-            };
-            
-            // Save to pending bills local storage
-            const existingPending = JSON.parse(localStorage.getItem('laundry_pending_bills') || '[]');
-            existingPending.unshift(finalBillData);
-            if (existingPending.length > 500) existingPending.splice(500);
-            localStorage.setItem('laundry_pending_bills', JSON.stringify(existingPending));
+      while (retryCount <= maxRetries && !databaseSaveSuccess) {
+        try {
+          console.log(`💾 Saving pending order to database (Attempt ${retryCount + 1})...`);
+          const { id, ...cleanBillData } = currentBillData;
+          const response = await apiService.createBill(cleanBillData);
+          if (response.success) {
+            console.log('✅ Pending order saved to database:', response.data);
+            databaseSaveSuccess = true;
+            serverBillId = (response.data as any)?._id || (response.data as any)?.id;
 
-            console.log('✅ Order receipt saved to localStorage');
+            // Update billData with the final successful billNumber if it was regenerated during retry
+            if (currentBillData.billNumber !== billData.billNumber) {
+              billData.billNumber = currentBillData.billNumber;
+              setBillNumber(currentBillData.billNumber);
+            }
 
-            // Automatically create a manual entry for this generated receipt
+            // Save to local storage only after database save success
             try {
-              const manualEntryItems = billData.items.map(item => {
-                const match = item.name.match(/^(.*?)\s*\((.*?)\)$/);
-                const itemName = match ? match[1].trim() : item.name;
-                const washTypeRaw = match ? match[2].trim().toUpperCase() : 'WASH';
-                
-                let serviceType: 'WASH' | 'IRON' | 'WASH+IRON' | 'DRY CLEAN' = 'WASH';
-                if (washTypeRaw.includes('WASH') && washTypeRaw.includes('IRON')) {
-                  serviceType = 'WASH+IRON';
-                } else if (washTypeRaw.includes('IRON')) {
-                  serviceType = 'IRON';
-                } else if (washTypeRaw.includes('DRY')) {
-                  serviceType = 'DRY CLEAN';
-                }
-                
-                let unit: 'pcs' | 'kg' = 'pcs';
-                if (item.name.toLowerCase().includes('kg')) {
-                  unit = 'kg';
-                }
-                return {
-                  serviceType,
-                  quantity: item.quantity,
-                  unit,
-                  itemName
-                };
-              });
-
-              const manualEntryData = {
-                customerName: billData.customerName,
-                phone: billData.customerPhone,
-                pickupDate: new Date().toISOString().split('T')[0],
-                pickupTime: new Date().toLocaleTimeString('en-US', { hour12: false }).slice(0, 5),
-                deliveryDate: billData.deliveryDate || new Date().toISOString().split('T')[0],
-                deliveryTime: '',
-                items: manualEntryItems,
-                paymentStatus: billData.paymentStatus,
-                partialAmount: billData.paymentStatus === 'partial' ? billData.amountPaid : undefined,
-                status: 'completed',
-                remark: `Auto-generated from Order Receipt #${billData.billNumber}`
+              const finalBillData = {
+                ...billData,
+                id: serverBillId,
+                _id: serverBillId,
+                _syncedToDb: true
               };
-              console.log('💾 Auto-creating manual entry:', manualEntryData);
-              apiService.createManualEntry(manualEntryData).catch(err => console.error('⚠️ Failed to auto-create manual entry:', err));
-            } catch (meErr) {
-              console.error('⚠️ Failed to map manual entry:', meErr);
-            }
-          } catch (localError) {
-            console.error('❌ localStorage save error:', localError);
-          }
+              
+              // Save to pending bills local storage
+              const existingPending = JSON.parse(localStorage.getItem('laundry_pending_bills') || '[]');
+              existingPending.unshift(finalBillData);
+              if (existingPending.length > 500) existingPending.splice(500);
+              localStorage.setItem('laundry_pending_bills', JSON.stringify(existingPending));
 
-          // AUTOMATICALLY SEND BACKGROUND SMS
-          if (billData.customerPhone && billData.customerPhone.length >= 10) {
-            try {
-              console.log('📱 Automatically triggering background SMS for pending order...');
-              apiService.sendBillGeneratedSMS(
-                billData.customerPhone,
-                billData.customerName || 'Customer',
-                billData.items.map(i => ({ name: i.name, quantity: i.quantity }))
-              ).catch(err => console.warn('⚠️ Auto-SMS failed:', err));
-            } catch (smsError) {
-              console.warn('⚠️ Could not send auto-SMS:', smsError);
+              console.log('✅ Order receipt saved to localStorage');
+
+              // Automatically create a manual entry for this generated receipt
+              try {
+                const manualEntryItems = billData.items.map(item => {
+                  const match = item.name.match(/^(.*?)\s*\((.*?)\)$/);
+                  const itemName = match ? match[1].trim() : item.name;
+                  const washTypeRaw = match ? match[2].trim().toUpperCase() : 'WASH';
+                  
+                  let serviceType: 'WASH' | 'IRON' | 'WASH+IRON' | 'DRY CLEAN' = 'WASH';
+                  if (washTypeRaw.includes('WASH') && washTypeRaw.includes('IRON')) {
+                    serviceType = 'WASH+IRON';
+                  } else if (washTypeRaw.includes('IRON')) {
+                    serviceType = 'IRON';
+                  } else if (washTypeRaw.includes('DRY')) {
+                    serviceType = 'DRY CLEAN';
+                  }
+                  
+                  let unit: 'pcs' | 'kg' = 'pcs';
+                  if (item.name.toLowerCase().includes('kg')) {
+                    unit = 'kg';
+                  }
+                  return {
+                    serviceType,
+                    quantity: item.quantity,
+                    unit,
+                    itemName
+                  };
+                });
+
+                const manualEntryData = {
+                  customerName: billData.customerName,
+                  phone: billData.customerPhone,
+                  pickupDate: new Date().toISOString().split('T')[0],
+                  pickupTime: new Date().toLocaleTimeString('en-US', { hour12: false }).slice(0, 5),
+                  deliveryDate: billData.deliveryDate || new Date().toISOString().split('T')[0],
+                  deliveryTime: '',
+                  items: manualEntryItems,
+                  paymentStatus: billData.paymentStatus,
+                  partialAmount: billData.paymentStatus === 'partial' ? billData.amountPaid : undefined,
+                  status: 'completed',
+                  remark: `Auto-generated from Order Receipt #${billData.billNumber}`
+                };
+                console.log('💾 Auto-creating manual entry:', manualEntryData);
+                apiService.createManualEntry(manualEntryData).catch(err => console.error('⚠️ Failed to auto-create manual entry:', err));
+              } catch (meErr) {
+                console.error('⚠️ Failed to map manual entry:', meErr);
+              }
+            } catch (localError) {
+              console.error('❌ localStorage save error:', localError);
             }
+
+            // AUTOMATICALLY SEND BACKGROUND SMS
+            if (billData.customerPhone && billData.customerPhone.length >= 10) {
+              try {
+                console.log('📱 Automatically triggering background SMS for pending order...');
+                apiService.sendBillGeneratedSMS(
+                  billData.customerPhone,
+                  billData.customerName || 'Customer',
+                  billData.items.map(i => ({ name: i.name, quantity: i.quantity }))
+                ).catch(err => console.warn('⚠️ Auto-SMS failed:', err));
+              } catch (smsError) {
+                console.warn('⚠️ Could not send auto-SMS:', smsError);
+              }
+            }
+            break;
+          } else {
+            console.warn('⚠️ Database save failed:', response.message);
+            showAlert({ message: `❌ Failed to save receipt to server: ${response.message}`, type: 'error' });
+            setIsProcessing(false);
+            return;
           }
-        } else {
-          console.warn('⚠️ Database save failed:', response.message);
-          showAlert({ message: `❌ Failed to save receipt to server: ${response.message}`, type: 'error' });
-          setIsProcessing(false);
-          return;
+        } catch (apiError: any) {
+          const isCollision = apiError.message?.includes('409') || apiError.message?.includes('collision');
+          if (isCollision && retryCount < maxRetries) {
+            retryCount++;
+            const newBillNum = generateUniqueBillNumber();
+            console.warn(`⚠️ [Collision Detect] Bill number collided for pending order, retrying ${retryCount}/${maxRetries} with new bill number: ${newBillNum}`);
+            currentBillData = { ...currentBillData, billNumber: newBillNum };
+            await new Promise(resolve => setTimeout(resolve, 300));
+          } else {
+            console.warn('⚠️ Database unavailable:', apiError);
+            const errDetails = apiError instanceof Error ? apiError.message : 'Unknown connection issue';
+            showAlert({ message: `⚠️ Connection or collision error: ${errDetails}`, type: 'error' });
+            setIsProcessing(false);
+            return;
+          }
         }
-      } catch (apiError) {
-        console.warn('⚠️ Database unavailable:', apiError);
-        showAlert({ message: '⚠️ Connection error! Could not connect to the server to generate this receipt.', type: 'error' });
-        setIsProcessing(false);
-        return;
       }
 
       // Print the Order Receipt using premium thermal layout
@@ -1295,7 +1351,7 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
       setReceiptAdvancePaid('0');
       
       // Generate next bill number
-      setBillNumber(`GZ${Date.now().toString().slice(-6)}`);
+      setBillNumber(generateUniqueBillNumber());
     } catch (error) {
       console.error('❌ Order receipt processing failed:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
@@ -2178,7 +2234,7 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
                 setDeliveryCharge(0);
                 setPreviousBalance(0);
                 setSelectedPendingBills([]);
-                setBillNumber(`GZ${Date.now().toString().slice(-6)}`);
+                setBillNumber(generateUniqueBillNumber());
                 if (itemInputRef.current) itemInputRef.current.focus();
               }}
             >
