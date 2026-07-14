@@ -1635,7 +1635,7 @@ const BillingMachineInterface: React.FC<BillingMachineInterfaceProps> = ({ onLog
       <div class="service-type">${serviceLabel}</div>
 
       <div class="bill-info">
-        <span class="bill-no">${tag.billNumber}</span>
+        <span class="bill-no">${(tag.billNumber || '').slice(-6)}</span>
         <span class="tag-number">${tag.tagIndex} / ${tag.totalTags}</span>
       </div>
 
