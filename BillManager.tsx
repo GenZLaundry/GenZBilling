@@ -74,7 +74,7 @@ const BillManager: React.FC<BillManagerProps> = ({ onClose, initialEditBill }) =
       }
       
       if (searchTerm.trim()) {
-        params.customerName = searchTerm.trim();
+        params.search = searchTerm.trim();
       }
       
       const response = await apiService.getBills(params);
@@ -399,7 +399,7 @@ const BillManager: React.FC<BillManagerProps> = ({ onClose, initialEditBill }) =
         <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
           <input
             type="text"
-            placeholder="Search by customer name..."
+            placeholder="Search by name, bill number, or phone..."
             value={searchTerm}
             onChange={(e) => {
               setSearchTerm(e.target.value);
