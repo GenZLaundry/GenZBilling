@@ -10,7 +10,7 @@ export interface UPIConfig {
 
 // Default UPI configuration
 export const defaultUPIConfig: UPIConfig = {
-  upiId: '6367493127@ybl', // Default PhonePe UPI ID
+  upiId: '6367493127@ybl',
   payeeName: 'GenZ Laundry',
   merchantCode: 'GENZ001'
 };
@@ -54,21 +54,39 @@ export const getUPIConfig = (): UPIConfig => {
 // Asynchronously fetch UPI configuration directly from MongoDB database
 export const fetchUPIConfigFromDB = async (): Promise<UPIConfig> => {
   try {
+    // 1. Try dedicated UPI config route
     const response = await apiService.getUPIConfig();
-    if (response.success && response.data) {
+    if (response.success && response.data && response.data.upiId) {
       const dbConfig: UPIConfig = {
         upiId: response.data.upiId,
         payeeName: response.data.payeeName,
         merchantCode: response.data.merchantCode || '',
         alternativeConfigs: response.data.alternativeConfigs || alternativeUPIConfigs
       };
-      // Cache in localStorage for offline availability
       localStorage.setItem('laundry_upi_config', JSON.stringify(dbConfig));
-      console.log('✅ Fetched UPI config from MongoDB Atlas:', dbConfig.upiId);
+      console.log('✅ Fetched UPI config from MongoDB via /upi-config:', dbConfig.upiId);
       return dbConfig;
     }
   } catch (error) {
-    console.warn('⚠️ MongoDB UPI config fetch error, falling back to local cache:', error);
+    console.warn('⚠️ /api/upi-config route unavailable, trying /api/shop-config route...');
+  }
+
+  try {
+    // 2. Fallback to existing /api/shop-config route in MongoDB
+    const shopResponse = await apiService.getShopConfig();
+    if (shopResponse.success && shopResponse.data && shopResponse.data.upiId) {
+      const dbConfig: UPIConfig = {
+        upiId: shopResponse.data.upiId,
+        payeeName: shopResponse.data.payeeName || 'GenZ Laundry',
+        merchantCode: shopResponse.data.merchantCode || 'GENZ001',
+        alternativeConfigs: shopResponse.data.alternativeConfigs || alternativeUPIConfigs
+      };
+      localStorage.setItem('laundry_upi_config', JSON.stringify(dbConfig));
+      console.log('✅ Fetched UPI config from MongoDB via /shop-config:', dbConfig.upiId);
+      return dbConfig;
+    }
+  } catch (err) {
+    console.warn('⚠️ Error fetching shop config from MongoDB:', err);
   }
   
   return getUPIConfig();
@@ -82,7 +100,6 @@ export const saveUPIConfig = (config: UPIConfig): void => {
     console.error('Error saving UPI config to localStorage cache:', error);
   }
   
-  // Also push to MongoDB asynchronously
   saveUPIConfigToDB(config).catch(err => {
     console.warn('⚠️ Background sync of UPI config to MongoDB pending:', err);
   });
@@ -90,17 +107,45 @@ export const saveUPIConfig = (config: UPIConfig): void => {
 
 // Asynchronously save UPI configuration to MongoDB Database
 export const saveUPIConfigToDB = async (config: UPIConfig): Promise<UPIConfig> => {
+  localStorage.setItem('laundry_upi_config', JSON.stringify(config));
+
+  let savedInDB = false;
+
+  // 1. Try saving to /api/upi-config
   try {
-    localStorage.setItem('laundry_upi_config', JSON.stringify(config));
     const response = await apiService.updateUPIConfig(config);
     if (response.success && response.data) {
-      console.log('✅ Saved UPI config to MongoDB successfully:', response.data);
+      console.log('✅ Saved UPI config to MongoDB via /upi-config:', response.data);
+      savedInDB = true;
       return response.data;
     }
   } catch (error) {
-    console.error('❌ Error persisting UPI config to MongoDB:', error);
-    throw error;
+    console.warn('⚠️ Could not save via /api/upi-config, trying /api/shop-config route...', error);
   }
+
+  // 2. Fallback to saving to existing /api/shop-config in MongoDB Atlas
+  try {
+    const shopResponse = await apiService.updateShopConfig({
+      upiId: config.upiId,
+      payeeName: config.payeeName,
+      merchantCode: config.merchantCode || '',
+      alternativeConfigs: config.alternativeConfigs || alternativeUPIConfigs
+    });
+
+    if (shopResponse.success) {
+      console.log('✅ Saved UPI config to MongoDB Atlas via /shop-config successfully!');
+      savedInDB = true;
+      return config;
+    }
+  } catch (shopErr) {
+    console.error('❌ Error saving UPI config via /shop-config:', shopErr);
+    throw shopErr;
+  }
+
+  if (!savedInDB) {
+    throw new Error('Failed to update UPI config in MongoDB database');
+  }
+
   return config;
 };
 
