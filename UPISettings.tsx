@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getUPIConfig, saveUPIConfig, isValidUPIId, UPIConfig } from './upiConfig';
+import { getUPIConfig, saveUPIConfig, fetchUPIConfigFromDB, saveUPIConfigToDB, isValidUPIId, UPIConfig } from './upiConfig';
 import { useAlert } from './GlobalAlert';
 
 interface UPISettingsProps {
@@ -10,15 +10,20 @@ const UPISettings: React.FC<UPISettingsProps> = ({ onClose }) => {
   const { showAlert } = useAlert();
   const [config, setConfig] = useState<UPIConfig>(getUPIConfig());
   const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [verificationAmount, setVerificationAmount] = useState(1);
   const [tempAmount, setTempAmount] = useState('1');
   const [activeTab, setActiveTab] = useState('setup');
 
   useEffect(() => {
+    // Synchronously set initial cache value, then fetch fresh data from MongoDB
     setConfig(getUPIConfig());
+    fetchUPIConfigFromDB().then((freshConfig) => {
+      if (freshConfig) setConfig(freshConfig);
+    }).catch(err => console.warn('⚠️ Failed to load MongoDB config on mount:', err));
   }, []);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!config.upiId.trim()) {
       showAlert({ message: 'UPI ID is required for digital payments', type: 'warning' });
       return;
@@ -34,12 +39,19 @@ const UPISettings: React.FC<UPISettingsProps> = ({ onClose }) => {
       return;
     }
 
+    setIsSaving(true);
     try {
-      saveUPIConfig(config);
-      showAlert({ message: '🎉 Payment configuration saved successfully!', type: 'success' });
+      await saveUPIConfigToDB(config);
+      showAlert({ message: '🎉 Payment configuration saved to MongoDB successfully!', type: 'success' });
       if (onClose) onClose();
     } catch (error) {
-      showAlert({ message: 'Failed to save payment configuration', type: 'error' });
+      console.error('Save error:', error);
+      // Fallback save to local storage
+      saveUPIConfig(config);
+      showAlert({ message: 'Saved to local storage (Database update offline)', type: 'info' });
+      if (onClose) onClose();
+    } finally {
+      setIsSaving(false);
     }
   };
 

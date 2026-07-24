@@ -254,7 +254,7 @@ class ApiService {
   }
 
   async getBusinessReports(params: {
-    period?: 'today' | 'week' | 'month' | 'year' | 'custom';
+    period?: 'all' | 'today' | 'week' | 'month' | 'year' | 'custom';
     startDate?: string;
     endDate?: string;
   } = {}) {
@@ -457,6 +457,26 @@ class ApiService {
     });
   }
 
+  async bulkDeleteTags(ids: string[]) {
+    return this.request('/tag-history/bulk-delete', {
+      method: 'POST',
+      body: JSON.stringify({ ids }),
+    });
+  }
+
+  async pruneTags(days: number = 15) {
+    return this.request('/tag-history/prune', {
+      method: 'POST',
+      body: JSON.stringify({ days }),
+    });
+  }
+
+  async deleteAllTags() {
+    return this.request('/tag-history/delete-all', {
+      method: 'POST',
+    });
+  }
+
   // ===== AUTHENTICATION API =====
   async login(credentials: { username: string; password: string }) {
     return this.request('/auth/login', {
@@ -611,7 +631,8 @@ class ApiService {
     const params = new URLSearchParams();
     if (status) params.append('status', status);
     if (search) params.append('search', search);
-    if (params.toString()) url += `?${params.toString()}`;
+    params.append('_t', Date.now().toString());
+    url += `?${params.toString()}`;
     return this.request(url);
   }
 
@@ -635,24 +656,38 @@ class ApiService {
     });
   }
 
+  async updateAdvanceHistory(id: string, historyId: string, data: { amount: number; type: 'GIVEN' | 'RETURNED'; date?: string; note?: string }) {
+    return this.request(`/advances/${id}/history/${historyId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteAdvanceHistory(id: string, historyId: string) {
+    return this.request(`/advances/${id}/history/${historyId}`, {
+      method: 'DELETE',
+    });
+  }
+
   // --- INCOMES API ---
   async getIncomes(startDate?: string, endDate?: string) {
     let url = '/incomes';
     const params = new URLSearchParams();
     if (startDate) params.append('startDate', startDate);
     if (endDate) params.append('endDate', endDate);
-    if (params.toString()) url += `?${params.toString()}`;
+    params.append('_t', Date.now().toString());
+    url += `?${params.toString()}`;
     return this.request(url);
   }
 
-  async createIncome(data: { source: string; amount: number; description?: string; date?: string }) {
+  async createIncome(data: { source: string; amount: number; description?: string; type?: 'INVESTED' | 'RETURNED'; date?: string }) {
     return this.request('/incomes', {
       method: 'POST',
       body: JSON.stringify(data),
     });
   }
 
-  async updateIncome(id: string, data: { source: string; amount: number; description?: string; date?: string }) {
+  async updateIncome(id: string, data: { source: string; amount: number; description?: string; type?: 'INVESTED' | 'RETURNED'; date?: string }) {
     return this.request(`/incomes/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
@@ -773,6 +808,18 @@ class ApiService {
   async triggerCustomerMigration() {
     return this.request('/customers/migrate', {
       method: 'POST'
+    });
+  }
+
+  // --- UPI CONFIG API ---
+  async getUPIConfig() {
+    return this.request<any>('/upi-config');
+  }
+
+  async updateUPIConfig(configData: any) {
+    return this.request<any>('/upi-config', {
+      method: 'PUT',
+      body: JSON.stringify(configData)
     });
   }
 }
